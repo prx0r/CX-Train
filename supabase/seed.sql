@@ -19,8 +19,7 @@ INSERT INTO bots (id, name, description, api_key, active, bot_type)
 VALUES
   ('aplus_exam', 'A+ Practice Exam', 'CompTIA A+ certification practice questions', 'connexion_aplus_demo_key', true, 'qualification'),
   ('aplus_tutor', 'A+ Tutor', 'CompTIA A+ tutoring – ask questions, get explanations', 'connexion_aplus_tutor_demo', true, 'qualification'),
-  ('general_tutor', 'General Tutor', 'Paste objective PDFs for any certification – get tutored on the content', 'connexion_general_tutor_demo', true, 'qualification'),
-  ('networkplus_exam', 'Network+ Practice Exam', 'CompTIA Network+ certification practice', 'connexion_netplus_demo_key', true, 'qualification')
+  ('general_tutor', 'General Tutor', 'Paste objective PDFs for any certification – get tutored on the content', 'connexion_general_tutor_demo', true, 'qualification')
 ON CONFLICT (id) DO NOTHING;
 
 -- Escalation
