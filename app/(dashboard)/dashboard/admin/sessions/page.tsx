@@ -31,14 +31,20 @@ export default async function AdminSessionsPage() {
             </tr>
           </thead>
           <tbody>
-            {(sessions ?? []).map((s) => (
+            {(sessions ?? []).map((s) => {
+              const userName = (() => {
+                const u = s.users;
+                if (Array.isArray(u)) return u[0]?.name;
+                return (u as { name?: string } | null)?.name;
+              })();
+              return (
               <tr key={s.id} className="border-t border-slate-700/50 hover:bg-slate-800/30">
                 <td className="p-4">
                   <Link
                     href={`/dashboard/admin/sessions/${s.id}`}
                     className="font-medium text-blue-400 hover:text-blue-300"
                   >
-                    {(s as { users?: { name: string } }).users?.name ?? 'Unknown'}
+                    {userName ?? 'Unknown'}
                   </Link>
                 </td>
                 <td className="p-4 text-slate-400">{s.pathway_stage ?? '-'}</td>
@@ -54,7 +60,8 @@ export default async function AdminSessionsPage() {
                   {new Date(s.created_at).toLocaleString()}
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>

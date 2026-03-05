@@ -148,7 +148,7 @@ export async function GET(
       boss_battle_passed: progress.boss_battle_passed,
       boss_battle_attempts: progress.boss_battle_attempts,
       cleared_for_live: progress.cleared_for_live,
-      recent_weaknesses,
+      recent_weaknesses: recentWeaknesses,
       personality_stats: personalityStats,
     });
   } catch (err) {

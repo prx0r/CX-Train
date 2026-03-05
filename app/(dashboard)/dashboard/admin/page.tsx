@@ -4,15 +4,7 @@ import { StatCard } from '@/components/admin/StatCard';
 import { SessionFeed } from '@/components/admin/SessionFeed';
 import { TraineesTable } from '@/components/admin/TraineesTable';
 import Link from 'next/link';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from 'recharts';
+import { WeakestCheckpointsChart } from '@/components/admin/WeakestCheckpointsChart';
 import { CHECKPOINT_KEYS } from '@/lib/types';
 
 export default async function AdminOverviewPage() {
@@ -108,27 +100,16 @@ export default async function AdminOverviewPage() {
           <h2 className="text-lg font-semibold text-slate-100 mb-4">
             Weakest checkpoints (last 30 days)
           </h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weakestFive} layout="vertical" margin={{ left: 80 }}>
-                <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} stroke="#64748b" />
-                <YAxis type="category" dataKey="name" width={80} stroke="#64748b" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                  formatter={(v: number) => [`${v}% pass rate`, '']}
-                />
-                <Bar dataKey="passRate" radius={[0, 4, 4, 0]}>
-                  {weakestFive.map((entry, i) => (
-                    <Cell key={i} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <WeakestCheckpointsChart data={weakestFive} />
         </div>
         <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-slate-100 mb-4">Recent sessions</h2>
-          <SessionFeed sessions={recentSessions ?? []} />
+          <SessionFeed
+            sessions={(recentSessions ?? []).map((s) => ({
+              ...s,
+              users: Array.isArray(s.users) ? s.users[0] : s.users,
+            }))}
+          />
         </div>
       </div>
 

@@ -10,7 +10,7 @@ interface Session {
   pathway_stage: number | null;
   bot_id: string;
   created_at: string;
-  users?: { name: string } | null;
+  users?: { name: string } | { name: string }[] | null;
 }
 
 interface SessionFeedProps {
@@ -29,7 +29,7 @@ export function SessionFeed({ sessions }: SessionFeedProps) {
           <div className="flex items-center justify-between">
             <div>
               <span className="font-medium text-slate-100">
-                {(s as { users?: { name: string } }).users?.name ?? 'Unknown'}
+                {Array.isArray(s.users) ? s.users[0]?.name : s.users?.name ?? 'Unknown'}
               </span>
               <span className="text-slate-500 ml-2">Stage {s.pathway_stage ?? '-'}</span>
             </div>

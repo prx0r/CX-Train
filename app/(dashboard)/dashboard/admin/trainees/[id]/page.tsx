@@ -5,16 +5,7 @@ import { CheckpointHeatmap } from '@/components/admin/CheckpointHeatmap';
 import { CheckpointList } from '@/components/shared/CheckpointList';
 import { ScoreBadge } from '@/components/shared/ScoreBadge';
 import { ClearedForLiveToggle } from '@/components/admin/ClearedForLiveToggle';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  ReferenceLine,
-} from 'recharts';
+import { ScoreChart } from '@/components/admin/ScoreChart';
 import Link from 'next/link';
 
 export default async function AdminTraineeDetailPage({
@@ -55,7 +46,7 @@ export default async function AdminTraineeDetailPage({
 
   // Personality breakdown
   const sessionsWithPersonality = (sessions ?? []).filter((s) => s.personality_id);
-  const personalityIds = [...new Set(sessionsWithPersonality.map((s) => s.personality_id))];
+  const personalityIds = Array.from(new Set(sessionsWithPersonality.map((s) => s.personality_id)));
   const { data: personalities } = await supabase
     .from('personalities')
     .select('id, name, archetype')
@@ -132,29 +123,8 @@ export default async function AdminTraineeDetailPage({
 
       <div className="mb-8">
         <h2 className="text-lg font-semibold text-slate-100 mb-4">Score over time</h2>
-        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4 h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={scoreChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="session" stroke="#64748b" />
-              <YAxis domain={[0, 100]} stroke="#64748b" />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                formatter={(value: number, name: string, props: { payload: { passed: boolean } }) => [
-                  `${value}% ${props.payload.passed ? '(passed)' : '(failed)'}`,
-                  'Score',
-                ]}
-              />
-              <ReferenceLine y={75} stroke="#f59e0b" strokeDasharray="4 4" />
-              <Line
-                type="monotone"
-                dataKey="score"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                dot={{ fill: '#3b82f6', r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+          <ScoreChart data={scoreChartData} />
         </div>
       </div>
 

@@ -31,7 +31,7 @@ export default async function TraineeHistoryPage() {
                 passed: s.passed ?? false,
                 pathway_stage: s.pathway_stage,
                 created_at: s.created_at,
-                personality: s.personalities as { name: string; avatar_emoji: string } | null,
+                personality: Array.isArray(s.personalities) ? s.personalities[0] : s.personalities,
               }}
             />
           </Link>
