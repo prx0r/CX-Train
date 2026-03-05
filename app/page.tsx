@@ -17,15 +17,15 @@ export default async function HomePage() {
       />
       <h1 className="text-2xl font-semibold text-slate-100 mb-2">Training Hub</h1>
       <p className="text-connexion-grey mb-8">Internal MSP technician training platform</p>
-      <div className="flex flex-col sm:flex-row gap-4 items-center">
+      <div className="flex flex-col gap-4 items-center">
         <Link
           href="/demo"
-          className="px-8 py-3 bg-connexion-accent hover:bg-connexion-accent-hover text-connexion-black rounded-lg font-medium transition-colors"
+          className="px-10 py-4 bg-connexion-accent hover:bg-connexion-accent-hover text-connexion-black rounded-lg font-semibold text-lg transition-colors"
         >
           View demo
         </Link>
-        <span className="text-connexion-grey-muted text-sm">or</span>
-        <div className="flex gap-3">
+        <p className="text-connexion-grey-muted text-sm">No login required</p>
+        <div className="flex gap-3 mt-2">
           <Link
             href="/sign-in"
             className="px-4 py-2 border border-connexion-grey-muted hover:border-connexion-accent text-connexion-grey hover:text-connexion-accent rounded-lg text-sm transition-colors"
