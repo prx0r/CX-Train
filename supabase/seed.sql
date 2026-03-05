@@ -2,15 +2,35 @@
 -- Run after schema.sql
 
 -- Insert call_sim bot (generate a secure api_key in production)
-INSERT INTO bots (id, name, description, system_prompt, api_key, active)
+INSERT INTO bots (id, name, description, system_prompt, api_key, active, bot_type)
 VALUES (
   'call_sim',
   'Call Simulator',
   'Voice-optimised call simulation for MSP technician training',
   'Paste the full system prompt from gptinstructions.md here.',
   'connexion_call_sim_' || substr(md5(random()::text), 1, 24),
-  true
+  true,
+  'call'
 )
+ON CONFLICT (id) DO NOTHING;
+
+-- Qualifications (practice exams and tutoring)
+INSERT INTO bots (id, name, description, api_key, active, bot_type)
+VALUES
+  ('aplus_exam', 'A+ Practice Exam', 'CompTIA A+ certification practice questions', 'connexion_aplus_demo_key', true, 'qualification'),
+  ('aplus_tutor', 'A+ Tutor', 'CompTIA A+ tutoring – ask questions, get explanations', 'connexion_aplus_tutor_demo', true, 'qualification'),
+  ('general_tutor', 'General Tutor', 'Paste objective PDFs for any certification – get tutored on the content', 'connexion_general_tutor_demo', true, 'qualification'),
+  ('networkplus_exam', 'Network+ Practice Exam', 'CompTIA Network+ certification practice', 'connexion_netplus_demo_key', true, 'qualification')
+ON CONFLICT (id) DO NOTHING;
+
+-- Escalation
+INSERT INTO bots (id, name, description, api_key, active, bot_type)
+VALUES ('escalation_bot', 'Escalation Bot', 'Teaches T1 when to escalate to T2, T2 when to escalate to T3. Varying difficulty levels.', 'connexion_escalation_demo', true, 'escalation')
+ON CONFLICT (id) DO NOTHING;
+
+-- Ticket simulation
+INSERT INTO bots (id, name, description, api_key, active, bot_type)
+VALUES ('ticket_sim', 'Ticket Simulator', 'Email-based ticket simulation. Respond as if answering a ticket, set statuses, document steps in internal notes.', 'connexion_ticket_sim_demo', true, 'ticket')
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert default pathways for call_sim

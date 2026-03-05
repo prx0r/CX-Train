@@ -20,7 +20,7 @@ export default async function HomePage() {
           Training Hub
         </h1>
         <p className="text-zinc-500 text-center mt-2 max-w-md">
-          Internal MSP technician training — call simulation, A+ and Network+ practice exams
+          Internal MSP technician training — call simulation, qualifications (A+, tutors), escalation, ticket simulation
         </p>
         <div className="mt-10 flex flex-col items-center gap-4">
           <Link

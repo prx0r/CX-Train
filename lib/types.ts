@@ -11,6 +11,8 @@ export interface User {
   created_at: string;
 }
 
+export type BotType = 'call' | 'qualification' | 'escalation' | 'ticket' | 'other';
+
 export interface Bot {
   id: string;
   name: string;
@@ -19,6 +21,7 @@ export interface Bot {
   api_key: string;
   prompt_version_history?: Record<string, unknown>[];
   active: boolean;
+  bot_type?: BotType;
   created_at: string;
 }
 

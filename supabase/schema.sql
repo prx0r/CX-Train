@@ -20,6 +20,7 @@ create table bots (
   api_key text not null,
   prompt_version_history jsonb default '[]',
   active boolean default true,
+  bot_type text default 'other',
   created_at timestamptz default now()
 );
 
