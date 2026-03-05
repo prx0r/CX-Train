@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --connexion-primary: #0f172a;
+  --connexion-accent: #3b82f6;
+  --connexion-success: #22c55e;
+  --connexion-warning: #f59e0b;
+  --connexion-danger: #ef4444;
+}

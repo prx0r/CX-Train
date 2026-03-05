@@ -1,0 +1,107 @@
+# Paste this into the Custom GPT Actions config screen.
+# Set authentication to API Key, header name: x-api-key
+# Value: bots.api_key from your database (SELECT api_key FROM bots WHERE id = 'call_sim')
+
+openapi: 3.0.0
+info:
+  title: Connexion Training Hub API
+  version: 1.0.0
+  description: Session reporting and progress retrieval for Connexion training GPTs
+
+servers:
+  - url: https://your-app.vercel.app/api
+
+paths:
+  /progress/{name}:
+    get:
+      operationId: getTraineeProgress
+      summary: Get trainee progress at session start
+      description: Call this at the very start of each session before generating the call.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bot_id
+          in: query
+          required: true
+          schema:
+            type: string
+            default: call_sim
+      responses:
+        '200':
+          description: Trainee progress data
+
+  /session:
+    post:
+      operationId: submitSession
+      summary: Submit completed session results
+      description: Call this immediately after the user says 'end call' and before outputting the feedback report.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - bot_id
+                - tech_name
+                - pathway_stage
+                - score
+                - passed
+                - hostname_gathered
+                - impact_gathered
+                - checkpoints
+              properties:
+                bot_id:
+                  type: string
+                tech_name:
+                  type: string
+                pathway_stage:
+                  type: integer
+                personality_id:
+                  type: string
+                score:
+                  type: integer
+                passed:
+                  type: boolean
+                hostname_gathered:
+                  type: boolean
+                impact_gathered:
+                  type: boolean
+                priority_assigned:
+                  type: string
+                priority_correct:
+                  type: string
+                priority_correct_bool:
+                  type: boolean
+                issue_family:
+                  type: string
+                caller_name:
+                  type: string
+                caller_company:
+                  type: string
+                caller_role:
+                  type: string
+                scope_gathered:
+                  type: boolean
+                intensity:
+                  type: integer
+                duration_seconds:
+                  type: integer
+                checkpoints:
+                  type: object
+                ticket_assessed:
+                  type: boolean
+                ticket_score:
+                  type: object
+                feedback_text:
+                  type: string
+                stronger_phrasing:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Session recorded, returns updated progress
