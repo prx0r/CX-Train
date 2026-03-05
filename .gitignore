@@ -11,6 +11,9 @@ dist
 
 # Env & secrets
 .env
+.env.local
+.env.*.local
+vercel.env
 supabas.md
 .env.local
 .env.development.local

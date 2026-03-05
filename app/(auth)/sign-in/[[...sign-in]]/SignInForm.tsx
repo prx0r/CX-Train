@@ -14,6 +14,7 @@ export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+  const callbackError = searchParams.get('error') === 'auth_callback';
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +40,12 @@ export function SignInForm() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}${redirectTo}` } });
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        },
+      });
       if (error) throw error;
       setMessage('Check your email for the sign-in link.');
     } catch (err: unknown) {
@@ -68,7 +74,11 @@ export function SignInForm() {
           onChange={(e) => setPassword(e.target.value)}
           className="w-full px-4 py-2 bg-connexion-black-soft border border-connexion-grey-muted rounded-lg text-slate-100 placeholder-connexion-grey-muted focus:border-connexion-accent focus:outline-none"
         />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {(error || callbackError) && (
+          <p className="text-red-400 text-sm">
+            {callbackError ? 'Magic link expired or invalid. Request a new one.' : error}
+          </p>
+        )}
         {message && <p className="text-green-400 text-sm">{message}</p>}
         <button
           type="submit"

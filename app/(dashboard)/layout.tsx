@@ -55,7 +55,7 @@ export default async function DashboardLayout({
                 </Link>
               </>
             )}
-            <SignOutButton />
+            <SignOutButton isDemo={user.id === '11111111-1111-1111-1111-111111111111'} />
           </nav>
         </div>
       </header>

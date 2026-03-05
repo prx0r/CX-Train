@@ -17,19 +17,28 @@ export default async function HomePage() {
       />
       <h1 className="text-2xl font-semibold text-slate-100 mb-2">Training Hub</h1>
       <p className="text-connexion-grey mb-8">Internal MSP technician training platform</p>
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 items-center">
         <Link
-          href="/sign-in"
-          className="px-6 py-3 bg-connexion-accent hover:bg-connexion-accent-hover text-connexion-black rounded-lg font-medium transition-colors"
+          href="/demo"
+          className="px-8 py-3 bg-connexion-accent hover:bg-connexion-accent-hover text-connexion-black rounded-lg font-medium transition-colors"
         >
-          Sign In
+          View demo
         </Link>
-        <Link
-          href="/sign-up"
-          className="px-6 py-3 border border-connexion-grey-muted hover:border-connexion-accent text-connexion-grey hover:text-connexion-accent rounded-lg font-medium transition-colors"
-        >
-          Sign Up
-        </Link>
+        <span className="text-connexion-grey-muted text-sm">or</span>
+        <div className="flex gap-3">
+          <Link
+            href="/sign-in"
+            className="px-4 py-2 border border-connexion-grey-muted hover:border-connexion-accent text-connexion-grey hover:text-connexion-accent rounded-lg text-sm transition-colors"
+          >
+            Sign In
+          </Link>
+          <Link
+            href="/sign-up"
+            className="px-4 py-2 border border-connexion-grey-muted hover:border-connexion-accent text-connexion-grey hover:text-connexion-accent rounded-lg text-sm transition-colors"
+          >
+            Sign Up
+          </Link>
+        </div>
       </div>
     </div>
   );
