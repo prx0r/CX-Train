@@ -21,7 +21,7 @@ export function SignOutButton({ isDemo = false }: { isDemo?: boolean }) {
     <button
       type="button"
       onClick={handleSignOut}
-      className="text-connexion-grey hover:text-connexion-accent text-sm transition-colors"
+      className="text-zinc-400 hover:text-white text-sm font-medium transition-colors"
     >
       {isDemo ? 'Exit demo' : 'Sign out'}
     </button>

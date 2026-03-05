@@ -24,14 +24,14 @@ export function SessionFeed({ sessions }: SessionFeedProps) {
         <Link
           key={s.id}
           href={`/dashboard/admin/sessions/${s.id}`}
-          className="block p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg hover:border-slate-600 transition"
+          className="block rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-4 hover:border-zinc-700 transition"
         >
           <div className="flex items-center justify-between">
             <div>
-              <span className="font-medium text-slate-100">
+              <span className="font-medium text-white">
                 {Array.isArray(s.users) ? s.users[0]?.name : s.users?.name ?? 'Unknown'}
               </span>
-              <span className="text-slate-500 ml-2">Stage {s.pathway_stage ?? '-'}</span>
+              <span className="text-zinc-500 ml-2 text-sm">Stage {s.pathway_stage ?? '-'}</span>
             </div>
             <div className="flex items-center gap-3">
               {(s.hostname_gathered === false || s.impact_gathered === false) && (
@@ -40,7 +40,7 @@ export function SessionFeed({ sessions }: SessionFeedProps) {
               <ScoreBadge score={s.score ?? 0} passed={s.passed ?? false} size="sm" />
             </div>
           </div>
-          <p className="text-slate-500 text-xs mt-1">
+          <p className="text-zinc-500 text-xs mt-1">
             {new Date(s.created_at).toLocaleString()}
           </p>
         </Link>

@@ -20,11 +20,11 @@ export function ScoreChart({ data }: ScoreChartProps) {
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-          <XAxis dataKey="session" stroke="#64748b" />
-          <YAxis domain={[0, 100]} stroke="#64748b" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+          <XAxis dataKey="session" stroke="#71717a" />
+          <YAxis domain={[0, 100]} stroke="#71717a" />
           <Tooltip
-            contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
+            contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
             formatter={(value: number, _name: string, props: { payload?: { passed?: boolean } }) => [
               `${value}% ${props.payload?.passed ? '(passed)' : '(failed)'}`,
               'Score',
@@ -34,9 +34,9 @@ export function ScoreChart({ data }: ScoreChartProps) {
           <Line
             type="monotone"
             dataKey="score"
-            stroke="#3b82f6"
+            stroke="#7dd3fc"
             strokeWidth={2}
-            dot={{ fill: '#3b82f6', r: 4 }}
+            dot={{ fill: '#7dd3fc', r: 4 }}
           />
         </LineChart>
       </ResponsiveContainer>

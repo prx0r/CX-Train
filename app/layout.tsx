@@ -1,5 +1,11 @@
 import type { Metadata } from 'next';
+import { Outfit } from 'next/font/google';
 import './globals.css';
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+});
 
 export const metadata: Metadata = {
   title: 'Connexion Training Hub',
@@ -12,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="bg-connexion-black text-slate-100">
+    <html lang="en" className={`${outfit.variable} bg-connexion-black text-slate-100 font-sans`}>
       <body className="min-h-screen antialiased">{children}</body>
     </html>
   );

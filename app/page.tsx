@@ -9,37 +9,44 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-connexion-black">
-      <img
-        src="/connexion-logo.png"
-        alt="Connexion"
-        className="h-16 w-auto object-contain mb-6"
-      />
-      <h1 className="text-2xl font-semibold text-slate-100 mb-2">Training Hub</h1>
-      <p className="text-connexion-grey mb-8">Internal MSP technician training platform</p>
-      <div className="flex flex-col gap-4 items-center">
-        <Link
-          href="/demo"
-          className="px-10 py-4 bg-connexion-accent hover:bg-connexion-accent-hover text-connexion-black rounded-lg font-semibold text-lg transition-colors"
-        >
-          View demo
+    <div className="min-h-screen flex flex-col bg-zinc-950">
+      <header className="border-b border-zinc-800/80 px-4 py-4">
+        <Link href="/" className="inline-block">
+          <img src="/connexion-logo.png" alt="Connexion" className="h-6 w-auto" />
         </Link>
-        <p className="text-connexion-grey-muted text-sm">No login required</p>
-        <div className="flex gap-3 mt-2">
+      </header>
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
+        <h1 className="text-3xl font-semibold text-white tracking-tight text-center">
+          Training Hub
+        </h1>
+        <p className="text-zinc-500 text-center mt-2 max-w-md">
+          Internal MSP technician training — call simulation, A+ and Network+ practice exams
+        </p>
+        <div className="mt-10 flex flex-col items-center gap-4">
           <Link
-            href="/sign-in"
-            className="px-4 py-2 border border-connexion-grey-muted hover:border-connexion-accent text-connexion-grey hover:text-connexion-accent rounded-lg text-sm transition-colors"
+            href="/demo"
+            className="px-8 py-3.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium transition-colors"
           >
-            Sign In
+            View demo
           </Link>
-          <Link
-            href="/sign-up"
-            className="px-4 py-2 border border-connexion-grey-muted hover:border-connexion-accent text-connexion-grey hover:text-connexion-accent rounded-lg text-sm transition-colors"
-          >
-            Sign Up
-          </Link>
+          <p className="text-zinc-600 text-sm">No login required</p>
+          <div className="flex gap-3">
+            <Link
+              href="/sign-in"
+              className="px-4 py-2 text-zinc-400 hover:text-white text-sm transition-colors"
+            >
+              Sign in
+            </Link>
+            <span className="text-zinc-600">·</span>
+            <Link
+              href="/sign-up"
+              className="px-4 py-2 text-zinc-400 hover:text-white text-sm transition-colors"
+            >
+              Sign up
+            </Link>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

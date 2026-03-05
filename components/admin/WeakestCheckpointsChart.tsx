@@ -25,10 +25,10 @@ export function WeakestCheckpointsChart({ data }: WeakestCheckpointsChartProps) 
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ left: 80 }}>
-          <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} stroke="#64748b" />
-          <YAxis type="category" dataKey="name" width={80} stroke="#64748b" />
+          <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} stroke="#71717a" />
+          <YAxis type="category" dataKey="name" width={80} stroke="#71717a" />
           <Tooltip
-            contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
+            contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
             formatter={(v: number) => [`${v}% pass rate`, '']}
           />
           <Bar dataKey="passRate" radius={[0, 4, 4, 0]}>

@@ -16,41 +16,38 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-connexion-black">
-      <header className="border-b border-connexion-black-soft bg-connexion-black-soft/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <Link href="/dashboard" className="flex items-center gap-3">
+      <header className="border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
+          <Link href="/dashboard" className="flex items-center">
             <img
               src="/connexion-logo.png"
               alt="Connexion"
-              className="h-8 w-auto object-contain"
+              className="h-7 w-auto object-contain"
             />
-            <span className="text-lg font-medium text-slate-100 hidden sm:inline">
-              Training Hub
-            </span>
           </Link>
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-8">
             {isAdmin && (
               <>
-                <Link href="/dashboard/admin" className="text-connexion-grey hover:text-connexion-accent transition-colors">
-                  Overview
+                <Link href="/dashboard/admin" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
+                  Home
                 </Link>
-                <Link href="/dashboard/admin/trainees" className="text-connexion-grey hover:text-connexion-accent transition-colors">
+                <Link href="/dashboard/admin/trainees" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   Trainees
                 </Link>
-                <Link href="/dashboard/admin/bots" className="text-connexion-grey hover:text-connexion-accent transition-colors">
+                <Link href="/dashboard/admin/bots" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   Bots
                 </Link>
-                <Link href="/dashboard/admin/sessions" className="text-connexion-grey hover:text-connexion-accent transition-colors">
+                <Link href="/dashboard/admin/sessions" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   Sessions
                 </Link>
               </>
             )}
             {!isAdmin && (
               <>
-                <Link href="/dashboard/trainee" className="text-connexion-grey hover:text-connexion-accent transition-colors">
+                <Link href="/dashboard/trainee" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   My Progress
                 </Link>
-                <Link href="/dashboard/trainee/history" className="text-connexion-grey hover:text-connexion-accent transition-colors">
+                <Link href="/dashboard/trainee/history" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   History
                 </Link>
               </>

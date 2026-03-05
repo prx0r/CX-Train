@@ -20,33 +20,33 @@ interface TraineesTableProps {
 
 export function TraineesTable({ trainees }: TraineesTableProps) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-700">
+    <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
       <table className="w-full">
-        <thead className="bg-slate-800/50">
+        <thead className="bg-zinc-900/50">
           <tr>
-            <th className="text-left p-4 text-slate-400 font-medium">Name</th>
-            <th className="text-left p-4 text-slate-400 font-medium">Email</th>
-            <th className="text-left p-4 text-slate-400 font-medium">Stage</th>
-            <th className="text-left p-4 text-slate-400 font-medium">Avg Score</th>
-            <th className="text-left p-4 text-slate-400 font-medium">Boss Battle</th>
-            <th className="text-left p-4 text-slate-400 font-medium">Cleared</th>
+            <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Name</th>
+            <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Email</th>
+            <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Stage</th>
+            <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Avg Score</th>
+            <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Final</th>
+            <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Cleared</th>
           </tr>
         </thead>
         <tbody>
           {trainees.map((t) => {
             const progress = t.trainee_progress?.[0];
             return (
-              <tr key={t.id} className="border-t border-slate-700/50 hover:bg-slate-800/30">
+              <tr key={t.id} className="border-t border-zinc-800/60 hover:bg-zinc-900/30">
                 <td className="p-4">
                   <Link
                     href={`/dashboard/admin/trainees/${t.id}`}
-                    className="font-medium text-blue-400 hover:text-blue-300"
+                    className="font-medium text-sky-400 hover:text-sky-300"
                   >
                     {t.name}
                   </Link>
                 </td>
-                <td className="p-4 text-slate-400">{t.email}</td>
-                <td className="p-4">
+                <td className="p-4 text-zinc-400 text-sm">{t.email}</td>
+                <td className="p-4 text-white">
                   {progress ? `${progress.current_stage}/10` : '-'}
                 </td>
                 <td className="p-4">
@@ -58,20 +58,20 @@ export function TraineesTable({ trainees }: TraineesTableProps) {
                 </td>
                 <td className="p-4">
                   {progress?.boss_battle_passed ? (
-                    <span className="text-green-400">Passed</span>
+                    <span className="text-emerald-400">Passed</span>
                   ) : progress?.boss_battle_unlocked ? (
                     <span className="text-amber-400">Unlocked</span>
                   ) : (
-                    <span className="text-slate-500">Locked</span>
+                    <span className="text-zinc-500">Locked</span>
                   )}
                 </td>
                 <td className="p-4">
                   {progress?.cleared_for_live ? (
-                    <span className="inline-flex px-2 py-1 bg-green-500/20 text-green-400 rounded text-sm font-medium">
+                    <span className="inline-flex px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-xs font-medium">
                       Yes
                     </span>
                   ) : (
-                    <span className="text-slate-500">No</span>
+                    <span className="text-zinc-500">No</span>
                   )}
                 </td>
               </tr>
