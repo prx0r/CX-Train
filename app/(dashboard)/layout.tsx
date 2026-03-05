@@ -1,62 +1,61 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { createServerClient } from '@/lib/supabase';
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
-import { UserButton } from '@clerk/nextjs';
+import { SignOutButton } from './SignOutButton';
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const user = await getCurrentUser();
+  if (!user) redirect('/sign-in');
 
-  const supabase = createServerClient();
-  const { data: user } = await supabase
-    .from('users')
-    .select('role')
-    .eq('clerk_id', userId)
-    .single();
-
-  const role = user?.role ?? 'trainee';
+  const role = user.role ?? 'trainee';
   const isAdmin = role === 'admin';
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-slate-800 bg-slate-900/50">
+    <div className="min-h-screen flex flex-col bg-connexion-black">
+      <header className="border-b border-connexion-black-soft bg-connexion-black-soft/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-            <Link href="/dashboard" className="text-xl font-semibold text-slate-100">
-            Connexion Training Hub
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <img
+              src="/connexion-logo.png"
+              alt="Connexion"
+              className="h-8 w-auto object-contain"
+            />
+            <span className="text-lg font-medium text-slate-100 hidden sm:inline">
+              Training Hub
+            </span>
           </Link>
           <nav className="flex items-center gap-6">
             {isAdmin && (
               <>
-                <Link href="/dashboard/admin" className="text-slate-400 hover:text-slate-100">
+                <Link href="/dashboard/admin" className="text-connexion-grey hover:text-connexion-accent transition-colors">
                   Overview
                 </Link>
-                <Link href="/dashboard/admin/trainees" className="text-slate-400 hover:text-slate-100">
+                <Link href="/dashboard/admin/trainees" className="text-connexion-grey hover:text-connexion-accent transition-colors">
                   Trainees
                 </Link>
-                <Link href="/dashboard/admin/bots" className="text-slate-400 hover:text-slate-100">
+                <Link href="/dashboard/admin/bots" className="text-connexion-grey hover:text-connexion-accent transition-colors">
                   Bots
                 </Link>
-                <Link href="/dashboard/admin/sessions" className="text-slate-400 hover:text-slate-100">
+                <Link href="/dashboard/admin/sessions" className="text-connexion-grey hover:text-connexion-accent transition-colors">
                   Sessions
                 </Link>
               </>
             )}
             {!isAdmin && (
               <>
-                <Link href="/dashboard/trainee" className="text-slate-400 hover:text-slate-100">
+                <Link href="/dashboard/trainee" className="text-connexion-grey hover:text-connexion-accent transition-colors">
                   My Progress
                 </Link>
-                <Link href="/dashboard/trainee/history" className="text-slate-400 hover:text-slate-100">
+                <Link href="/dashboard/trainee/history" className="text-connexion-grey hover:text-connexion-accent transition-colors">
                   History
                 </Link>
               </>
             )}
-            <UserButton afterSignOutUrl="/" />
+            <SignOutButton />
           </nav>
         </div>
       </header>

@@ -1,19 +1,11 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { createServerClient } from '@/lib/supabase';
+import { getCurrentUser } from '@/lib/auth';
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const user = await getCurrentUser();
+  if (!user) redirect('/sign-in');
 
-  const supabase = createServerClient();
-  const { data: user } = await supabase
-    .from('users')
-    .select('role')
-    .eq('clerk_id', userId)
-    .single();
-
-  const role = user?.role ?? 'trainee';
+  const role = user.role ?? 'trainee';
 
   if (role === 'admin') {
     redirect('/dashboard/admin');

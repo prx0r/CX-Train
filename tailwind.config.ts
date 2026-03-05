@@ -10,12 +10,15 @@ const config: Config = {
     extend: {
       colors: {
         connexion: {
-          primary: "#0f172a",
-          accent: "#3b82f6",
+          black: "#0a0a0a",
+          "black-soft": "#141414",
+          accent: "#7dd3fc",
+          "accent-hover": "#38bdf8",
+          grey: "#9ca3af",
+          "grey-muted": "#6b7280",
           success: "#22c55e",
           warning: "#f59e0b",
           danger: "#ef4444",
-          muted: "#64748b",
         },
       },
     },

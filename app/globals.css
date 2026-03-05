@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --connexion-primary: #0f172a;
-  --connexion-accent: #3b82f6;
-  --connexion-success: #22c55e;
-  --connexion-warning: #f59e0b;
-  --connexion-danger: #ef4444;
+  --connexion-black: #0a0a0a;
+  --connexion-black-soft: #141414;
+  --connexion-accent: #7dd3fc;
+  --connexion-accent-hover: #38bdf8;
+  --connexion-grey: #9ca3af;
+  --connexion-grey-muted: #6b7280;
 }

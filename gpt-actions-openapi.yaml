@@ -9,7 +9,7 @@ info:
   description: Session reporting and progress retrieval for Connexion training GPTs
 
 servers:
-  - url: https://your-app.vercel.app/api
+  - url: https://training-jade-ten.vercel.app/api
 
 paths:
   /progress/{name}:

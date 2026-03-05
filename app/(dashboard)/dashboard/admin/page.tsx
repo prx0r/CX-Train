@@ -96,13 +96,13 @@ export default async function AdminOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-6">
+        <div className="bg-connexion-black-soft/80 border border-connexion-grey-muted/30 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-slate-100 mb-4">
             Weakest checkpoints (last 30 days)
           </h2>
           <WeakestCheckpointsChart data={weakestFive} />
         </div>
-        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-6">
+        <div className="bg-connexion-black-soft/80 border border-connexion-grey-muted/30 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-slate-100 mb-4">Recent sessions</h2>
           <SessionFeed
             sessions={(recentSessions ?? []).map((s) => ({
@@ -113,7 +113,7 @@ export default async function AdminOverviewPage() {
         </div>
       </div>
 
-      <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-6">
+      <div className="bg-connexion-black-soft/80 border border-connexion-grey-muted/30 rounded-xl p-6">
         <h2 className="text-lg font-semibold text-slate-100 mb-4">Trainee pathway progress</h2>
         <TraineesTable
           trainees={(trainees ?? []).map((t) => {

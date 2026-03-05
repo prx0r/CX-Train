@@ -12,7 +12,7 @@ export function PathwayProgress({
   bossBattlePassed,
 }: PathwayProgressProps) {
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+    <div className="bg-connexion-black-soft/80 border border-connexion-grey-muted/30 rounded-xl p-6">
       <h2 className="text-lg font-semibold text-slate-100 mb-4">Pathway progress</h2>
       <div className="flex items-center gap-2 flex-wrap">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((stage) => {
@@ -27,10 +27,10 @@ export function PathwayProgress({
                 passed
                   ? 'bg-green-500/20 text-green-400 border border-green-500/50'
                   : current
-                    ? 'bg-blue-500/20 text-blue-400 border-2 border-blue-400'
+                    ? 'bg-connexion-accent/20 text-connexion-accent border-2 border-connexion-accent'
                     : locked
-                      ? 'bg-slate-800 text-slate-600 border border-slate-700'
-                      : 'bg-slate-700/50 text-slate-400 border border-slate-600'
+                      ? 'bg-connexion-black-soft text-connexion-grey-muted border border-connexion-grey-muted/50'
+                      : 'bg-connexion-black-soft/50 text-connexion-grey border border-connexion-grey-muted/50'
               }`}
             >
               {passed ? '✓' : stage}
@@ -38,7 +38,7 @@ export function PathwayProgress({
           );
         })}
       </div>
-      <p className="text-slate-500 text-sm mt-2">
+      <p className="text-connexion-grey-muted text-sm mt-2">
         Stage {currentStage} of 10 • Highest passed: {highestStagePassed}
       </p>
     </div>

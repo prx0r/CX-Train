@@ -9,8 +9,9 @@ out
 build
 dist
 
-# Env
+# Env & secrets
 .env
+supabas.md
 .env.local
 .env.development.local
 .env.test.local

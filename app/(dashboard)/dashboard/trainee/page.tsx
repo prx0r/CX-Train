@@ -55,7 +55,7 @@ export default async function TraineeProgressPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-2xl font-bold text-slate-100 mb-2">My Progress</h1>
-      <p className="text-slate-400 mb-8">Welcome back, {user.name}</p>
+      <p className="text-connexion-grey mb-8">Welcome back, {user.name}</p>
 
       <div className="space-y-8">
         <LiveClearanceBadge cleared={progress?.cleared_for_live ?? false} />
@@ -73,9 +73,9 @@ export default async function TraineeProgressPage() {
         />
 
         {weaknesses.length > 0 && (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-            <h3 className="font-medium text-amber-200 mb-2">Weakness spotlight</h3>
-            <p className="text-sm text-amber-200/80">
+          <div className="p-4 bg-connexion-accent/10 border border-connexion-accent/30 rounded-xl">
+            <h3 className="font-medium text-connexion-accent mb-2">Weakness spotlight</h3>
+            <p className="text-sm text-connexion-grey">
               You&apos;ve missed &quot;{weaknesses[0]}&quot; in {weaknessCount[weaknesses[0]!.replace(/ /g, '_')] ?? 0} of your last 5 calls. Focus on this next session.
             </p>
           </div>
