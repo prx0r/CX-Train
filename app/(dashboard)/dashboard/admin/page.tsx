@@ -137,7 +137,9 @@ export default async function AdminOverviewPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="mb-10">
         <h1 className="text-2xl font-semibold text-white tracking-tight">Overview</h1>
-        <p className="text-zinc-500 text-sm mt-1">Platform statistics and training metrics</p>
+        <p className="text-zinc-500 text-sm mt-1">
+          Platform statistics and training metrics. Go to Trainees to see individual progress, bot feedback, and ticket screenshots.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
