@@ -32,6 +32,16 @@
 - Ensure Vercel has the same Supabase env vars set
 - Redeploy after pushing changes
 
+### Demo data (optional)
+
+To populate realistic example data (Tom, Fernando, Jake, Nathan with differing tenures):
+
+```bash
+node scripts/run-demo-seed.mjs
+```
+
+Requires `DATABASE_URL` in `.env`. Or run `supabase/seed-demo.sql` in the Supabase SQL Editor.
+
 ### First admin user
 
 After the first user signs up, promote them to admin in Supabase SQL Editor:

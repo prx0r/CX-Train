@@ -10,6 +10,10 @@ import { TraineeScoresOverTimeChart } from '@/components/admin/TraineeScoresOver
 import { TrainingHoursPerUserChart } from '@/components/admin/TrainingHoursPerUserChart';
 import { TraineeWeaknessesStrengths } from '@/components/admin/TraineeWeaknessesStrengths';
 import { CHECKPOINT_KEYS } from '@/lib/types';
+import {
+  CHECKPOINT_WEAKNESS_STATEMENTS,
+  CHECKPOINT_STRENGTH_STATEMENTS,
+} from '@/lib/checkpoint-statements';
 
 const TRAINEE_COLORS: Record<string, string> = {
   Tom: '#7dd3fc',
@@ -211,8 +215,14 @@ export default async function AdminOverviewPage() {
       .filter(([, v]) => v.total >= 2)
       .map(([key, v]) => ({ key, rate: v.pass / v.total }));
     rates.sort((a, b) => a.rate - b.rate);
-    const weaknesses = rates.slice(0, 3).filter((r) => r.rate < 0.8).map((r) => r.key);
-    const strengths = rates.slice(-3).filter((r) => r.rate >= 0.8).map((r) => r.key).reverse();
+    const weaknessKeys = rates.slice(0, 3).filter((r) => r.rate < 0.8).map((r) => r.key);
+    const strengthKeys = rates.slice(-3).filter((r) => r.rate >= 0.8).map((r) => r.key).reverse();
+    const weaknesses = weaknessKeys.map(
+      (k) => CHECKPOINT_WEAKNESS_STATEMENTS[k] ?? k.replace(/_/g, ' ')
+    );
+    const strengths = strengthKeys.map(
+      (k) => CHECKPOINT_STRENGTH_STATEMENTS[k] ?? k.replace(/_/g, ' ')
+    );
     return { id: t.id, name, weaknesses, strengths };
   });
 

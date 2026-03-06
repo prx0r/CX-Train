@@ -31,7 +31,7 @@ export function TraineeWeaknessesStrengths({ trainees }: TraineeWeaknessesStreng
               {t.weaknesses.length > 0 ? (
                 <ul className="text-zinc-400 space-y-0.5">
                   {t.weaknesses.map((w) => (
-                    <li key={w}>• {w.replace(/_/g, ' ')}</li>
+                    <li key={w}>• {w}</li>
                   ))}
                 </ul>
               ) : (
@@ -45,7 +45,7 @@ export function TraineeWeaknessesStrengths({ trainees }: TraineeWeaknessesStreng
               {t.strengths.length > 0 ? (
                 <ul className="text-zinc-400 space-y-0.5">
                   {t.strengths.map((s) => (
-                    <li key={s}>• {s.replace(/_/g, ' ')}</li>
+                    <li key={s}>• {s}</li>
                   ))}
                 </ul>
               ) : (
