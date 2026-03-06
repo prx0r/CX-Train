@@ -33,7 +33,7 @@ WHERE user_id IN (SELECT id FROM users WHERE name IN ('Tom', 'Fernando', 'Jake',
 -- Helper: insert sessions for a user. Using raw inserts for clarity.
 -- Jake - 3 months, joined ~Dec 5 2025. ~45 sessions, ~8.5h total
 INSERT INTO sessions (user_id, bot_id, pathway_stage, score, passed, checkpoints, duration_seconds, created_at)
-SELECT u.id, 'call_sim', s.stage, s.score, s.passed, s.checkpoints::jsonb, s.duration, s.created
+SELECT u.id, 'call_sim', s.stage, s.score, s.passed, s.checkpoints::jsonb, s.duration, s.created::timestamptz
 FROM users u,
 LATERAL (VALUES
   (6, 82, true, '{"name_verified":true,"company_confirmed":true,"hostname_gathered":true,"location_confirmed":true,"issue_defined":true,"last_working_asked":true,"recent_changes_asked":true,"exact_error_asked":true,"reboot_asked":true,"scope_determined":true,"impact_determined":true,"priority_assigned":true,"ticket_expectation_set":false,"timeframe_given":false,"callback_window_given":true}', 540, '2025-12-10 10:00:00+00'),
@@ -56,7 +56,7 @@ WHERE u.name = 'Jake';
 
 -- Nathan - 2 months, joined ~Jan 5 2026. Strong impact/priority, weak hostname/location
 INSERT INTO sessions (user_id, bot_id, pathway_stage, score, passed, checkpoints, duration_seconds, created_at)
-SELECT u.id, 'call_sim', s.stage, s.score, s.passed, s.checkpoints::jsonb, s.duration, s.created
+SELECT u.id, 'call_sim', s.stage, s.score, s.passed, s.checkpoints::jsonb, s.duration, s.created::timestamptz
 FROM users u,
 LATERAL (VALUES
   (5, 80, true, '{"name_verified":true,"company_confirmed":true,"hostname_gathered":false,"location_confirmed":false,"issue_defined":true,"last_working_asked":true,"recent_changes_asked":true,"exact_error_asked":true,"reboot_asked":true,"scope_determined":true,"impact_determined":true,"priority_assigned":true,"ticket_expectation_set":true,"timeframe_given":true,"callback_window_given":true}', 520, '2026-01-08 10:00:00+00'),
@@ -74,7 +74,7 @@ WHERE u.name = 'Nathan';
 
 -- Tom - 1 month, joined ~Feb 5 2026. Strong scope/callback, weak name/company
 INSERT INTO sessions (user_id, bot_id, pathway_stage, score, passed, checkpoints, duration_seconds, created_at)
-SELECT u.id, 'call_sim', s.stage, s.score, s.passed, s.checkpoints::jsonb, s.duration, s.created
+SELECT u.id, 'call_sim', s.stage, s.score, s.passed, s.checkpoints::jsonb, s.duration, s.created::timestamptz
 FROM users u,
 LATERAL (VALUES
   (4, 72, true, '{"name_verified":false,"company_confirmed":false,"hostname_gathered":true,"location_confirmed":true,"issue_defined":true,"last_working_asked":true,"recent_changes_asked":true,"exact_error_asked":true,"reboot_asked":true,"scope_determined":true,"impact_determined":true,"priority_assigned":true,"ticket_expectation_set":true,"timeframe_given":true,"callback_window_given":true}', 480, '2026-02-08 10:00:00+00'),
@@ -90,7 +90,7 @@ WHERE u.name = 'Tom';
 
 -- Fernando - 2 weeks, joined ~Feb 19 2026. Strong impact/issue, weak location/last_working
 INSERT INTO sessions (user_id, bot_id, pathway_stage, score, passed, checkpoints, duration_seconds, created_at)
-SELECT u.id, 'call_sim', s.stage, s.score, s.passed, s.checkpoints::jsonb, s.duration, s.created
+SELECT u.id, 'call_sim', s.stage, s.score, s.passed, s.checkpoints::jsonb, s.duration, s.created::timestamptz
 FROM users u,
 LATERAL (VALUES
   (4, 82, true, '{"name_verified":true,"company_confirmed":true,"hostname_gathered":true,"location_confirmed":false,"issue_defined":true,"last_working_asked":false,"recent_changes_asked":true,"exact_error_asked":true,"reboot_asked":true,"scope_determined":true,"impact_determined":true,"priority_assigned":true,"ticket_expectation_set":true,"timeframe_given":true,"callback_window_given":true}', 500, '2026-02-20 10:00:00+00'),
