@@ -1,7 +1,6 @@
 import { requireAdmin } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
-import Link from 'next/link';
-import { ScoreBadge } from '@/components/shared/ScoreBadge';
+import { SessionTableRow } from '@/components/admin/SessionTableRow';
 
 export default async function AdminSessionsPage() {
   await requireAdmin();
@@ -31,37 +30,9 @@ export default async function AdminSessionsPage() {
             </tr>
           </thead>
           <tbody>
-            {(sessions ?? []).map((s) => {
-              const userName = (() => {
-                const u = s.users;
-                if (Array.isArray(u)) return u[0]?.name;
-                return (u as { name?: string } | null)?.name;
-              })();
-              return (
-              <tr key={s.id} className="border-t border-slate-700/50 hover:bg-slate-800/30">
-                <td className="p-4">
-                  <Link
-                    href={`/dashboard/admin/sessions/${s.id}`}
-                    className="font-medium text-blue-400 hover:text-blue-300"
-                  >
-                    {userName ?? 'Unknown'}
-                  </Link>
-                </td>
-                <td className="p-4 text-slate-400">{s.pathway_stage ?? '-'}</td>
-                <td className="p-4">
-                  <ScoreBadge score={s.score ?? 0} passed={s.passed ?? false} size="sm" />
-                </td>
-                <td className="p-4">
-                  {(s.hostname_gathered === false || s.impact_gathered === false) && (
-                    <span className="text-red-400 text-sm">Yes</span>
-                  )}
-                </td>
-                <td className="p-4 text-slate-500 text-sm">
-                  {new Date(s.created_at).toLocaleString()}
-                </td>
-              </tr>
-            );
-            })}
+            {(sessions ?? []).map((s) => (
+              <SessionTableRow key={s.id} session={s} />
+            ))}
           </tbody>
         </table>
       </div>

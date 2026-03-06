@@ -306,7 +306,7 @@ export default async function AdminTraineeDetailPage({
                 <Link
                   key={s.id}
                   href={`/dashboard/admin/sessions/${s.id}`}
-                  className="block rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4 hover:border-zinc-700 transition"
+                  className="block rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4 hover:border-zinc-700 hover:bg-zinc-800/40 transition"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-zinc-400 text-sm">
@@ -340,8 +340,8 @@ export default async function AdminTraineeDetailPage({
             {exemplarTickets.slice(0, 6).map((s) => (
               <Link
                 key={s.id}
-                href={`/dashboard/admin/sessions/${s.id}`}
-                className="block rounded-xl border border-zinc-800/60 bg-zinc-900/50 overflow-hidden hover:border-zinc-700 transition"
+href={`/dashboard/admin/sessions/${s.id}`}
+              className="block rounded-xl border border-zinc-800/60 bg-zinc-900/50 overflow-hidden hover:border-zinc-700 hover:bg-zinc-800/40 transition"
               >
                 {s.ticket_screenshot_url && (
                   <div className="aspect-video bg-zinc-800 relative">
@@ -407,8 +407,8 @@ export default async function AdminTraineeDetailPage({
           {(sessions ?? []).map((s) => (
             <Link
               key={s.id}
-              href={`/dashboard/admin/sessions/${s.id}`}
-              className="block rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4 hover:border-zinc-700 transition"
+href={`/dashboard/admin/sessions/${s.id}`}
+            className="block rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4 hover:border-zinc-700 hover:bg-zinc-800/40 transition"
             >
               <div className="flex items-center justify-between">
                 <span className="text-zinc-400 text-sm">

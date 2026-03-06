@@ -93,6 +93,7 @@ If you use a different deployment URL, update the `servers` section in `gpt-acti
 
 ### 5. Available actions
 
+- **getPrompt** – `GET /prompt/{bot_id}` – Call at conversation start to load the latest system prompt from the admin hub (no manual paste needed)
 - **getTraineeProgress** – `GET /progress/{name}?bot_id=call_sim` – Call at session start
 - **submitSession** – `POST /session` – Call after the user says “end call”
 

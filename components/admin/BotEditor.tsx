@@ -77,9 +77,9 @@ export function BotEditor({ bot, personalities, pathways }: BotEditorProps) {
 
       {activeTab === 'prompt' && (
         <div className="space-y-4">
-          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-200">
-            Saving here updates the database only. You must also paste the updated prompt into the
-            Custom GPT configure screen in ChatGPT.
+          <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm text-emerald-200">
+            Saving here updates the database. The Custom GPT fetches the latest prompt via the
+            getPrompt action when it runs—no manual paste needed.
           </div>
           <textarea
             value={systemPrompt}

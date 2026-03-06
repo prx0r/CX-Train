@@ -12,6 +12,22 @@ servers:
   - url: https://training-jade-ten.vercel.app/api
 
 paths:
+  /prompt/{bot_id}:
+    get:
+      operationId: getPrompt
+      summary: Get system prompt for this bot
+      description: Call this at the start of a conversation to load the latest system prompt from the admin hub. Use the returned system_prompt as your instructions.
+      parameters:
+        - name: bot_id
+          in: path
+          required: true
+          schema:
+            type: string
+            default: call_sim
+      responses:
+        '200':
+          description: System prompt for the bot
+
   /progress/{name}:
     get:
       operationId: getTraineeProgress

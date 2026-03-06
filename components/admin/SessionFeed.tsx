@@ -24,7 +24,7 @@ export function SessionFeed({ sessions }: SessionFeedProps) {
         <Link
           key={s.id}
           href={`/dashboard/admin/sessions/${s.id}`}
-          className="block rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-4 hover:border-zinc-700 transition"
+          className="block rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-4 hover:border-zinc-700 hover:bg-zinc-800/40 transition"
         >
           <div className="flex items-center justify-between">
             <div>
