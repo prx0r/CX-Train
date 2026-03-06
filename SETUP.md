@@ -99,6 +99,17 @@ If you use a different deployment URL, update the `servers` section in `gpt-acti
 
 ---
 
+## Database migrations
+
+If you have an existing database, run new migrations in the Supabase SQL Editor. For the bot documents feature:
+
+```sql
+-- Run supabase/migrations/20250305000000_bot_documents.sql
+-- Or copy the contents of that file into the SQL Editor
+```
+
+---
+
 ## Troubleshooting
 
 - **"Could not find a valid URL in 'servers'"** – Ensure the schema has a valid `servers` URL and you’re pasting the full YAML, not just the API key.

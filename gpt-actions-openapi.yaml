@@ -26,7 +26,7 @@ paths:
             default: call_sim
       responses:
         '200':
-          description: System prompt for the bot
+          description: System prompt and documents for the bot. Use system_prompt as instructions; if documents array is present, use them as reference context.
 
   /progress/{name}:
     get:

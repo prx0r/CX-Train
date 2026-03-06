@@ -104,6 +104,18 @@ create table trainee_progress (
   unique(user_id, bot_id)
 );
 
+-- BOT DOCUMENTS (text files for use in prompts)
+create table bot_documents (
+  id uuid primary key default gen_random_uuid(),
+  bot_id text not null references bots(id) on delete cascade,
+  filename text not null,
+  content text not null,
+  content_type text default 'text/plain',
+  created_at timestamptz default now()
+);
+
+create index bot_documents_bot_id_idx on bot_documents(bot_id);
+
 -- ROW LEVEL SECURITY
 alter table users enable row level security;
 alter table sessions enable row level security;
@@ -142,3 +154,9 @@ create policy "service_role_progress" on trainee_progress for all using (auth.ro
 create policy "service_role_bots" on bots for all using (auth.role() = 'service_role');
 create policy "service_role_personalities" on personalities for all using (auth.role() = 'service_role');
 create policy "service_role_pathways" on pathways for all using (auth.role() = 'service_role');
+
+alter table bot_documents enable row level security;
+create policy "admin_all_bot_documents" on bot_documents
+  for all using (exists (select 1 from users where clerk_id = auth.uid()::text and role = 'admin'));
+create policy "service_role_bot_documents" on bot_documents
+  for all using (auth.role() = 'service_role');

@@ -26,8 +26,17 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid API key or bot not found' }, { status: 401 });
     }
 
+    const { data: docs } = await supabase
+      .from('bot_documents')
+      .select('filename, content')
+      .eq('bot_id', bot_id)
+      .order('created_at', { ascending: true });
+
+    const documents = (docs ?? []).map((d) => ({ filename: d.filename, content: d.content }));
+
     return NextResponse.json({
       system_prompt: bot.system_prompt || '',
+      documents,
     });
   } catch (err) {
     console.error('Prompt API error:', err);
