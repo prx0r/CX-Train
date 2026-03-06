@@ -12,21 +12,20 @@ import {
 
 interface DataPoint {
   name: string;
-  sessions: number;
-  stage: number;
+  hours: number;
   fill: string;
 }
 
-interface TraineePathProgressChartProps {
+interface TrainingHoursPerUserChartProps {
   data: DataPoint[];
 }
 
-export function TraineePathProgressChart({ data }: TraineePathProgressChartProps) {
+export function TrainingHoursPerUserChart({ data }: TrainingHoursPerUserChartProps) {
   return (
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ left: 60 }}>
-          <XAxis type="number" stroke="#71717a" fontSize={11} />
+          <XAxis type="number" stroke="#71717a" fontSize={11} tickFormatter={(v) => `${v}h`} />
           <YAxis type="category" dataKey="name" width={55} stroke="#71717a" fontSize={11} />
           <Tooltip
             contentStyle={{
@@ -34,12 +33,9 @@ export function TraineePathProgressChart({ data }: TraineePathProgressChartProps
               border: '1px solid #27272a',
               borderRadius: '8px',
             }}
-            formatter={(value: number, _name: string, props: { payload?: { stage?: number } }) => [
-              `${value} sessions to reach stage ${props.payload?.stage ?? 8}`,
-              'Sessions',
-            ]}
+            formatter={(value: number) => [`${value.toFixed(1)} hours`, 'Training time']}
           />
-          <Bar dataKey="sessions" radius={[0, 4, 4, 0]}>
+          <Bar dataKey="hours" radius={[0, 4, 4, 0]}>
             {data.map((entry, i) => (
               <Cell key={i} fill={entry.fill} />
             ))}

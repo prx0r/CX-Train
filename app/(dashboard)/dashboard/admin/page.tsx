@@ -7,7 +7,7 @@ import { SessionsByStageChart } from '@/components/admin/SessionsByStageChart';
 import { SessionsOverTimeChart } from '@/components/admin/SessionsOverTimeChart';
 import { ScoreDistributionChart } from '@/components/admin/ScoreDistributionChart';
 import { TraineeScoresOverTimeChart } from '@/components/admin/TraineeScoresOverTimeChart';
-import { TraineePathProgressChart } from '@/components/admin/TraineePathProgressChart';
+import { TrainingHoursPerUserChart } from '@/components/admin/TrainingHoursPerUserChart';
 import { TraineeWeaknessesStrengths } from '@/components/admin/TraineeWeaknessesStrengths';
 import { CHECKPOINT_KEYS } from '@/lib/types';
 
@@ -142,7 +142,7 @@ export default async function AdminOverviewPage() {
   // Sessions with user for trainee charts (call_sim only)
   const { data: traineeSessions } = await supabase
     .from('sessions')
-    .select('user_id, score, pathway_stage, checkpoints, created_at')
+    .select('user_id, score, pathway_stage, checkpoints, created_at, duration_seconds')
     .eq('bot_id', 'call_sim')
     .order('created_at', { ascending: true });
 
@@ -172,31 +172,24 @@ export default async function AdminOverviewPage() {
     traineeScoresOverTimeData.push(row);
   }
 
-  // Sessions to reach stage 8 (final path) per trainee
-  const sessionsToStage8: Record<string, number> = {};
-  const userSessionIndex: Record<string, number> = {};
+  // Total training hours per user (duration_seconds, fallback ~5 min when null)
+  const DEFAULT_SESSION_SECONDS = 300;
+  const totalSecondsByUser: Record<string, number> = {};
   for (const s of traineeSessions ?? []) {
     if (!s.user_id) continue;
-    const idx = (userSessionIndex[s.user_id] ?? 0) + 1;
-    userSessionIndex[s.user_id] = idx;
-    if ((s.pathway_stage ?? 0) >= 8 && sessionsToStage8[s.user_id] == null) {
-      sessionsToStage8[s.user_id] = idx;
-    }
+    const sec = s.duration_seconds ?? DEFAULT_SESSION_SECONDS;
+    totalSecondsByUser[s.user_id] = (totalSecondsByUser[s.user_id] ?? 0) + sec;
   }
-  const pathProgressData = traineeNames
-    .map((name) => {
-      const t = (trainees ?? []).find((x) => x.name === name);
-      if (!t) return null;
-      const sessions = sessionsToStage8[t.id] ?? null;
-      if (sessions == null) return null;
-      return {
-        name,
-        sessions,
-        stage: 8,
-        fill: TRAINEE_COLORS[name] ?? '#71717a',
-      };
-    })
-    .filter((d): d is NonNullable<typeof d> => d != null);
+  const trainingHoursData = traineeNames.map((name) => {
+    const t = (trainees ?? []).find((x) => x.name === name);
+    if (!t) return { name, hours: 0, fill: '#71717a' };
+    const sec = totalSecondsByUser[t.id] ?? 0;
+    return {
+      name,
+      hours: Math.round((sec / 3600) * 10) / 10,
+      fill: TRAINEE_COLORS[name] ?? '#71717a',
+    };
+  });
 
   // Per-trainee weaknesses and strengths from checkpoints
   const traineeCheckpointStats: Record<string, Record<string, { pass: number; total: number }>> = {};
@@ -252,12 +245,12 @@ export default async function AdminOverviewPage() {
         </div>
         <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/50 p-6">
           <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">
-            Sessions to reach final path (stage 8)
+            Total training hours per user
           </h2>
-          {pathProgressData.length > 0 ? (
-            <TraineePathProgressChart data={pathProgressData} />
+          {trainingHoursData.length > 0 ? (
+            <TrainingHoursPerUserChart data={trainingHoursData} />
           ) : (
-            <p className="text-zinc-500 text-sm py-8 text-center">No path progress yet</p>
+            <p className="text-zinc-500 text-sm py-8 text-center">No training data yet</p>
           )}
         </div>
       </div>
