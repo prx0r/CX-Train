@@ -9,6 +9,7 @@ const DASHBOARD_LINK = {
 import { readFile } from 'fs/promises';
 import path from 'path';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default async function FutureIdeasPage() {
   const user = await getCurrentUser();
@@ -31,6 +32,7 @@ export default async function FutureIdeasPage() {
       <article className="prose prose-invert prose-sm max-w-none">
         <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/50 p-6 md:p-8">
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               h1: ({ children }) => (
                 <h1 className="text-xl font-semibold text-white mt-0 mb-4">{children}</h1>
@@ -51,22 +53,24 @@ export default async function FutureIdeasPage() {
               li: ({ children }) => <li className="text-zinc-400">{children}</li>,
               strong: ({ children }) => <strong className="text-zinc-300 font-medium">{children}</strong>,
               table: ({ children }) => (
-                <div className="overflow-x-auto my-6">
-                  <table className="w-full text-sm border-collapse border border-zinc-700 rounded-lg overflow-hidden">
+                <div className="overflow-x-auto my-6 rounded-lg border border-zinc-700">
+                  <table className="w-full text-sm border-collapse">
                     {children}
                   </table>
                 </div>
               ),
               thead: ({ children }) => (
-                <thead className="bg-zinc-800/80">{children}</thead>
+                <thead className="bg-zinc-800">{children}</thead>
               ),
-              tbody: ({ children }) => <tbody className="divide-y divide-zinc-700">{children}</tbody>,
-              tr: ({ children }) => <tr className="border-b border-zinc-700">{children}</tr>,
+              tbody: ({ children }) => <tbody>{children}</tbody>,
+              tr: ({ children }) => (
+                <tr className="border-b border-zinc-700/80 last:border-b-0">{children}</tr>
+              ),
               th: ({ children }) => (
-                <th className="px-4 py-3 text-left text-zinc-300 font-medium">{children}</th>
+                <th className="px-4 py-3 text-left text-zinc-300 font-semibold border-b-2 border-zinc-600">{children}</th>
               ),
               td: ({ children }) => (
-                <td className="px-4 py-3 text-zinc-400">{children}</td>
+                <td className="px-4 py-3 text-zinc-400 align-top">{children}</td>
               ),
               code: ({ children }) => (
                 <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-xs text-sky-300">{children}</code>
