@@ -43,6 +43,9 @@ export default async function DashboardLayout({
                 <Link href="/dashboard/how-it-works" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   How it works
                 </Link>
+                <Link href="/dashboard/future-ideas" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
+                  Future Ideas
+                </Link>
               </>
             )}
             {!isAdmin && (
@@ -55,6 +58,9 @@ export default async function DashboardLayout({
                 </Link>
                 <Link href="/dashboard/how-it-works" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   How it works
+                </Link>
+                <Link href="/dashboard/future-ideas" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
+                  Future Ideas
                 </Link>
               </>
             )}
