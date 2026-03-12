@@ -30,6 +30,13 @@ export default async function AdminSessionDetailPage({
 
   const user = session.users as { name: string } | null;
   const personality = session.personalities as { name: string; archetype: string; avatar_emoji: string } | null;
+  let ticketUrl: string | null = null;
+  if (session.ticket_screenshot_url) {
+    const { data } = await supabase.storage
+      .from('ticket-screenshots')
+      .createSignedUrl(session.ticket_screenshot_url, 60 * 10);
+    ticketUrl = data?.signedUrl ?? null;
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -70,8 +77,24 @@ export default async function AdminSessionDetailPage({
               <dd className="text-slate-100">{session.issue_family ?? '-'}</dd>
             </div>
             <div>
+              <dt className="text-slate-500">Severity / Impact</dt>
+              <dd className="text-slate-100">
+                {session.severity_level ?? '-'} / {session.impact_level ?? '-'}
+              </dd>
+            </div>
+            <div>
               <dt className="text-slate-500">Priority assigned</dt>
               <dd className="text-slate-100">{session.priority_assigned ?? '-'}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Priority expected</dt>
+              <dd className="text-slate-100">{session.priority_correct_value ?? '-'}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Priority correct</dt>
+              <dd className="text-slate-100">
+                {session.priority_correct == null ? '-' : session.priority_correct ? 'Yes' : 'No'}
+              </dd>
             </div>
             <div>
               <dt className="text-slate-500">Duration</dt>
@@ -101,12 +124,23 @@ export default async function AdminSessionDetailPage({
           <CheckpointList checkpoints={(session.checkpoints as Record<string, boolean>) || {}} showWeights />
         </div>
 
-        {session.ticket_screenshot_url && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-slate-100 mb-4">Rubric breakdown</h2>
+          {session.score_breakdown ? (
+            <pre className="text-sm text-slate-300 overflow-auto">
+              {JSON.stringify(session.score_breakdown, null, 2)}
+            </pre>
+          ) : (
+            <p className="text-slate-500 text-sm">No rubric data recorded.</p>
+          )}
+        </div>
+
+        {ticketUrl && (
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold text-slate-100 mb-4">Ticket screenshot</h2>
             <div className="relative w-full aspect-video bg-slate-900 rounded-lg overflow-hidden">
               <Image
-                src={session.ticket_screenshot_url}
+                src={ticketUrl}
                 alt="Ticket screenshot"
                 fill
                 className="object-contain"

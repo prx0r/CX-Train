@@ -11,7 +11,7 @@ export default async function AdminTraineesPage() {
     .from('users')
     .select(`
       id, name, email,
-      trainee_progress!left (current_stage, boss_battle_unlocked, boss_battle_passed, cleared_for_live, avg_score, bot_id)
+      trainee_progress!left (current_stage, boss_battle_unlocked, boss_battle_passed, cleared_for_live, avg_score, level, level_points, bot_id)
     `)
     .eq('role', 'trainee')
     .order('name');

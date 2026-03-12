@@ -11,6 +11,8 @@ interface Trainee {
     boss_battle_passed: boolean;
     cleared_for_live: boolean;
     avg_score: number;
+    level?: number;
+    level_points?: number;
   }[];
 }
 
@@ -27,6 +29,7 @@ export function TraineesTable({ trainees }: TraineesTableProps) {
             <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Name</th>
             <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Email</th>
             <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Stage</th>
+            <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Level</th>
             <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Avg Score</th>
             <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Final</th>
             <th className="text-left p-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">Cleared</th>
@@ -48,6 +51,9 @@ export function TraineesTable({ trainees }: TraineesTableProps) {
                 <td className="p-4 text-zinc-400 text-sm">{t.email}</td>
                 <td className="p-4 text-white">
                   {progress ? `${progress.current_stage}/10` : '-'}
+                </td>
+                <td className="p-4 text-white">
+                  {progress ? `L${progress.level ?? 1} • ${progress.level_points ?? 0}` : '-'}
                 </td>
                 <td className="p-4">
                   {progress ? (

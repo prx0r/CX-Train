@@ -40,6 +40,9 @@ export default async function DashboardLayout({
                 <Link href="/dashboard/admin/sessions" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   Sessions
                 </Link>
+                <Link href="/dashboard/admin/taxonomy" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
+                  Taxonomy
+                </Link>
                 <Link href="/dashboard/how-it-works" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   How it works
                 </Link>

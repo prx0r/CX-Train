@@ -50,6 +50,16 @@ export default async function AdminTraineeDetailPage({
     .order('created_at', { ascending: false })
     .limit(25);
 
+  const sessionsWithUrls = await Promise.all(
+    (sessions ?? []).map(async (s) => {
+      if (!s.ticket_screenshot_url) return s;
+      const { data } = await supabase.storage
+        .from('ticket-screenshots')
+        .createSignedUrl(s.ticket_screenshot_url, 60 * 10);
+      return { ...s, ticket_screenshot_url: data?.signedUrl ?? null };
+    })
+  );
+
   const { data: todaySessions } = await supabase
     .from('sessions')
     .select('score, passed, duration_seconds, feedback_text, pathway_stage')
@@ -81,6 +91,35 @@ export default async function AdminTraineeDetailPage({
       fill: s.passed ? '#22c55e' : '#ef4444',
     }));
 
+  const rubricTotals = {
+    professionalism: 0,
+    friendliness: 0,
+    qualification: 0,
+    setting_expectations: 0,
+    obtaining_symptoms: 0,
+  };
+  let rubricCount = 0;
+  for (const s of sessions ?? []) {
+    const breakdown = s.score_breakdown as typeof rubricTotals | null;
+    if (breakdown) {
+      rubricTotals.professionalism += breakdown.professionalism ?? 0;
+      rubricTotals.friendliness += breakdown.friendliness ?? 0;
+      rubricTotals.qualification += breakdown.qualification ?? 0;
+      rubricTotals.setting_expectations += breakdown.setting_expectations ?? 0;
+      rubricTotals.obtaining_symptoms += breakdown.obtaining_symptoms ?? 0;
+      rubricCount++;
+    }
+  }
+  const rubricAverages = rubricCount
+    ? {
+        professionalism: Math.round(rubricTotals.professionalism / rubricCount),
+        friendliness: Math.round(rubricTotals.friendliness / rubricCount),
+        qualification: Math.round(rubricTotals.qualification / rubricCount),
+        setting_expectations: Math.round(rubricTotals.setting_expectations / rubricCount),
+        obtaining_symptoms: Math.round(rubricTotals.obtaining_symptoms / rubricCount),
+      }
+    : null;
+
   // Personalities spoken to
   const personalityMap = new Map<
     string,
@@ -110,19 +149,19 @@ export default async function AdminTraineeDetailPage({
   const personalities = Array.from(personalityMap.values());
 
   // Exemplar tickets (sessions with ticket assessed and high score)
-  const exemplarTickets = (sessions ?? []).filter(
+  const exemplarTickets = (sessionsWithUrls ?? []).filter(
     (s) => s.ticket_assessed && (s.score ?? 0) >= 85
   );
 
   // Bot feedback (all sessions with feedback)
-  const sessionsWithFeedback = (sessions ?? []).filter((s) => s.feedback_text);
+  const sessionsWithFeedback = (sessionsWithUrls ?? []).filter((s) => s.feedback_text);
 
   // Live suitability advisory
   const avgScore = Math.round(progress?.avg_score ?? 0);
   const cleared = progress?.cleared_for_live ?? false;
   const recentPassRate =
-    (sessions ?? []).length > 0
-      ? ((sessions ?? []).filter((s) => s.passed).length / (sessions ?? []).length) * 100
+    (sessionsWithUrls ?? []).length > 0
+      ? ((sessionsWithUrls ?? []).filter((s) => s.passed).length / (sessionsWithUrls ?? []).length) * 100
       : 0;
 
   let suitabilityText = '';
@@ -215,7 +254,7 @@ export default async function AdminTraineeDetailPage({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-10">
         <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-5">
           <p className="text-zinc-500 text-xs font-medium uppercase tracking-wider">
             Total sessions
@@ -258,6 +297,14 @@ export default async function AdminTraineeDetailPage({
               : progress?.boss_battle_unlocked
                 ? 'Unlocked'
                 : 'Locked'}
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-5">
+          <p className="text-zinc-500 text-xs font-medium uppercase tracking-wider">
+            Level / Points
+          </p>
+          <p className="text-lg font-medium text-white mt-1">
+            L{progress?.level ?? 1} • {progress?.level_points ?? 0} pts
           </p>
         </div>
       </div>
@@ -385,17 +432,54 @@ href={`/dashboard/admin/sessions/${s.id}`}
         <p className="text-zinc-500 text-sm mb-4">
           Overall progress judged by scores from the bot across sessions.
         </p>
+        {(progress?.total_sessions ?? 0) > 25 && (
+          <p className="text-zinc-500 text-xs mb-3">Based on last 25 sessions.</p>
+        )}
         <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
           <ScoreChart data={scoreChartData} />
         </div>
       </div>
+
+      {rubricAverages && (
+        <div className="mb-10">
+          <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">
+            Rubric averages (1–10)
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider">Professionalism</p>
+              <p className="text-xl font-semibold text-white mt-1">{rubricAverages.professionalism}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider">Friendliness</p>
+              <p className="text-xl font-semibold text-white mt-1">{rubricAverages.friendliness}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider">Qualification</p>
+              <p className="text-xl font-semibold text-white mt-1">{rubricAverages.qualification}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider">Setting expectations</p>
+              <p className="text-xl font-semibold text-white mt-1">
+                {rubricAverages.setting_expectations}
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider">Obtaining symptoms</p>
+              <p className="text-xl font-semibold text-white mt-1">
+                {rubricAverages.obtaining_symptoms}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mb-10">
         <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">
           Checkpoint heatmap
         </h2>
         <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4 overflow-x-auto">
-          <CheckpointHeatmap sessions={sessions ?? []} maxSessions={10} />
+          <CheckpointHeatmap sessions={sessionsWithUrls ?? []} maxSessions={10} />
         </div>
       </div>
 
@@ -404,7 +488,7 @@ href={`/dashboard/admin/sessions/${s.id}`}
           Session history
         </h2>
         <div className="space-y-2">
-          {(sessions ?? []).map((s) => (
+          {(sessionsWithUrls ?? []).map((s) => (
             <Link
               key={s.id}
 href={`/dashboard/admin/sessions/${s.id}`}

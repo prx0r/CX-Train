@@ -1,4 +1,4 @@
-// Types matching DB schema and API contracts
+﻿// Types matching DB schema and API contracts
 
 export type UserRole = 'trainee' | 'admin';
 
@@ -8,10 +8,25 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  is_stub?: boolean;
   created_at: string;
 }
 
 export type BotType = 'call' | 'qualification' | 'escalation' | 'ticket' | 'other';
+
+export type SeverityLevel = 'low' | 'medium' | 'high';
+export type ImpactLevel = 'low' | 'medium' | 'high';
+
+export type RubricEvidence = Record<string, boolean>;
+
+export interface ScoreBreakdown {
+  professionalism: number;
+  friendliness: number;
+  qualification: number;
+  setting_expectations: number;
+  obtaining_symptoms: number;
+  total_points: number;
+}
 
 export interface Bot {
   id: string;
@@ -92,12 +107,17 @@ export interface Session {
   pathway_stage: number | null;
   personality_id: string | null;
   score: number | null;
+  score_points: number | null;
+  score_breakdown: ScoreBreakdown | null;
+  rubric_evidence: RubricEvidence | null;
   passed: boolean | null;
   pathway_pass: boolean | null;
   checkpoints: Checkpoints;
   hostname_gathered: boolean | null;
   impact_gathered: boolean | null;
   priority_correct: boolean | null;
+  severity_level: SeverityLevel | null;
+  impact_level: ImpactLevel | null;
   priority_assigned: string | null;
   priority_correct_value: string | null;
   issue_family: string | null;
@@ -124,10 +144,13 @@ export interface TraineeProgress {
   total_sessions: number;
   total_passes: number;
   avg_score: number;
+  score_sum: number;
   boss_battle_unlocked: boolean;
   boss_battle_passed: boolean;
   boss_battle_attempts: number;
   cleared_for_live: boolean;
+  level: number;
+  level_points: number;
   updated_at: string;
 }
 
@@ -137,10 +160,12 @@ export interface SessionPayload {
   tech_name: string;
   pathway_stage: number;
   personality_id?: string | null;
-  score: number;
+  score?: number;
   passed: boolean;
   hostname_gathered: boolean;
   impact_gathered: boolean;
+  severity_level?: SeverityLevel;
+  impact_level?: ImpactLevel;
   priority_assigned?: string;
   priority_correct?: string;
   priority_correct_bool?: boolean;
@@ -152,6 +177,9 @@ export interface SessionPayload {
   intensity?: number;
   duration_seconds?: number;
   checkpoints: Checkpoints;
+  rubric_evidence?: RubricEvidence;
+  score_breakdown?: ScoreBreakdown;
+  score_points?: number;
   ticket_assessed?: boolean;
   ticket_score?: TicketScore | null;
   feedback_text?: string;
@@ -170,6 +198,8 @@ export interface ProgressResponse {
   boss_battle_passed?: boolean;
   boss_battle_attempts?: number;
   cleared_for_live?: boolean;
+  level?: number;
+  level_points?: number;
   recent_weaknesses?: string[];
   personality_stats?: { name: string; archetype: string; avg_score: number }[];
 }

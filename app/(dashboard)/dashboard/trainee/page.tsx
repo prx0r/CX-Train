@@ -84,7 +84,7 @@ export default async function TraineeProgressPage() {
         <p className="text-zinc-500 text-sm mt-1">Welcome back, {user.name}</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
         <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-5">
           <p className="text-zinc-500 text-xs font-medium uppercase tracking-wider">Total call time</p>
           <p className="text-xl font-semibold text-white mt-1">
@@ -105,6 +105,12 @@ export default async function TraineeProgressPage() {
           <p className="text-zinc-500 text-xs font-medium uppercase tracking-wider">Stage</p>
           <p className="text-xl font-semibold text-white mt-1">
             {progress?.current_stage ?? 1}/10
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-5">
+          <p className="text-zinc-500 text-xs font-medium uppercase tracking-wider">Level</p>
+          <p className="text-xl font-semibold text-white mt-1">
+            L{progress?.level ?? 1} • {progress?.level_points ?? 0} pts
           </p>
         </div>
       </div>

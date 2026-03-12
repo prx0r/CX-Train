@@ -29,6 +29,13 @@ export default async function TraineeSessionDetailPage({
   if (!session) notFound();
 
   const personality = session.personalities as { name: string; archetype: string; avatar_emoji: string } | null;
+  let ticketUrl: string | null = null;
+  if (session.ticket_screenshot_url) {
+    const { data } = await supabase.storage
+      .from('ticket-screenshots')
+      .createSignedUrl(session.ticket_screenshot_url, 60 * 10);
+    ticketUrl = data?.signedUrl ?? null;
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -70,12 +77,12 @@ export default async function TraineeSessionDetailPage({
           <CheckpointList checkpoints={(session.checkpoints as Record<string, boolean>) || {}} showWeights />
         </div>
 
-        {session.ticket_screenshot_url && (
+        {ticketUrl && (
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold text-slate-100 mb-4">Your ticket screenshot</h2>
             <div className="relative w-full aspect-video bg-slate-900 rounded-lg overflow-hidden">
               <Image
-                src={session.ticket_screenshot_url}
+                src={ticketUrl}
                 alt="Ticket screenshot"
                 fill
                 className="object-contain"

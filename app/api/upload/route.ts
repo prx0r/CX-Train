@@ -35,6 +35,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
     }
 
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .ilike('name', techName.trim())
+      .limit(1)
+      .single();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unknown tech name' }, { status: 400 });
+    }
+
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('id, user_id, bot_id')
+      .eq('id', sessionId)
+      .eq('bot_id', botId)
+      .single();
+
+    if (!session || session.user_id !== user.id) {
+      return NextResponse.json({ error: 'Session ownership mismatch' }, { status: 403 });
+    }
+
     const safeTechName = techName.replace(/[^a-zA-Z0-9-_]/g, '_');
     const path = `${botId}/${safeTechName}/${sessionId}.png`;
 
@@ -53,13 +75,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
     }
 
-    const { data: urlData } = supabase.storage.from('ticket-screenshots').getPublicUrl(path);
-    const url = urlData.publicUrl;
+    // Store path (bucket should be private); signed URLs generated server-side when viewing
+    await supabase.from('sessions').update({ ticket_screenshot_url: path }).eq('id', sessionId);
 
-    // Update session with screenshot URL
-    await supabase.from('sessions').update({ ticket_screenshot_url: url }).eq('id', sessionId);
-
-    return NextResponse.json({ url });
+    return NextResponse.json({ path });
   } catch (err) {
     console.error('Upload API error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

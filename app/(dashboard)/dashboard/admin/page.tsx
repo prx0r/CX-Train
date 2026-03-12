@@ -15,12 +15,31 @@ import {
   CHECKPOINT_STRENGTH_STATEMENTS,
 } from '@/lib/checkpoint-statements';
 
-const TRAINEE_COLORS: Record<string, string> = {
-  Tom: '#7dd3fc',
-  Fernando: '#34d399',
-  Jake: '#fbbf24',
-  Nathan: '#a78bfa',
-};
+const TRAINEE_PALETTE = [
+  '#7dd3fc',
+  '#34d399',
+  '#fbbf24',
+  '#a78bfa',
+  '#fb7185',
+  '#22c55e',
+  '#f97316',
+  '#38bdf8',
+  '#e879f9',
+  '#60a5fa',
+];
+
+function hashName(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function getTraineeColor(name: string) {
+  const idx = hashName(name) % TRAINEE_PALETTE.length;
+  return TRAINEE_PALETTE[idx];
+}
 
 export default async function AdminOverviewPage() {
   await requireAdmin();
@@ -148,14 +167,21 @@ export default async function AdminOverviewPage() {
     .from('sessions')
     .select('user_id, score, pathway_stage, checkpoints, created_at, duration_seconds')
     .eq('bot_id', 'call_sim')
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  const orderedTraineeSessions = (traineeSessions ?? []).slice().sort((a, b) => {
+    const aTime = new Date(a.created_at).getTime();
+    const bTime = new Date(b.created_at).getTime();
+    return aTime - bTime;
+  });
 
   const traineeNames = (trainees ?? []).map((t) => t.name).filter(Boolean);
   const traineeById = Object.fromEntries((trainees ?? []).map((t) => [t.id, t]));
 
   // Build cumulative avg scores over session index per trainee
   const scoresByUser: Record<string, number[]> = {};
-  for (const s of traineeSessions ?? []) {
+  for (const s of orderedTraineeSessions) {
     if (!s.user_id || s.score == null) continue;
     if (!scoresByUser[s.user_id]) scoresByUser[s.user_id] = [];
     scoresByUser[s.user_id].push(s.score);
@@ -179,7 +205,7 @@ export default async function AdminOverviewPage() {
   // Total training hours per user (duration_seconds, fallback ~5 min when null)
   const DEFAULT_SESSION_SECONDS = 300;
   const totalSecondsByUser: Record<string, number> = {};
-  for (const s of traineeSessions ?? []) {
+  for (const s of orderedTraineeSessions) {
     if (!s.user_id) continue;
     const sec = s.duration_seconds ?? DEFAULT_SESSION_SECONDS;
     totalSecondsByUser[s.user_id] = (totalSecondsByUser[s.user_id] ?? 0) + sec;
@@ -191,13 +217,13 @@ export default async function AdminOverviewPage() {
     return {
       name,
       hours: Math.round((sec / 3600) * 10) / 10,
-      fill: TRAINEE_COLORS[name] ?? '#71717a',
+      fill: getTraineeColor(name),
     };
   });
 
   // Per-trainee weaknesses and strengths from checkpoints
   const traineeCheckpointStats: Record<string, Record<string, { pass: number; total: number }>> = {};
-  for (const s of traineeSessions ?? []) {
+  for (const s of orderedTraineeSessions) {
     if (!s.user_id || !s.checkpoints) continue;
     if (!traineeCheckpointStats[s.user_id]) traineeCheckpointStats[s.user_id] = {};
     const cp = s.checkpoints as Record<string, boolean>;
@@ -247,6 +273,7 @@ export default async function AdminOverviewPage() {
           <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">
             Avg scores over time (by trainee)
           </h2>
+          <p className="text-xs text-zinc-500 mb-4">Based on the most recent 500 sessions.</p>
           {traineeScoresOverTimeData.length > 0 ? (
             <TraineeScoresOverTimeChart data={traineeScoresOverTimeData} traineeNames={traineeNames} />
           ) : (
@@ -257,6 +284,7 @@ export default async function AdminOverviewPage() {
           <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">
             Total training hours per user
           </h2>
+          <p className="text-xs text-zinc-500 mb-4">Based on the most recent 500 sessions.</p>
           {trainingHoursData.length > 0 ? (
             <TrainingHoursPerUserChart data={trainingHoursData} />
           ) : (

@@ -1,0 +1,93 @@
+﻿{
+  "version": "0.1",
+  "last_updated": "2026-03-11",
+  "schema": {
+    "item": {
+      "id": "string (unique)",
+      "category": "string",
+      "subcategory": "string",
+      "title": "string",
+      "description": "string",
+      "triage_questions": ["string"],
+      "triage_steps": ["string"],
+      "resolution_steps": ["string"],
+      "escalation_policy": "string",
+      "severity_guidance": "string",
+      "impact_guidance": "string",
+      "first_call_resolution": "boolean",
+      "owner": "string",
+      "examples": ["string"],
+      "last_reviewed": "YYYY-MM-DD"
+    }
+  },
+  "items": [
+    {
+      "id": "identity.password_not_working",
+      "category": "Identity & Access",
+      "subcategory": "Password",
+      "title": "Password not working",
+      "description": "User cannot authenticate due to rejected password or repeated prompts.",
+      "triage_questions": [
+        "Is this affecting only you or multiple users?",
+        "When did it last work?",
+        "Are you seeing a specific error message?",
+        "Have you changed your password recently?",
+        "Is this happening on all devices or just one?"
+      ],
+      "triage_steps": [
+        "Confirm user identity and account status.",
+        "Check scope and impact per SLA definitions.",
+        "Confirm exact error wording and when it started.",
+        "Check for recent password changes or policy updates."
+      ],
+      "resolution_steps": [
+        "Initiate password reset workflow.",
+        "Confirm successful login after reset.",
+        "If MFA is used, verify enrollment is intact."
+      ],
+      "escalation_policy": "Escalate to T2 if reset fails or account appears compromised.",
+      "severity_guidance": "Typically Low or Medium unless widespread impact.",
+      "impact_guidance": "Determine if work is fully blocked or a workaround exists.",
+      "first_call_resolution": true,
+      "owner": "T1",
+      "examples": [
+        "Password rejected after recent change",
+        "Repeated password prompt in Outlook"
+      ],
+      "last_reviewed": "2026-03-11"
+    },
+    {
+      "id": "identity.account_lockout",
+      "category": "Identity & Access",
+      "subcategory": "Account Lockout",
+      "title": "Account lockout",
+      "description": "User account locked due to too many failed attempts or policy triggers.",
+      "triage_questions": [
+        "Is this affecting only you or multiple users?",
+        "When did you last successfully sign in?",
+        "Do you have any old devices trying to sync?",
+        "Are there any recent password changes?"
+      ],
+      "triage_steps": [
+        "Confirm user identity.",
+        "Check scope and impact per SLA definitions.",
+        "Confirm recent password changes and device sync issues."
+      ],
+      "resolution_steps": [
+        "Unlock account per standard procedure.",
+        "Advise user to update password on all devices.",
+        "Confirm successful login."
+      ],
+      "escalation_policy": "Escalate to T2 if repeated lockouts occur after unlock.",
+      "severity_guidance": "Typically Low unless multiple users are locked out.",
+      "impact_guidance": "Determine if user is fully blocked from work.",
+      "first_call_resolution": true,
+      "owner": "T1",
+      "examples": [
+        "Account locked after multiple login attempts",
+        "Mobile device repeatedly locking account"
+      ],
+      "last_reviewed": "2026-03-11"
+    }
+  ]
+}

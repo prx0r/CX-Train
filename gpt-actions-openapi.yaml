@@ -1,4 +1,4 @@
-# Paste this into the Custom GPT Actions config screen.
+﻿# Paste this into the Custom GPT Actions config screen.
 # Set authentication to API Key, header name: x-api-key
 # Value: bots.api_key from your database (SELECT api_key FROM bots WHERE id = 'call_sim')
 
@@ -64,11 +64,13 @@ paths:
                 - bot_id
                 - tech_name
                 - pathway_stage
-                - score
                 - passed
                 - hostname_gathered
                 - impact_gathered
                 - checkpoints
+                - rubric_evidence
+                - severity_level
+                - impact_level
               properties:
                 bot_id:
                   type: string
@@ -78,14 +80,18 @@ paths:
                   type: integer
                 personality_id:
                   type: string
-                score:
-                  type: integer
                 passed:
                   type: boolean
                 hostname_gathered:
                   type: boolean
                 impact_gathered:
                   type: boolean
+                severity_level:
+                  type: string
+                  enum: [low, medium, high]
+                impact_level:
+                  type: string
+                  enum: [low, medium, high]
                 priority_assigned:
                   type: string
                 priority_correct:
@@ -108,6 +114,8 @@ paths:
                   type: integer
                 checkpoints:
                   type: object
+                rubric_evidence:
+                  type: object
                 ticket_assessed:
                   type: boolean
                 ticket_score:
@@ -121,3 +129,71 @@ paths:
       responses:
         '200':
           description: Session recorded, returns updated progress
+
+  /taxonomy/search:
+    get:
+      operationId: searchTaxonomy
+      summary: Search taxonomy items
+      description: Search the taxonomy source of truth. Results must be used verbatim.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Search results with matching taxonomy items and metadata.
+
+  /taxonomy/item/{id}:
+    get:
+      operationId: getTaxonomyItem
+      summary: Get taxonomy item by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Taxonomy item details.
+
+  /taxonomy/propose-change:
+    post:
+      operationId: proposeTaxonomyChange
+      summary: Propose a taxonomy change
+      description: Submit a proposed change to the taxonomy. This does not modify the source of truth.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - change_type
+                - proposed_by
+                - reason
+              properties:
+                change_type:
+                  type: string
+                  enum: [add, update, delete]
+                proposed_by:
+                  type: string
+                reason:
+                  type: string
+                item:
+                  type: object
+                target_id:
+                  type: string
+      responses:
+        '200':
+          description: Proposal recorded with an id.
+
+

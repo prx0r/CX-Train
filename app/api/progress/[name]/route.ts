@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { CHECKPOINT_KEYS } from '@/lib/types';
 
@@ -30,23 +30,25 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
     }
 
-    // Find user by tech name (case-insensitive)
-    const nameParts = techName.trim().split(/\s+/);
-    const firstName = nameParts[0]?.toLowerCase() || techName.toLowerCase();
-
-    const { data: user } = await supabase
+    // Find user by full name (case-insensitive)
+    const { data: users } = await supabase
       .from('users')
       .select('id, name')
-      .ilike('name', `${firstName}%`)
-      .limit(1)
-      .single();
+      .ilike('name', techName.trim());
 
-    if (!user) {
+    if (!users || users.length === 0) {
       return NextResponse.json({
         found: false,
         tech_name: techName,
       });
     }
+    if (users.length > 1) {
+      return NextResponse.json(
+        { error: 'Multiple users match this name. Please use a unique identifier.' },
+        { status: 409 }
+      );
+    }
+    const user = users[0];
 
     // Get progress
     const { data: progress } = await supabase
@@ -69,6 +71,8 @@ export async function GET(
         boss_battle_passed: false,
         boss_battle_attempts: 0,
         cleared_for_live: false,
+        level: 1,
+        level_points: 0,
         recent_weaknesses: [],
         personality_stats: [],
       });
@@ -148,6 +152,8 @@ export async function GET(
       boss_battle_passed: progress.boss_battle_passed,
       boss_battle_attempts: progress.boss_battle_attempts,
       cleared_for_live: progress.cleared_for_live,
+      level: progress.level ?? 1,
+      level_points: progress.level_points ?? 0,
       recent_weaknesses: recentWeaknesses,
       personality_stats: personalityStats,
     });
