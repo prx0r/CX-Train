@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     const user = users?.[0] ?? null;
 
     // If not found, create stub user
-    let resolvedUser = user;
+    let resolvedUser: { id: string; name: string } | null = user ? { id: user.id, name: user.name } : null;
     if (!resolvedUser) {
       const { data: newUser, error: createError } = await supabase
         .from('users')
@@ -105,10 +105,10 @@ export async function POST(request: NextRequest) {
           role: 'trainee',
           is_stub: true,
         })
-        .select('id')
+        .select('id, name')
         .single();
 
-      if (createError) {
+      if (createError || !newUser) {
         console.error('Failed to create stub user:', createError);
         return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
       }
