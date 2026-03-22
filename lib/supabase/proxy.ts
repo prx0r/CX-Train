@@ -2,9 +2,19 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const isPublicRoute = (pathname: string) =>
-  ['/sign-in', '/sign-up', '/', '/demo', '/demo/exit', '/auth/callback', '/api/session', '/api/progress', '/api/upload', '/api/webhooks'].some(
-    (p) => pathname === p || pathname.startsWith(p + '/')
-  );
+  [
+    '/sign-in',
+    '/sign-up',
+    '/',
+    '/demo',
+    '/demo/exit',
+    '/auth/callback',
+    '/api/session',
+    '/api/progress',
+    '/api/levels/check',
+    '/api/upload',
+    '/api/webhooks',
+  ].some((p) => pathname === p || pathname.startsWith(p + '/'));
 
 export async function updateSession(request: NextRequest) {
   try {
