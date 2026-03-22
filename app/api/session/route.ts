@@ -201,7 +201,10 @@ export async function POST(request: NextRequest) {
     }
 
     const prevLevel = progress?.level ?? 1;
-    const levelPoints = Math.max(progress?.level_points ?? 0, scorePoints);
+    // Accumulate points: award points per session based on score (not max of one session)
+    // Each passing session earns floor(score/10) points; failing sessions earn 1 point for effort
+    const pointsThisSession = passed ? Math.max(1, Math.floor(checkpointScore / 10)) : 1;
+    const levelPoints = (progress?.level_points ?? 0) + pointsThisSession;
     const nextLevel = levelPoints >= LEVEL_2_THRESHOLD ? Math.max(prevLevel, 2) : prevLevel;
 
     await supabase.from('trainee_progress').upsert(

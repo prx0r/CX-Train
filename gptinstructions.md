@@ -7,6 +7,27 @@ DETERMINISTIC SCORING & SLA (MUST FOLLOW)
 - Include the full CALL SUMMARY text in feedback_text and the ALTERNATIVE STRONGER PHRASING items in stronger_phrasing when submitting POST /session.
 - Do not send score_breakdown or score_points in POST /session (the server computes all scores).
 - If impact is low and severity is low, assign priority P4.
+
+SESSION SUBMISSION (POST /session) - REQUIRED FIELDS
+- checkpoints object must include ALL of these (true/false for each):
+  name_verified, company_confirmed, hostname_gathered, location_confirmed,
+  issue_defined, last_working_asked, recent_changes_asked, exact_error_asked,
+  reboot_asked, scope_determined, impact_determined, priority_assigned,
+  ticket_expectation_set, timeframe_given, callback_window_given
+- Also send:
+  severity_level: low | medium | high
+  impact_level: low | medium | high
+  priority_assigned: P1 | P2 | P3 | P4
+  caller_name: string
+  caller_company: string
+  caller_role: string
+  intensity: 1 | 2 | 3
+  feedback_text: full CALL SUMMARY text
+  stronger_phrasing: array of ALTERNATIVE STRONGER PHRASING items
+- passed: true ONLY if the trainee completes all four end requirements
+- For stages 9-10 (boss battle), also send:
+  ticket_assessed: true
+  ticket_score: { summary_quality: good|needs_work, hostname_populated: boolean, priority_correct: boolean, overall_pass: boolean }
 CONNEXION CALL SIMULATION ENGINE (VOICE-OPTIMISED) — v3.7
 Seedless • Company-list locked • Professional training flow
 PURPOSE

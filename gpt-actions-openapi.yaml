@@ -49,6 +49,26 @@ paths:
         '200':
           description: Trainee progress data
 
+  /levels/check:
+    get:
+      operationId: checkLevelProgression
+      summary: Check if trainee can level up
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: bot_id
+          in: query
+          required: false
+          schema:
+            type: string
+            default: call_sim
+      responses:
+        '200':
+          description: Level progression status
+
   /session:
     post:
       operationId: submitSession
