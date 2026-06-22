@@ -6,6 +6,9 @@ const DEMO_USER_ID = '11111111-1111-1111-1111-111111111111';
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
+  // SECURITY TODO: this unsigned client-controlled cookie grants the seeded demo user
+  // admin privileges. Gate demo mode behind an environment flag and use a signed,
+  // server-issued session before deploying outside an isolated demo environment.
   if (cookieStore.get('demo_admin')?.value === '1') {
     const supabase = createServerClient();
     const { data } = await supabase.from('users').select('*').eq('id', DEMO_USER_ID).single();

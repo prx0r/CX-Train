@@ -35,6 +35,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
     }
 
+    // SECURITY TODO: `force` is currently authorized by a bot API key, not an admin
+    // session. Require admin authorization before allowing forced promotions.
     // Check if promotion is allowed
     if (!force) {
       const progression = await checkLevelProgression(user_id, bot_id);

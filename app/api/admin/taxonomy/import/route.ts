@@ -93,6 +93,9 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServerClient();
 
+    // DATA-SAFETY TODO: replacement is not atomic. A failed chunk insert after this
+    // delete leaves the taxonomy empty or partially populated. Move replacement into
+    // a database transaction/RPC before relying on imports in production.
     // Clear existing taxonomy
     await supabase.from('taxonomy_items').delete().neq('id', '');
 
