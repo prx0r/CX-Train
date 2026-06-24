@@ -17,6 +17,7 @@ const isPublicRoute = (pathname: string) =>
     '/assessment',
     '/api/assessment',
     '/api/gpt',
+    '/voice',
   ].some((p) => pathname === p || pathname.startsWith(p + '/'));
 
 export async function updateSession(request: NextRequest) {
