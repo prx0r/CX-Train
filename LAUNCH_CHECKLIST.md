@@ -8,9 +8,9 @@ Do not deploy for an MSP demo until all blocking items are checked.
 - [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` is set.
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` is set server-side only.
 - [ ] `DATABASE_URL` is available only to migration/operations tooling.
-- [ ] `CHUTES_API_KEY` is set server-side only.
-- [ ] `CHUTES_API_URL` is set or the documented default is accepted.
-- [ ] `CHUTES_MODEL` is set or the documented default is accepted.
+- [ ] `AI_API_KEY` (OpenRouter) is set server-side only.
+- [ ] `AI_BASE_URL` is set or the documented default is accepted.
+- [ ] `AI_CALLER_MODEL`, `AI_EVALUATOR_MODEL`, `AI_TICKET_MODEL`, `AI_REPORT_MODEL` are set.
 - [ ] `ENABLE_DEMO` is absent/false in production.
 - [ ] No secret is committed, exposed through `NEXT_PUBLIC_*`, or printed in logs.
 
@@ -47,7 +47,7 @@ Do not deploy for an MSP demo until all blocking items are checked.
 
 - [ ] Candidate can open the invite without creating an account.
 - [ ] Candidate sees the secrets/confidential-data warning.
-- [ ] Chutes returns a caller response and stays in character.
+- [ ] OpenRouter returns a caller response and stays in character.
 - [ ] Caller does not volunteer hidden facts before appropriate questions.
 - [ ] Ending a call stores `transcript_json` and `transcript_text`.
 - [ ] Evidence extraction returns checkpoint booleans and transcript evidence.

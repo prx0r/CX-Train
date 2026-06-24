@@ -1,6 +1,6 @@
-# CallCallum MSP owner demo script
+# CX-Train MSP owner demo script
 
-Target length: 8–10 minutes. Use a staging environment with the assessment migration applied and Chutes configured.
+Target length: 8–10 minutes. Use a staging environment with the assessment migration applied and OpenRouter configured.
 
 ## Before the meeting
 
@@ -8,7 +8,7 @@ Target length: 8–10 minutes. Use a staging environment with the assessment mig
 2. Sign in as a manager and open `/dashboard/admin/assessments`.
 3. Keep a second incognito window ready for the candidate link.
 4. Use fictional candidate and client data only. Never enter real credentials or confidential client information.
-5. Confirm one short candidate assessment can reach the Chutes caller before the meeting.
+5. Confirm one short candidate assessment can reach the OpenRouter caller before the meeting.
 
 ## Demo narrative
 
@@ -90,5 +90,5 @@ Close on the complete workflow: assessment pack, private invite, realistic calls
 
 - v1 uses typed simulated calls, not telephony or live voice.
 - Candidate links are bearer tokens; share them only with the intended candidate.
-- Chutes availability is required for caller responses and transcript evidence extraction.
+- OpenRouter availability is required for caller responses and transcript evidence extraction.
 - There are no PSA integrations, benchmarks, or automated hiring decisions in v1.

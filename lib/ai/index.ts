@@ -3,7 +3,10 @@
  * Central exports for all AI-related functionality
  */
 
-// Chutes AI integration
+// OpenRouter AI provider (primary MVP path)
+export { runAiTask, parseJsonResponse } from './provider';
+
+// Chutes AI integration (legacy, not used in OpenRouter MVP)
 export {
   callChutesAI,
   analyzeTrainingPatterns,
