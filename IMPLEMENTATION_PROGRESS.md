@@ -1,10 +1,12 @@
-# CX-Train OpenRouter MVP implementation progress
+# CX-Train MVP implementation progress
 
 Updated: 2026-06-24
 
 ## Objective
 
-Replace Chutes AI with OpenRouter free models as the primary AI provider. Keep the existing deterministic scoring, candidate flow, and manager report infrastructure.
+Validate the core CallCallum product loop quickly using the native web app, OpenRouter free models, and a local SQLite database.
+
+The Supabase production path is paused for this pass. The goal is local product validation, not production architecture.
 
 ## Completed (OpenRouter MVP)
 
@@ -21,13 +23,31 @@ Replace Chutes AI with OpenRouter free models as the primary AI provider. Keep t
 - `npm run build` exits 0.
 - `node scripts/test-openrouter.mjs` passes -- OpenRouter free models are reachable.
 
+## Completed (SQLite local MVP flow)
+
+- Added local SQLite MVP mode using `better-sqlite3`.
+- Added `MVP_DB_PROVIDER=sqlite` and `MVP_SQLITE_PATH=./data/callcallum.db` env path.
+- Added `scripts/mvp-init-db.mjs` and `scripts/mvp-reset-db.mjs`.
+- Added SQLite schema for assessments, sessions, messages, tickets, assessment results, manager feedback, criteria versions, and scenarios.
+- Seeded `MSP First-Line Call Readiness v1` criteria version.
+- Seeded one scenario: `Outlook not sending before meeting`.
+- Added manager dashboard at `/mvp`.
+- Added candidate page at `/mvp/assessment/[token]`.
+- Added manager detail page at `/mvp/assessments/[id]`.
+- Added `/api/mvp` routes for create assessment, candidate chat, end call, ticket submission, analysis, and manager feedback.
+- Added `scripts/test-mvp-flow.mjs` and `npm run test:mvp-flow`.
+- Validated bad-vs-good candidate comparison through local API flow:
+  - Bad candidate: `not_ready`, score 20.
+  - Good candidate: `ready`, score 88.
+
 ## Remaining validation
 
-- Run live end-to-end acceptance test with Supabase, OpenRouter, and a real candidate flow.
-- Verify evidence extraction returns valid JSON from OpenRouter free models.
-- Verify the caller stays in character and hidden facts stay hidden.
+- Run a full browser manual test from `/mvp` with incognito candidate links.
+- Keep checking hidden facts do not appear in candidate network responses.
+- Tune caller/evaluator prompts if OpenRouter free model quality is inconsistent.
 
 ## Known issues
 
 - `npx tsc --noEmit` fails with pre-existing stale `.next/types/` errors (not a regression).
-- No Supabase credentials in local environment -- cannot run end-to-end flow locally.
+- Supabase production flow is intentionally paused for this pass.
+- SQLite MVP mode has no production auth, no tenancy, and no durable production deployment model.
