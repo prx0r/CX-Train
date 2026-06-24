@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       .single();
     if (packError || !pack) throw packError || new Error('Assessment creation failed');
 
-    const token = randomBytes(32).toString('base64url');
+    const token = randomBytes(12).toString('base64url');
     const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     const { error: inviteError } = await supabase.from('assessment_invites').insert({
       assessment_pack_id: pack.id,
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     });
     if (inviteError) throw inviteError;
 
-    return NextResponse.json({ assessment_pack_id: pack.id, invite_url: `/assessment/${token}` }, { status: 201 });
+    return NextResponse.json({ assessment_pack_id: pack.id, assessment_code: token, invite_url: `/assessment/${token}` }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to create assessment';
     const status = message === 'Unauthorized' ? 401 : message.startsWith('Forbidden') ? 403 : 500;

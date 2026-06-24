@@ -19,13 +19,16 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const migrationPath = path.join(root, 'supabase/migrations/20260624000000_assessment_packs.sql');
+const migrationPaths = [
+  'supabase/migrations/20260624000000_assessment_packs.sql',
+  'supabase/migrations/20260624010000_manager_ai_feedback.sql',
+].map((filename) => path.join(root, filename));
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
 
 try {
   await client.connect();
   await client.query('begin');
-  await client.query(fs.readFileSync(migrationPath, 'utf8'));
+  for (const migrationPath of migrationPaths) await client.query(fs.readFileSync(migrationPath, 'utf8'));
   await client.query('commit');
 
   const { rows: tables } = await client.query(`
@@ -40,8 +43,9 @@ try {
     order by column_name
   `, [['assessment_pack_id', 'candidate_ticket_text', 'readiness_label', 'readiness_score', 'scenario_id', 'tenant_id', 'transcript_json', 'transcript_text']]);
   const { rows: scenarioRows } = await client.query('select count(*)::int as count from scenarios where active = true');
-  if (tables.length !== 6 || columns.length !== 8 || scenarioRows[0].count < 10) throw new Error('Migration verification failed: expected assessment schema objects are missing');
-  console.log(`Assessment migration verified: ${tables.length} tables, ${columns.length} session columns, ${scenarioRows[0].count} active scenarios.`);
+  const { rows: reviewColumns } = await client.query(`select column_name from information_schema.columns where table_schema='public' and table_name='manager_reviews' and column_name=any($1::text[])`, [['ai_feedback_rating','ai_feedback_comment','reviewed_ai_at','ai_readiness']]);
+  if (tables.length !== 6 || columns.length !== 8 || reviewColumns.length !== 4 || scenarioRows[0].count < 10) throw new Error('Migration verification failed: expected assessment schema objects are missing');
+  console.log(`Assessment migration verified: ${tables.length} tables, ${columns.length} session columns, ${reviewColumns.length} calibration columns, ${scenarioRows[0].count} active scenarios.`);
 } catch (error) {
   try { await client.query('rollback'); } catch {}
   console.error(error instanceof Error ? error.message : error);

@@ -92,3 +92,15 @@ Implement the focused workflow described in `/home/box/Documents/ccspec`:
 - Centralized and tested thresholds: 80+ Ready, 60–79 Needs supervision, below 60 Not ready; critical misses cap the result and unsafe/invented behaviour produces Not ready.
 - Persisted in-progress call messages server-side and ticket drafts in browser storage so candidate refresh resumes the correct step.
 - Tightened AI evidence validation to require every checkpoint boolean and evidence string.
+
+## Custom GPT production path — 2026-06-24
+
+- Reused the existing Supabase assessment, invite, transcript, scoring, tenant, and review infrastructure rather than creating a second datastore.
+- Added three API-key-protected GPT Actions: validate progress, start the next fixed call, and submit transcript/ticket/evidence.
+- Removed Chutes from the Custom GPT execution path; the GPT simulates the caller and extracts evidence while the server scores deterministically.
+- Replaced the broad legacy Actions schema and training-hub prompt with a focused First Calls OpenAPI contract and GPT instructions.
+- Manager creation now exposes a 96-bit private assessment code for the candidate to enter alongside their name.
+- Hidden scenario facts are kept out of Action responses and held in the GPT assessor instructions.
+- Added a blind manager review followed by AI reveal and stored 1–5 AI-analysis feedback/comments for calibration.
+- Added a second migration for AI calibration fields and updated the migration verifier.
+- Added `GPT_SETUP.md` with the exact GPT configuration and a safe feedback-to-evaluation workflow.

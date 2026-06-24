@@ -16,6 +16,7 @@ const isPublicRoute = (pathname: string) =>
     '/api/webhooks',
     '/assessment',
     '/api/assessment',
+    '/api/gpt',
   ].some((p) => pathname === p || pathname.startsWith(p + '/'));
 
 export async function updateSession(request: NextRequest) {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 export function NewAssessmentForm() {
-  const [result, setResult] = useState<{ assessment_pack_id: string; invite_url: string } | null>(null);
+  const [result, setResult] = useState<{ assessment_pack_id: string; assessment_code: string; invite_url: string } | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   async function submit(formData: FormData) {
@@ -14,8 +14,7 @@ export function NewAssessmentForm() {
     setResult(data);
   }
   if (result) {
-    const invite = `${window.location.origin}${result.invite_url}`;
-    return <div className="rounded-2xl border border-sky-400/30 bg-sky-400/10 p-6 space-y-4"><h2 className="text-lg font-semibold text-white">Assessment link ready</h2><p className="break-all rounded-lg bg-black/30 p-3 text-sm text-sky-200">{invite}</p><div className="flex gap-3"><button onClick={() => navigator.clipboard.writeText(invite)} className="rounded-lg bg-sky-300 px-4 py-2 text-sm font-semibold text-zinc-950">Copy link</button><a href={`/dashboard/admin/assessments/${result.assessment_pack_id}`} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-white">View assessment</a></div></div>;
+    return <div className="rounded-2xl border border-sky-400/30 bg-sky-400/10 p-6 space-y-4"><h2 className="text-lg font-semibold text-white">Assessment ready</h2><div><p className="text-xs uppercase tracking-wide text-zinc-400">Private assessment code</p><p className="mt-1 font-mono text-2xl tracking-wider text-sky-200">{result.assessment_code}</p></div><p className="text-sm text-zinc-300">Send the candidate this code and tell them to open the First Calls Custom GPT.</p><div className="flex flex-wrap gap-3"><button onClick={() => navigator.clipboard.writeText(result.assessment_code)} className="rounded-lg bg-sky-300 px-4 py-2 text-sm font-semibold text-zinc-950">Copy code</button><a href={`/dashboard/admin/assessments/${result.assessment_pack_id}`} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-white">View assessment</a></div></div>;
   }
   return <form action={submit} className="max-w-2xl space-y-5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
     <label className="block text-sm text-zinc-300">Candidate name<input required name="candidate_name" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label>
