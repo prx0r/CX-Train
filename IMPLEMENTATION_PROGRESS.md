@@ -38,7 +38,7 @@ Implement the focused workflow described in `/home/box/Documents/ccspec`:
 
 ## In progress
 
-- Commit and push the completed implementation.
+- No implementation work remains in the current scope.
 
 ## Remaining validation
 
@@ -62,3 +62,7 @@ Implement the focused workflow described in `/home/box/Documents/ccspec`:
 - Candidates cannot submit their own checkpoint score as a fallback.
 - Demo-cookie administrator access is disabled in production in both auth and middleware.
 - Existing `/api/session` was not changed, preserving the legacy Custom GPT contract.
+
+## Delivery
+
+- Implementation commit `3a9dbae` was pushed to `origin/main` on 2026-06-24.
