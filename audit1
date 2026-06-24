@@ -1,0 +1,144 @@
+# Codebase Audit — CX-Train
+
+Date: 2026-06-24
+
+---
+
+## Current (OpenRouter Lightweight MVP) — ~20 files, ~3,000 lines
+
+### Routes
+| Route | Purpose |
+|---|---|
+| `/mvp` | Manager creates assessments, gets invite links |
+| `/mvp/assessment/[token]` | Candidate chat UI (incognito) |
+| `/mvp/assessments/[id]` | Manager reviews transcript + analysis + feedback |
+
+### API Routes (active)
+- `api/mvp/assessments` + `api/mvp/assessments/[id]`
+- `api/mvp/assessments/[id]/analyse`
+- `api/mvp/assessments/[id]/feedback`
+- `api/mvp/assessment/[token]`
+- `api/mvp/assessment/[token]/message`
+- `api/mvp/assessment/[token]/end`
+- `api/mvp/assessment/[token]/ticket`
+
+### Key Files
+| File | Role |
+|---|---|
+| `lib/mvp/db.ts` | SQLite schema + seed (8 tables) |
+| `lib/mvp/query.ts` | SQLite query layer |
+| `lib/ai/provider.ts` | OpenRouter provider with retry |
+| `lib/assessment-ai.ts` | OpenRouter evaluator |
+| `lib/assessment-scoring.ts` | Deterministic scoring |
+| `scripts/mvp-init-db.mjs` | Init SQLite DB |
+| `scripts/mvp-reset-db.mjs` | Reset SQLite DB |
+| `scripts/test-mvp-flow.mjs` | 37-check integration test |
+| `scripts/test-openrouter.mjs` | API key smoke test |
+| `.env.example` | Documents current vars |
+
+### Architecture
+- No auth (manager + candidate pages fully public)
+- SQLite via better-sqlite3 (local only, not prod-ready)
+- OpenRouter free models for caller simulation + evaluation
+- Deterministic ticket scoring (regex-based) + AI checkpoint scoring
+- Single seeded scenario + criteria version
+
+---
+
+## Legacy (Supabase/Chutes Build) — ~90 files, ~15,000+ lines
+
+### Auth (Clerk + Supabase)
+- `app/(auth)/` — Clerk sign-in/sign-up pages
+- `lib/supabase/client.ts`, `server.ts`, `proxy.ts`
+- `middleware.ts` — Supabase session refresh
+- `app/auth/callback/route.ts` — Auth code exchange
+- `app/api/webhooks/clerk/route.ts` — User sync
+
+### Dashboard Pages
+- `app/(dashboard)/` route group (~26 files)
+  - Admin: assessments, bots, trainees, sessions, taxonomy CRUD
+  - Trainee: progress, history, how-it-works, future-ideas
+
+### Dashboard Components
+- `components/admin/` — 18 files (charts, tables, editors)
+- `components/trainee/` — 4 files
+- `components/shared/` — 3 files
+- `components/assessments/` — 3 files
+
+### Legacy Assessment Flow
+- `app/assessment/[token]/page.tsx` — Supabase candidate page
+- `app/voice/[token]/` — Voice assessment UI (3 files)
+- `api/assessment/[token]/*` — start-session, submit-session, respond, submit-ticket
+- `api/voice/session/*` — Voice session CRUD
+- `api/gpt/first-calls/[token]/*` — Custom GPT integration
+
+### Legacy AI (Chutes)
+- `lib/ai/chutes.ts` — Chutes AI integration
+- `lib/ai/monitor.ts` — AI monitoring
+- `lib/ai/feedback-analyzer.ts` — Feedback analysis
+- `api/ai/analyze/route.ts`, `api/ai/monitor/route.ts`
+
+### Taxonomy System
+- `lib/taxonomy.ts`, `lib/taxonomy-db.ts`
+- `api/taxonomy/search`, `/item/[id]`, `/propose-change`, `/apply-change`
+- `api/admin/taxonomy/*` — CRUD + import
+- `taxonomy/` directory (JSON/Excel source files)
+
+### Scoring / Levels / GPT Actions
+- `api/levels/promote`, `api/levels/check`
+- `api/session`, `api/progress/[name]`, `api/upload`, `api/labels`, `api/prompt/[bot_id]`
+- `lib/scoring.ts` — Rubric scoring
+
+### Voice / Evaluation
+- `lib/voice/` — 8 files (session, chat, stt, tts, providers, cost-tracker)
+- `lib/evaluation/` — 5 files (evaluator, scoring, types, scenarios, prompts)
+
+### Admin APIs
+- `api/admin/bots/[id]`, `api/admin/bots/[id]/documents`
+- `api/admin/cleared-for-live`
+
+### Legacy Infrastructure
+- `supabase/` directory — schema.sql, seed.sql, 9 migration files
+- `lib/supabase/` — 3 auth helper files
+
+### Documentation (outdated)
+- `blueprint.md`, `SOURCE_OF_TRUTH.md`, `DEPLOY.md`
+- `WORKING_SETUP.md`, `AGENT_HANDOFF.md`, `PROJECT_AUDIT.md`
+- `FUTURE_INTEGRATIONS.md`, `PROPOSED_CHANGES.md`
+- `gptinstructions.md`, `gpt-actions-openapi.yaml`
+- `SETUP.md` (partially updated)
+
+### Build Artifacts
+- `.next/` — Next.js build output
+- `.test-dist/` — Compiled test output
+- `next-env.d.ts` — Auto-generated types
+- `tsconfig.tsbuildinfo` — Incremental build cache
+
+### Other
+- `CONNEXION_System_Audit_2026.docx` — Binary doc
+- `mvp` — Unknown root-level binary/artifact
+- `data/` — Empty directory
+
+---
+
+## Critical Issues
+
+1. **No auth on MVP** — Manager page at `/mvp` is fully public
+2. **Live API key in `.env.local`** — `AI_API_KEY` is committed as plaintext
+3. **Demo cookie bypass** — `demo_admin=1` cookie grants admin access (`lib/auth.ts`)
+4. **Next.js 14.2.0** — known CVEs (1 critical, 11 high)
+5. **Dual data models** — `lib/types.ts` (legacy) vs `lib/mvp/query.ts` (current)
+6. **Dead imports throughout** — files referencing legacy modules
+7. **Race condition** — progress updates use read/compute/upsert pattern
+8. **Two definitions of "passed"** — GPT-supplied vs server-computed
+
+---
+
+## Counts
+
+| Category | Files | Est. Lines |
+|---|---|---|
+| Active MVP code | ~20 | ~3,000 |
+| Legacy code | ~90 | ~15,000+ |
+| Build artifacts | ~500+ | ~5,000+ |
+| Documentation | ~20 | ~2,000+ |
