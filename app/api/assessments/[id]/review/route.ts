@@ -4,7 +4,7 @@ import { requireManagerTenant } from '@/lib/assessment-data';
 import { createServerClient } from '@/lib/supabase';
 import type { FinalReadiness } from '@/lib/types';
 
-const READINESS = new Set<FinalReadiness>(['strong_hire','possible_hire','risky_hire','not_recommended','ready_low_risk_calls','ready_with_supervision','triage_only','not_ready']);
+const READINESS = new Set<FinalReadiness>(['ready_low_risk_calls','ready_with_supervision','not_ready']);
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

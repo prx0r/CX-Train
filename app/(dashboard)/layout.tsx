@@ -31,18 +31,6 @@ export default async function DashboardLayout({
                 <Link href="/dashboard/admin/assessments" className="text-sky-300 hover:text-sky-200 text-sm font-medium transition-colors">
                   Assessments
                 </Link>
-                <Link href="/dashboard/admin" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
-                  Analytics
-                </Link>
-                <Link href="/dashboard/admin/trainees" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
-                  Trainees
-                </Link>
-                <Link href="/dashboard/admin/bots" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
-                  Bots
-                </Link>
-                <Link href="/dashboard/admin/sessions" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
-                  Sessions
-                </Link>
               </>
             )}
             {!isAdmin && (

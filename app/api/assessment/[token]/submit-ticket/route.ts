@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getInviteContext } from '@/lib/assessment-data';
-import { combineCallAndTicketScore, getReadinessLabel, scoreTicket } from '@/lib/assessment-scoring';
+import { combineCallAndTicketScore, getFirstCallsReadiness, scoreTicket } from '@/lib/assessment-scoring';
 import { createServerClient } from '@/lib/supabase';
 
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const ticketScore = scoreTicket(ticket, session.transcript_text);
   const readinessScore = combineCallAndTicketScore(session.score ?? 0, ticketScore.score);
   const criticalMisses = ((session.score_breakdown as { critical_misses?: string[] } | null)?.critical_misses ?? []).concat(ticketScore.score < 40 ? ['usable_ticket'] : []);
-  const readinessLabel = getReadinessLabel(readinessScore, context.pack.mode, criticalMisses);
+  const readinessLabel = getFirstCallsReadiness(readinessScore, criticalMisses);
   const { error } = await supabase.from('sessions').update({
     candidate_ticket_text: ticket,
     ticket_assessed: true,
@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     const average = Math.round((sessions ?? []).reduce((sum, item) => sum + (item.readiness_score ?? 0), 0) / Math.max(1, sessions?.length ?? 0));
     const misses = (sessions ?? []).flatMap((item) => ((item.score_breakdown as { critical_misses?: string[] } | null)?.critical_misses ?? []));
     if ((sessions ?? []).some((item) => (item.ticket_score as { score?: number } | null)?.score != null && (item.ticket_score as { score: number }).score < 40)) misses.push('usable_ticket');
-    await supabase.from('assessment_packs').update({ status: 'completed', completed_at: new Date().toISOString(), final_recommendation: getReadinessLabel(average, context.pack.mode, misses) }).eq('id', context.pack.id).eq('tenant_id', context.pack.tenant_id);
+    await supabase.from('assessment_packs').update({ status: 'completed', completed_at: new Date().toISOString(), final_recommendation: getFirstCallsReadiness(average, misses) }).eq('id', context.pack.id).eq('tenant_id', context.pack.tenant_id);
   }
   return NextResponse.json({ success: true, ticket_score: ticketScore, readiness_score: readinessScore, complete });
 }

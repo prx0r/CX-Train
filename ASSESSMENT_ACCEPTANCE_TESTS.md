@@ -22,13 +22,13 @@ Run against staging after the assessment migration. Record date, commit SHA, tes
 ## B. Manager creates an assessment
 
 1. Sign in as the staging manager.
-2. Create a hiring assessment for `Test Candidate`, three calls, candidate difficulty.
+2. Create a First Calls assessment for `Test Candidate` using only name and optional email.
 3. Verify the response and database.
 
 Expected:
 
 - candidate row uses the manager tenant ID;
-- pack uses candidate ID, tenant ID, manager user ID, `hiring`, `candidate`, count 3, and `invited`;
+- pack uses candidate ID, tenant ID, manager user ID, the fixed internal mode, `candidate`, count 3, title `First Calls`, and `invited`;
 - invite has a unique token and future expiry;
 - generated URL opens successfully;
 - creation takes under 60 seconds.
@@ -81,7 +81,7 @@ Repeat D/E until all three calls are complete. A fourth start must return `compl
 Expected after the final ticket:
 
 - pack status is `completed` and `completed_at` is set;
-- recommendation follows hiring thresholds and critical-miss rules;
+- recommendation follows the First Calls thresholds and critical-miss rules: Ready, Needs supervision, or Not ready;
 - manager detail shows 3/3 completed;
 - report shows each scenario, readiness score, feedback, checkpoint evidence, ticket, and transcript;
 - quoted evidence exists in or is directly supported by the transcript;

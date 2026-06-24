@@ -20,11 +20,7 @@ export function NewAssessmentForm() {
   return <form action={submit} className="max-w-2xl space-y-5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
     <label className="block text-sm text-zinc-300">Candidate name<input required name="candidate_name" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label>
     <label className="block text-sm text-zinc-300">Candidate email<input type="email" name="candidate_email" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label>
-    <div className="grid gap-5 sm:grid-cols-3">
-      <label className="text-sm text-zinc-300">Mode<select name="mode" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"><option value="hiring">Hiring</option><option value="onboarding">Onboarding</option><option value="probation">Probation</option><option value="retraining">Retraining</option></select></label>
-      <label className="text-sm text-zinc-300">Difficulty<select name="difficulty" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"><option value="candidate">Non-technical candidate</option><option value="junior">Junior service desk</option><option value="live_call_ready">Live-call ready</option></select></label>
-      <label className="text-sm text-zinc-300">Calls<select name="scenario_count" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"><option value="3">3</option><option value="5">5</option><option value="10">10</option></select></label>
-    </div>
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4 text-sm text-zinc-400"><span className="font-medium text-white">First Calls</span> includes three fixed simulations: password/login, Outlook not sending, and printer not printing.</div>
     {error && <p className="text-sm text-red-300">{error}</p>}
     <button disabled={busy} className="rounded-lg bg-sky-300 px-5 py-2.5 font-semibold text-zinc-950 disabled:opacity-50">{busy ? 'Creating…' : 'Create assessment link'}</button>
   </form>;

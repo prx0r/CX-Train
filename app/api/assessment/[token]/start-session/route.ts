@@ -9,22 +9,23 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   const supabase = createServerClient();
   const { data: existing } = await supabase
     .from('sessions')
-    .select('id, scenario_id, transcript_text, candidate_ticket_text, scenarios(*)')
+    .select('id, scenario_id, transcript_json, transcript_text, candidate_ticket_text, scenarios(*)')
     .eq('assessment_pack_id', context.pack.id)
     .order('created_at');
   const unfinished = (existing ?? []).find((session) => !session.candidate_ticket_text);
   if (unfinished) {
     const scenario = Array.isArray(unfinished.scenarios) ? unfinished.scenarios[0] : unfinished.scenarios;
-    return NextResponse.json({ session_id: unfinished.id, scenario: publicScenario(scenario ?? {}), step: unfinished.transcript_text ? 'ticket' : 'call', call_number: (existing ?? []).indexOf(unfinished) + 1 });
+    return NextResponse.json({ session_id: unfinished.id, scenario: publicScenario(scenario ?? {}), step: unfinished.transcript_text ? 'ticket' : 'call', call_number: (existing ?? []).indexOf(unfinished) + 1, messages: unfinished.transcript_text ? [] : (unfinished.transcript_json ?? []) });
   }
   if ((existing?.length ?? 0) >= context.pack.scenario_count) {
     return NextResponse.json({ complete: true });
   }
 
   const usedIds = new Set((existing ?? []).map((session) => session.scenario_id));
-  const { data: scenarios } = await supabase.from('scenarios').select('*').eq('active', true).order('created_at');
-  const available = (scenarios ?? []).filter((scenario) => !usedIds.has(scenario.id));
-  const scenario = available.find((item) => item.difficulty === context.pack.difficulty) ?? available[0];
+  const fixedTitles = ['Password/login issue', 'Outlook not sending', 'Printer not printing'];
+  const { data: scenarios } = await supabase.from('scenarios').select('*').eq('active', true).in('title', fixedTitles);
+  const byTitle = new Map((scenarios ?? []).map((scenario) => [scenario.title, scenario]));
+  const scenario = fixedTitles.map((title) => byTitle.get(title)).find((item) => item && !usedIds.has(item.id));
   if (!scenario) return NextResponse.json({ error: 'No scenarios available' }, { status: 409 });
 
   const { data: session, error } = await supabase

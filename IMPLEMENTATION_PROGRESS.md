@@ -81,3 +81,14 @@ Implement the focused workflow described in `/home/box/Documents/ccspec`:
 - Migration execution was attempted and correctly stopped because no `DATABASE_URL` is configured locally. No Supabase credentials are present in the repository or `/home/box/Documents/safe`.
 - Added `DEMO_SCRIPT.md`, `LAUNCH_CHECKLIST.md`, and `ASSESSMENT_ACCEPTANCE_TESTS.md`.
 - Live database, Chutes, and end-to-end acceptance validation remain blocked until staging credentials are supplied.
+
+## First Calls MVP streamlining — 2026-06-24
+
+- Fixed every new assessment to one product: `First Calls`, three calls, candidate difficulty, onboarding/readiness mode.
+- Removed mode, difficulty, and scenario-count controls from manager creation.
+- Fixed scenario order to password/login, Outlook not sending, then printer not printing using stable scenario titles.
+- Made the assessment list the default manager destination and removed legacy product navigation from the primary manager journey.
+- Reduced visible recommendations to Ready, Needs supervision, and Not ready.
+- Centralized and tested thresholds: 80+ Ready, 60–79 Needs supervision, below 60 Not ready; critical misses cap the result and unsafe/invented behaviour produces Not ready.
+- Persisted in-progress call messages server-side and ticket drafts in browser storage so candidate refresh resumes the correct step.
+- Tightened AI evidence validation to require every checkpoint boolean and evidence string.

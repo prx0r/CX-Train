@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateCheckpointScore, combineCallAndTicketScore, getReadinessLabel, scoreTicket } from '../lib/assessment-scoring';
+import { calculateCheckpointScore, combineCallAndTicketScore, getFirstCallsReadiness, getReadinessLabel, scoreTicket } from '../lib/assessment-scoring';
 
 test('passes impact, scope and device checkpoints when evidence is present', () => {
   const required = { capture_device_or_hostname:true, ask_business_impact:true, ask_scope_one_or_many:true };
@@ -40,4 +40,13 @@ test('maps readiness labels by mode, score and critical misses', () => {
 
 test('weights call quality at 75% and ticket quality at 25%', () => {
   assert.equal(combineCallAndTicketScore(80, 60), 75);
+});
+
+test('uses explicit First Calls thresholds and caps critical misses', () => {
+  assert.equal(getFirstCallsReadiness(80, []), 'ready_low_risk_calls');
+  assert.equal(getFirstCallsReadiness(79, []), 'ready_with_supervision');
+  assert.equal(getFirstCallsReadiness(60, []), 'ready_with_supervision');
+  assert.equal(getFirstCallsReadiness(59, []), 'not_ready');
+  assert.equal(getFirstCallsReadiness(95, ['ask_business_impact']), 'ready_with_supervision');
+  assert.equal(getFirstCallsReadiness(95, ['no_invented_fix']), 'not_ready');
 });

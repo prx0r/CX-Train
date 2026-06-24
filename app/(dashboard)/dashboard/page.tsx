@@ -8,7 +8,7 @@ export default async function DashboardPage() {
   const role = user.role ?? 'trainee';
 
   if (role === 'admin') {
-    redirect('/dashboard/admin');
+    redirect('/dashboard/admin/assessments');
   }
   redirect('/dashboard/trainee');
 }

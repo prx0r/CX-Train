@@ -20,8 +20,8 @@ Open with the decision being solved:
 
 1. Click **New assessment**.
 2. Enter `Alex Morgan` and a fictional email.
-3. Choose **Hiring**, **Non-technical candidate**, and **3 calls**.
-4. Click **Create assessment link**.
+3. Confirm the fixed **First Calls** pack: password/login, Outlook not sending, and printer not printing.
+4. Click **Create assessment link**. There are no pack, mode, difficulty, or call-count settings in the MVP.
 
 Explain that candidates do not need accounts and are identified by a candidate record plus a private, expiring invite token—not by name alone.
 

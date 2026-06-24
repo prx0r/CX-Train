@@ -3,14 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-export function ReviewForm({ assessmentId, aiScore, mode }: { assessmentId: string; aiScore: number; mode: string }) {
+export function ReviewForm({ assessmentId, aiScore }: { assessmentId: string; aiScore: number }) {
   const router = useRouter(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   async function submit(formData: FormData) {
     setBusy(true); setError(''); const body = Object.fromEntries(formData); body.agreed_with_ai = body.agreed_with_ai === 'true' ? 'true' : 'false';
     const response = await fetch(`/api/assessments/${assessmentId}/review`, { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ ...body, agreed_with_ai: body.agreed_with_ai === 'true' }) });
     const data = await response.json(); setBusy(false); if (!response.ok) return setError(data.error || 'Unable to save review'); router.refresh();
   }
-  const labels = mode === 'hiring' ? [['strong_hire','Strong hire'],['possible_hire','Possible hire'],['risky_hire','Risky hire'],['not_recommended','Not recommended']] : [['ready_low_risk_calls','Ready for low-risk calls'],['ready_with_supervision','Ready with supervision'],['triage_only','Triage only'],['not_ready','Not ready']];
+  const labels = [['ready_low_risk_calls','Ready'],['ready_with_supervision','Needs supervision'],['not_ready','Not ready']];
   return <form action={submit} className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
     <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm text-zinc-300">Manager score<input name="manager_score" type="number" min="0" max="100" defaultValue={aiScore} required className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label><label className="text-sm text-zinc-300">Final readiness<select name="final_readiness" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white">{labels.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
     <label className="block text-sm text-zinc-300">AI assessment<select name="agreed_with_ai" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"><option value="true">I agree</option><option value="false">I am overriding it</option></select></label>

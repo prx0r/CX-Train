@@ -27,7 +27,9 @@ export async function extractAssessmentEvidence(
 
   if (!result.success) return null;
   const parsed = parseJsonObject(result.data);
-  if (!parsed || typeof parsed.checkpoint_results !== 'object') return null;
+  if (!parsed || typeof parsed.checkpoint_results !== 'object' || !parsed.checkpoint_results) return null;
+  const checkpointResults = parsed.checkpoint_results as Record<string, { passed?: unknown; evidence?: unknown }>;
+  if (keys.some((key) => typeof checkpointResults[key]?.passed !== 'boolean' || typeof checkpointResults[key]?.evidence !== 'string')) return null;
   return parsed as {
     checkpoint_results: Record<string, { passed: boolean; evidence?: string }>;
     feedback_text?: string;

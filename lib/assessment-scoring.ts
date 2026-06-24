@@ -91,6 +91,23 @@ export function getReadinessLabel(
   return 'not_ready';
 }
 
+export function getFirstCallsReadiness(
+  averageScore: number,
+  criticalMisses: string[] = []
+): 'ready_low_risk_calls' | 'ready_with_supervision' | 'not_ready' {
+  const unsafe = criticalMisses.some((key) => ['safe_advice', 'no_invented_fix'].includes(key));
+  if (unsafe || averageScore < 60) return 'not_ready';
+  if (averageScore >= 80 && criticalMisses.length === 0) return 'ready_low_risk_calls';
+  return 'ready_with_supervision';
+}
+
+export function displayReadiness(value: string | null | undefined): string {
+  if (value === 'ready_low_risk_calls') return 'Ready';
+  if (value === 'ready_with_supervision') return 'Needs supervision';
+  if (value === 'not_ready') return 'Not ready';
+  return value ? value.replace(/_/g, ' ') : 'Pending';
+}
+
 export function combineCallAndTicketScore(callScore: number, ticketScore: number): number {
   return Math.round(callScore * 0.75 + ticketScore * 0.25);
 }

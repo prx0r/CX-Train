@@ -3,10 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { requireManagerTenant } from '@/lib/assessment-data';
 import { createServerClient } from '@/lib/supabase';
-import type { AssessmentDifficulty, AssessmentMode } from '@/lib/types';
-
-const MODES = new Set<AssessmentMode>(['hiring', 'onboarding', 'probation', 'retraining']);
-const DIFFICULTIES = new Set<AssessmentDifficulty>(['candidate', 'junior', 'live_call_ready']);
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,10 +10,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const name = String(body.candidate_name || '').trim();
     const email = String(body.candidate_email || '').trim() || null;
-    const mode = body.mode as AssessmentMode;
-    const difficulty = body.difficulty as AssessmentDifficulty;
-    const scenarioCount = Number(body.scenario_count);
-    if (!name || !MODES.has(mode) || !DIFFICULTIES.has(difficulty) || ![3, 5, 10].includes(scenarioCount)) {
+    if (!name || name.length > 120 || (email && email.length > 254)) {
       return NextResponse.json({ error: 'Invalid assessment details' }, { status: 400 });
     }
 
@@ -36,10 +29,10 @@ export async function POST(request: NextRequest) {
         tenant_id: tenantId,
         candidate_id: candidate.id,
         created_by: user.id,
-        mode,
-        difficulty,
-        scenario_count: scenarioCount,
-        title: `${name} — ${mode.charAt(0).toUpperCase() + mode.slice(1)} assessment`,
+        mode: 'onboarding',
+        difficulty: 'candidate',
+        scenario_count: 3,
+        title: 'First Calls',
         status: 'invited',
       })
       .select('id')
