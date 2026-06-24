@@ -14,6 +14,8 @@ const isPublicRoute = (pathname: string) =>
     '/api/levels/check',
     '/api/upload',
     '/api/webhooks',
+    '/assessment',
+    '/api/assessment',
   ].some((p) => pathname === p || pathname.startsWith(p + '/'));
 
 export async function updateSession(request: NextRequest) {
@@ -45,7 +47,7 @@ export async function updateSession(request: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    const demoCookie = request.cookies.get('demo_admin')?.value === '1';
+    const demoCookie = process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEMO === 'true' && request.cookies.get('demo_admin')?.value === '1';
     if (!user && !demoCookie && !isPublicRoute(request.nextUrl.pathname)) {
       const url = request.nextUrl.clone();
       url.pathname = '/sign-in';

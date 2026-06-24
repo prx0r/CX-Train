@@ -2,8 +2,66 @@
 
 export type UserRole = 'trainee' | 'admin';
 
+export type AssessmentMode = 'hiring' | 'onboarding' | 'probation' | 'retraining';
+export type AssessmentDifficulty = 'candidate' | 'junior' | 'live_call_ready';
+export type AssessmentStatus = 'draft' | 'invited' | 'in_progress' | 'completed' | 'reviewed';
+export type FinalReadiness =
+  | 'strong_hire'
+  | 'possible_hire'
+  | 'risky_hire'
+  | 'not_recommended'
+  | 'ready_low_risk_calls'
+  | 'ready_with_supervision'
+  | 'triage_only'
+  | 'not_ready';
+
+export type AssessmentCategory =
+  | 'call_control'
+  | 'identity_context'
+  | 'information_gathering'
+  | 'impact_scope'
+  | 'troubleshooting_mindset'
+  | 'expectation_setting'
+  | 'ticket_quality'
+  | 'escalation_judgement'
+  | 'communication'
+  | 'no_bluffing';
+
+export interface Tenant { id: string; name: string; created_at: string }
+export interface Candidate { id: string; tenant_id: string; name: string; email: string | null; status: string; created_at: string }
+export interface AssessmentPack {
+  id: string;
+  tenant_id: string;
+  candidate_id: string;
+  created_by: string;
+  mode: AssessmentMode;
+  title: string;
+  difficulty: AssessmentDifficulty;
+  scenario_count: 3 | 5 | 10;
+  status: AssessmentStatus;
+  pass_threshold: number;
+  final_recommendation: FinalReadiness | null;
+  completed_at: string | null;
+  created_at: string;
+}
+export interface Scenario {
+  id: string;
+  title: string;
+  issue_family: string;
+  difficulty: AssessmentDifficulty;
+  mode: string;
+  caller_persona: string | null;
+  intensity: 1 | 2 | 3;
+  hidden_facts: Record<string, unknown>;
+  required_checkpoints: Record<string, boolean>;
+  ideal_ticket: { summary?: string; must_include?: string[] };
+  common_mistakes: string[];
+  active: boolean;
+}
+
 export interface User {
   id: string;
+  tenant_id?: string | null;
   clerk_id: string;
   name: string;
   email: string;

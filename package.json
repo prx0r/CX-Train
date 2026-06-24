@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "tsc tests/assessment-scoring.test.ts lib/assessment-scoring.ts --outDir .test-dist --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck && node --test .test-dist/tests/assessment-scoring.test.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

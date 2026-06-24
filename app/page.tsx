@@ -17,32 +17,25 @@ export default async function HomePage() {
       </header>
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
         <h1 className="text-3xl font-semibold text-white tracking-tight text-center">
-          Training Hub
+          MSP Call Readiness Assessments
         </h1>
         <p className="text-zinc-500 text-center mt-2 max-w-md">
-          Internal MSP technician training — call simulation, qualifications (A+, tutors), escalation, ticket simulation
+          Put candidates and new starters through realistic support calls before they speak to real clients.
         </p>
         <div className="mt-10 flex flex-col items-center gap-4">
-          <Link
-            href="/demo"
-            className="px-8 py-3.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium transition-colors"
-          >
-            View demo
-          </Link>
-          <p className="text-zinc-600 text-sm">No login required</p>
           <div className="flex gap-3">
             <Link
               href="/sign-in"
               className="px-4 py-2 text-zinc-400 hover:text-white text-sm transition-colors"
             >
-              Sign in
+              Manager sign in
             </Link>
-            <span className="text-zinc-600">·</span>
+            <span className="text-zinc-600">or</span>
             <Link
               href="/sign-up"
               className="px-4 py-2 text-zinc-400 hover:text-white text-sm transition-colors"
             >
-              Sign up
+              Create account
             </Link>
           </div>
         </div>

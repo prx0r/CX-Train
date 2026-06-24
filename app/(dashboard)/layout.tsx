@@ -28,8 +28,11 @@ export default async function DashboardLayout({
           <nav className="flex items-center gap-8">
             {isAdmin && (
               <>
+                <Link href="/dashboard/admin/assessments" className="text-sky-300 hover:text-sky-200 text-sm font-medium transition-colors">
+                  Assessments
+                </Link>
                 <Link href="/dashboard/admin" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
-                  Home
+                  Analytics
                 </Link>
                 <Link href="/dashboard/admin/trainees" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   Trainees
@@ -39,15 +42,6 @@ export default async function DashboardLayout({
                 </Link>
                 <Link href="/dashboard/admin/sessions" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
                   Sessions
-                </Link>
-                <Link href="/dashboard/admin/taxonomy" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
-                  Taxonomy
-                </Link>
-                <Link href="/dashboard/how-it-works" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
-                  How it works
-                </Link>
-                <Link href="/dashboard/future-ideas" className="text-zinc-400 hover:text-white text-sm font-medium transition-colors">
-                  Future Ideas
                 </Link>
               </>
             )}
