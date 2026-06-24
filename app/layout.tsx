@@ -1,15 +1,9 @@
 import type { Metadata } from 'next';
-import { Outfit } from 'next/font/google';
 import './globals.css';
 
-const outfit = Outfit({
-  subsets: ['latin'],
-  variable: '--font-outfit',
-});
-
 export const metadata: Metadata = {
-  title: 'Connexion Training Hub',
-  description: 'Internal MSP technician training platform',
+  title: 'CallCallum — MSP Call Readiness Assessments',
+  description: 'Assess whether candidates and junior technicians are ready for real MSP client calls.',
 };
 
 export default function RootLayout({
@@ -18,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} bg-connexion-black text-slate-100 font-sans`}>
+    <html lang="en" className="bg-connexion-black text-slate-100 font-sans">
       <body className="min-h-screen antialiased">{children}</body>
     </html>
   );

@@ -66,3 +66,18 @@ Implement the focused workflow described in `/home/box/Documents/ccspec`:
 ## Delivery
 
 - Implementation commit `3a9dbae` was pushed to `origin/main` on 2026-06-24.
+
+## Validation and demo hardening — 2026-06-24
+
+- Confirmed the production build failure exited inside webpack before `.next/BUILD_ID`.
+- Disabled the separate webpack worker temporarily to expose the hidden diagnostic.
+- Root cause: `next/font/google` attempted to download Outfit from Google Fonts during the build and failed with `EAI_AGAIN`.
+- Removed the build-time network dependency and switched to a local system-font stack.
+- Restored the standard Next.js webpack worker configuration.
+- `npm run build`: now exits 0 and creates `.next/BUILD_ID` with all assessment pages and APIs in the route manifest.
+- `npm test`: passes.
+- `npx tsc --noEmit`: passes.
+- Added `npm run migrate:assessment`, which applies the assessment migration transactionally and verifies tables, session columns, and seeded scenarios.
+- Migration execution was attempted and correctly stopped because no `DATABASE_URL` is configured locally. No Supabase credentials are present in the repository or `/home/box/Documents/safe`.
+- Added `DEMO_SCRIPT.md`, `LAUNCH_CHECKLIST.md`, and `ASSESSMENT_ACCEPTANCE_TESTS.md`.
+- Live database, Chutes, and end-to-end acceptance validation remain blocked until staging credentials are supplied.
