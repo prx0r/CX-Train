@@ -1,0 +1,204 @@
+# CX-Train MVP: First Calls
+
+## Objective
+
+Ship one complete, testable workflow today:
+
+`manager creates First Calls assessment -> candidate completes 3 simulated calls -> candidate writes 3 tickets -> system analyses performance -> manager reviews a minimal report`
+
+The MVP is not a configurable training platform. It is one fixed assessment product called **First Calls**.
+
+## Fixed assessment pack
+
+Every assessment contains exactly these three existing scenarios:
+
+1. Password/login issue
+2. Outlook not sending
+3. Printer not printing
+
+Use the existing `candidate` scenarios seeded by `supabase/migrations/20260624000000_assessment_packs.sql`. Do not expose pack, mode, difficulty, scenario-count, taxonomy, bot, or pathway configuration in the MVP.
+
+## User workflow
+
+### Manager
+
+1. Opens the assessment dashboard.
+2. Clicks **New assessment**.
+3. Enters candidate name and optional email.
+4. Creates a fixed **First Calls** assessment.
+5. Copies the generated private link and sends it manually.
+6. Watches progress: `0/3`, `1/3`, `2/3`, or `3/3`.
+7. Opens the completed report.
+8. Records a manager decision and optional notes.
+
+Email delivery is not part of the MVP.
+
+### Candidate
+
+1. Opens the private link without creating an account.
+2. Reads brief instructions and a confidentiality warning.
+3. Completes each simulated text call.
+4. Ends the call and writes a support ticket.
+5. Repeats until all three calls are complete.
+6. Sees a completion message. Candidate scores remain manager-only for now.
+
+## Scoring and analysis
+
+Each call should assess only whether the candidate:
+
+- confirmed the user and company;
+- identified the affected device or service;
+- established what happened and when it started;
+- established scope and business impact;
+- captured errors, recent changes, deadlines, and workarounds when relevant;
+- communicated safe and appropriate next steps;
+- avoided requesting secrets, inventing facts, or promising unsupported fixes.
+
+Each ticket should assess:
+
+- clear issue summary;
+- affected user, company, and device;
+- scope and business impact;
+- useful troubleshooting facts and error messages;
+- sensible priority and next action;
+- readability for the next technician.
+
+The report needs:
+
+- call score and ticket score for each scenario;
+- short evidence for passed and missed checkpoints;
+- the submitted ticket and transcript;
+- average readiness score;
+- one outcome: **Ready**, **Needs supervision**, or **Not ready**;
+- manager agreement/override, reason, and notes.
+
+The recommendation is decision support, not an automated hiring decision.
+
+## Minimal screens
+
+Keep only these screens in the primary MVP journey:
+
+1. **Assessment list** — candidate, progress, average, recommendation, status.
+2. **Create assessment** — candidate name and optional email only.
+3. **Candidate assessment** — call conversation followed by ticket entry.
+4. **Assessment report** — evidence, scores, tickets, recommendation, manager review.
+
+Legacy analytics, trainees, bots, sessions, taxonomy, levels, pathways, GPT Actions, and prompt management are outside the MVP. They can remain in the repository but should not be required to test First Calls.
+
+## Build plan for today
+
+### 1. Stabilise the current branch
+
+- Preserve the existing uncommitted assessment implementation.
+- Run `npx tsc --noEmit`.
+- Run `npm run build` and capture any real compilation error.
+- Add lightweight tests for assessment scoring and recommendation thresholds before changing scoring behaviour.
+
+### 2. Remove configuration from assessment creation
+
+- Change the creation form to accept only candidate name and optional email.
+- Server-side, set:
+  - title: `First Calls`;
+  - mode: one fixed internal value;
+  - difficulty: `candidate`;
+  - scenario count: `3`.
+- Select the three scenarios by stable identifiers or issue family, not incidental database order.
+
+### 3. Verify candidate state transitions
+
+For each candidate link, enforce:
+
+`invited -> in_progress -> completed -> reviewed`
+
+- Do not create a fourth session.
+- Do not allow a submitted call or ticket to be overwritten accidentally.
+- Resume at the correct unfinished call after refresh.
+- Never return hidden scenario facts, ideal tickets, required checkpoints, or common mistakes to the browser.
+
+### 4. Make analysis dependable
+
+- Keep deterministic score calculation on the server.
+- Use AI only to extract checkpoint evidence from the transcript and simulate the caller.
+- Reject malformed AI output and show a retryable error.
+- Store the transcript, structured evidence, ticket, component scores, and final score.
+- Make thresholds explicit and test them.
+
+Suggested initial labels:
+
+- `80-100`: Ready
+- `60-79`: Needs supervision
+- `0-59`: Not ready
+
+Critical safety misses may cap the result at **Needs supervision** or **Not ready**, regardless of average. Define that rule in one server-side scoring module.
+
+### 5. Reduce the manager dashboard
+
+- Make Assessments the default manager destination.
+- Show only fields needed to find and review an assessment.
+- Keep one clear report page rather than separate analytics views.
+- Retain manager override and require a reason when the manager changes the recommendation.
+
+### 6. Prepare a repeatable demo environment
+
+For the fastest route with the current code, use one development Supabase project because the implementation already depends on Supabase queries and schema. Apply the assessment migration, create one manager user, and configure the existing AI provider.
+
+Required runtime values:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+CHUTES_API_KEY
+CHUTES_API_URL
+CHUTES_MODEL
+```
+
+For local manager access, development demo mode may be used temporarily with `ENABLE_DEMO=true`. It must remain disabled in production.
+
+If database setup blocks testing, implement a separate local repository adapter backed by SQLite. Do not scatter SQLite conditions through pages and API routes. Both Supabase and SQLite should implement the same small assessment data interface. This is a fallback, not required for the first working test if Supabase can be configured quickly.
+
+## Acceptance test
+
+The MVP is ready for user testing only when this exact journey passes:
+
+1. Manager creates an assessment for `Test Candidate`.
+2. The system returns a private link.
+3. The link opens in a signed-out/incognito browser.
+4. The candidate completes the password call and submits a ticket.
+5. Progress becomes `1/3` and survives refresh.
+6. The candidate completes Outlook and printer calls with tickets.
+7. A fourth call cannot be started.
+8. The pack becomes `completed`.
+9. The report shows all three transcripts, tickets, evidence, call scores, ticket scores, overall score, and recommendation.
+10. The manager records agreement or an override with notes.
+11. The pack becomes `reviewed` and the decision persists after refresh.
+12. A second candidate can complete an independent assessment without seeing or changing the first candidate's data.
+
+Also test these failure cases:
+
+- expired or invalid invite;
+- browser refresh during a call and during ticket entry;
+- AI provider timeout or malformed response;
+- empty or extremely short call;
+- empty ticket;
+- repeated submission;
+- direct attempts to access another assessment or session ID;
+- hidden scenario facts appearing in browser responses.
+
+## First user test
+
+Run the MVP with 3-5 managers and approximately 10 candidates. Observe rather than explain the interface. Record:
+
+- assessment completion rate;
+- median completion time;
+- calls abandoned or restarted;
+- manager agreement with the recommendation;
+- scoring evidence managers consider wrong or unhelpful;
+- whether the report changes a hiring or onboarding decision;
+- the minimum report detail managers actually use.
+
+Do not add configurable packs or broader analytics until this test shows that managers trust the evidence and find the workflow useful.
+
+## Definition of done
+
+The MVP is done when a manager can create and review a three-call First Calls assessment without developer assistance, a candidate can complete it from a private link without an account, results survive refresh, analysis is evidence-backed, tenant/candidate data is isolated, and the full acceptance test is repeatable.
