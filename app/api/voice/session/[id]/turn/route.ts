@@ -1,23 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getInviteContext, safeScenario } from '@/lib/assessment-data';
+import { getInviteContext } from '@/lib/assessment-data';
 import { getSession, addTurn, getHistory } from '@/lib/voice/session';
-import { MockSttProvider } from '@/lib/voice/stt';
-import { MockTtsProvider } from '@/lib/voice/tts';
-import { MockClientBrain, OpenAiClientBrain } from '@/lib/voice/client-brain';
+import { createSttProvider, createTtsProvider, createChatProvider, getProviderName } from '@/lib/voice/provider-factory';
 import { createServerClient } from '@/lib/supabase';
-import type { VoiceSessionConfig } from '@/lib/voice/types';
+import type { VoiceSessionConfig } from '@/lib/voice/providers';
 
-const STT_PROVIDER = process.env.GROQ_API_KEY
-  ? new (require('@/lib/voice/stt').GroqSttProvider)()
-  : new MockSttProvider();
-
-const TTS_PROVIDER = process.env.OPENAI_API_KEY
-  ? new (require('@/lib/voice/tts').OpenAiTtsProvider)()
-  : new MockTtsProvider();
-
-const CLIENT_BRAIN = process.env.OPENAI_API_KEY
-  ? new OpenAiClientBrain()
-  : new MockClientBrain();
+const STT_PROVIDER = createSttProvider();
+const TTS_PROVIDER = createTtsProvider();
+const CLIENT_BRAIN = createChatProvider();
+const STT_PROVIDER_NAME = getProviderName('stt');
+const TTS_PROVIDER_NAME = getProviderName('tts');
+const ROLEPLAY_PROVIDER_NAME = getProviderName('roleplay');
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -32,7 +25,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (!audioBase64 && !body.text) return NextResponse.json({ error: 'Audio or text required' }, { status: 400 });
 
-    // 1. STT: transcribe candidate audio to text
     let candidateText: string;
     let sttModel = 'mock';
     let sttConfidence: number | undefined;
@@ -48,13 +40,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       audioDurationMs = sttResult.durationMs;
     }
 
-    // Store candidate turn
     const candidateTurn = addTurn({
       sessionId: id, speaker: 'candidate', text: candidateText,
-      audioDurationMs, sttModel, sttConfidence,
+      audioDurationMs, sttProvider: STT_PROVIDER_NAME, sttModel, sttConfidence,
     });
 
-    // 2. Client brain: generate next client response
     const supabase = createServerClient();
     const { data: session } = await supabase.from('sessions')
       .select('scenarios(*)')
@@ -73,18 +63,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const history = getHistory(id).map((t) => ({ speaker: t.speaker, text: t.text }));
     const brainResult = await CLIENT_BRAIN.nextClientTurn(config, history);
 
-    // 3. TTS: speak client response
     const ttsResult = await TTS_PROVIDER.speak(brainResult.text);
 
-    // Store client turn
     const clientTurn = addTurn({
       sessionId: id, speaker: 'client', text: brainResult.text,
       audioUrl: `data:audio/wav;base64,${ttsResult.audioBase64}`,
       audioDurationMs: ttsResult.durationMs,
+      ttsProvider: TTS_PROVIDER_NAME,
       ttsModel: ttsResult.model,
-      llmModel: brainResult.model,
-      llmInputTokens: brainResult.inputTokens,
-      llmOutputTokens: brainResult.outputTokens,
+      roleplayProvider: ROLEPLAY_PROVIDER_NAME,
+      roleplayModel: brainResult.model,
+      roleplayInputTokens: brainResult.inputTokens,
+      roleplayOutputTokens: brainResult.outputTokens,
     });
 
     return NextResponse.json({
@@ -116,5 +106,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     history: voiceSession.history,
     currentTurnIndex: voiceSession.currentTurnIndex,
     estimatedCostUsd: voiceSession.estimatedCostUsd,
+    sttProvider: voiceSession.sttProvider,
+    ttsProvider: voiceSession.ttsProvider,
+    roleplayProvider: voiceSession.roleplayProvider,
+    evaluationProvider: voiceSession.evaluationProvider,
   });
 }

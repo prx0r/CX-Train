@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsc tests/assessment-scoring.test.ts tests/evaluation-scoring.test.ts tests/voice-session.test.ts lib/assessment-scoring.ts lib/evaluation/scoring.ts lib/evaluation/evaluator.ts lib/evaluation/scenarios.ts lib/evaluation/prompts.ts lib/voice/session.ts lib/voice/cost-tracker.ts lib/voice/stt.ts lib/voice/tts.ts lib/voice/client-brain.ts --outDir .test-dist --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck && node --test .test-dist/tests/assessment-scoring.test.js .test-dist/tests/evaluation-scoring.test.js .test-dist/tests/voice-session.test.js",
+    "test": "tsc tests/assessment-scoring.test.ts tests/evaluation-scoring.test.ts tests/voice-session.test.ts lib/assessment-scoring.ts lib/evaluation/scoring.ts lib/evaluation/evaluator.ts lib/evaluation/scenarios.ts lib/evaluation/prompts.ts lib/voice/session.ts lib/voice/cost-tracker.ts lib/voice/stt.ts lib/voice/tts.ts lib/types.ts lib/voice/chat.ts lib/voice/providers.ts --outDir .test-dist --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck && node --test .test-dist/tests/assessment-scoring.test.js .test-dist/tests/evaluation-scoring.test.js .test-dist/tests/voice-session.test.js",
     "migrate:assessment": "node scripts/run-assessment-migration.mjs"
   },
   "dependencies": {

@@ -1,6 +1,8 @@
 import type { EvaluationOutput, RubricItem } from '../types';
 import { EVALUATOR_SYSTEM_PROMPT } from './prompts';
 
+const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
+
 export interface EvaluationInput {
   scenarioTitle: string;
   scenarioDescription: string;
@@ -20,6 +22,7 @@ export interface EvaluationResult {
   rubricVersion: string;
   valid: boolean;
   errors: string[];
+  provider: string;
 }
 
 function defaultEvaluation(errorMessage: string): EvaluationOutput {
@@ -102,17 +105,17 @@ export function validateEvaluationOutput(json: unknown): { output: EvaluationOut
 
 export async function evaluateTranscript(
   input: EvaluationInput,
-  apiKey: string,
+  _apiKey: string,
   openAIApiKey?: string
 ): Promise<EvaluationResult> {
   const model = 'callcallum-evaluator-v1';
-  const promptVersion = '1.0.0';
+  const promptVersion = '1.1.0';
   const rubricVersion = '1.0.0';
 
   const userPrompt = buildUserPrompt(input);
 
   let rawJson: string;
-  let parsed: unknown;
+  let provider = 'mock';
 
   if (openAIApiKey) {
     try {
@@ -142,10 +145,12 @@ export async function evaluateTranscript(
           rubricVersion,
           valid: false,
           errors: [`API returned ${response.status}`],
+          provider: 'openai',
         };
       }
       const data = await response.json() as { choices?: { message?: { content?: string } }[] };
       rawJson = data?.choices?.[0]?.message?.content ?? '{}';
+      provider = 'openai';
     } catch (err) {
       return {
         output: defaultEvaluation(`LLM call failed: ${err instanceof Error ? err.message : String(err)}`),
@@ -155,14 +160,78 @@ export async function evaluateTranscript(
         rubricVersion,
         valid: false,
         errors: [`LLM fetch error: ${err instanceof Error ? err.message : String(err)}`],
+        provider: 'openai',
       };
     }
   } else {
-    rawJson = buildMockEvaluation(input);
+    const evaluatorModel = process.env.EVALUATOR_MODEL ?? 'openai/gpt-4o-mini';
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (openRouterKey) {
+      try {
+        const response = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openRouterKey}`,
+            'HTTP-Referer': 'https://callcallum.app',
+            'X-Title': 'CallCallum',
+          },
+          body: JSON.stringify({
+            model: evaluatorModel,
+            messages: [
+              { role: 'system', content: EVALUATOR_SYSTEM_PROMPT },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature: 0.1,
+            response_format: { type: 'json_object' },
+          }),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          return {
+            output: defaultEvaluation(`OpenRouter eval error: ${response.status} ${errorText}`),
+            rawJson: `API error: ${response.status}`,
+            model: `openrouter/${evaluatorModel}`,
+            promptVersion,
+            rubricVersion,
+            valid: false,
+            errors: [`API returned ${response.status}`],
+            provider: 'openrouter',
+          };
+        }
+        const data = await response.json() as { usage?: { prompt_tokens: number; completion_tokens: number }; choices?: { message?: { content?: string } }[] };
+        rawJson = data?.choices?.[0]?.message?.content ?? '{}';
+        provider = 'openrouter';
+      } catch (err) {
+        return {
+          output: defaultEvaluation(`OpenRouter eval failed: ${err instanceof Error ? err.message : String(err)}`),
+          rawJson: `fetch error: ${err instanceof Error ? err.message : String(err)}`,
+          model: `openrouter/${evaluatorModel}`,
+          promptVersion,
+          rubricVersion,
+          valid: false,
+          errors: [`LLM fetch error: ${err instanceof Error ? err.message : String(err)}`],
+          provider: 'openrouter',
+        };
+      }
+    } else {
+      rawJson = buildMockEvaluation(input);
+    }
   }
 
   try {
-    parsed = JSON.parse(rawJson);
+    const parsed = JSON.parse(rawJson);
+    const { output, errors } = validateEvaluationOutput(parsed);
+    return {
+      output,
+      rawJson,
+      model,
+      promptVersion,
+      rubricVersion,
+      valid: errors.length === 0,
+      errors,
+      provider,
+    };
   } catch {
     return {
       output: defaultEvaluation('Invalid JSON from evaluator'),
@@ -172,19 +241,9 @@ export async function evaluateTranscript(
       rubricVersion,
       valid: false,
       errors: ['Failed to parse evaluator JSON output'],
+      provider,
     };
   }
-
-  const { output, errors } = validateEvaluationOutput(parsed);
-  return {
-    output,
-    rawJson,
-    model,
-    promptVersion,
-    rubricVersion,
-    valid: errors.length === 0,
-    errors,
-  };
 }
 
 function buildUserPrompt(input: EvaluationInput): string {

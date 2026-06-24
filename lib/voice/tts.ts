@@ -1,33 +1,38 @@
-import type { TTSProvider } from './providers';
-import type { TtsResult } from './types';
+import type { TTSProvider, TtsResult } from './providers';
 
-export class KokoroTtsProvider implements TTSProvider {
-  private chutesApiKey: string;
+const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 
-  constructor(apiKey?: string) {
-    this.chutesApiKey = apiKey ?? process.env.CHUTES_API_KEY ?? '';
-    if (!this.chutesApiKey) console.warn('CHUTES_API_KEY not set — TTS will fall back to mock');
+export class OpenRouterTtsProvider implements TTSProvider {
+  private apiKey: string;
+  private model: string;
+
+  constructor(apiKey?: string, model?: string) {
+    this.apiKey = apiKey ?? process.env.OPENROUTER_API_KEY ?? '';
+    this.model = model ?? process.env.TTS_MODEL ?? 'hexgrad/kokoro-82m';
+    if (!this.apiKey) console.warn('OPENROUTER_API_KEY not set — OpenRouter TTS will fall back to mock');
   }
 
-  async speak(text: string, _voiceId?: string): Promise<TtsResult> {
-    if (!this.chutesApiKey) return mockTts(text);
+  async speak(text: string, voiceId?: string): Promise<TtsResult> {
+    if (!this.apiKey) return mockTtsProvider(text);
 
-    const res = await fetch('https://api.chutes.ai/v1/audio/speech', {
+    const res = await fetch(`${OPENROUTER_BASE}/audio/speech`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.chutesApiKey}`,
+        'Authorization': `Bearer ${this.apiKey}`,
+        'HTTP-Referer': 'https://callcallum.app',
+        'X-Title': 'CallCallum',
       },
       body: JSON.stringify({
-        model: 'koko',
+        model: this.model,
         input: text,
-        voice: _voiceId ?? 'af_bella',
+        voice: voiceId ?? 'af_bella',
         response_format: 'wav',
       }),
     });
-    if (!res.ok) throw new Error(`Chutes TTS failed: ${res.status} ${await res.text()}`);
+    if (!res.ok) throw new Error(`OpenRouter TTS failed: ${res.status} ${await res.text()}`);
     const buffer = Buffer.from(await res.arrayBuffer());
-    return { audioBase64: buffer.toString('base64'), durationMs: Math.floor(text.length * 60), model: 'chutes/kokoro' };
+    return { audioBase64: buffer.toString('base64'), durationMs: Math.floor(text.length * 60), model: `openrouter/${this.model}` };
   }
 }
 
@@ -40,14 +45,11 @@ export class OpenAiTtsProvider implements TTSProvider {
   }
 
   async speak(text: string, voiceId?: string): Promise<TtsResult> {
-    if (!this.apiKey) return mockTts(text);
+    if (!this.apiKey) return mockTtsProvider(text);
 
     const res = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.apiKey}` },
       body: JSON.stringify({
         model: 'tts-1',
         input: text,
@@ -63,11 +65,11 @@ export class OpenAiTtsProvider implements TTSProvider {
 
 export class MockTtsProvider implements TTSProvider {
   async speak(text: string, _voiceId?: string): Promise<TtsResult> {
-    return mockTts(text);
+    return mockTtsProvider(text);
   }
 }
 
-function mockTts(text: string): TtsResult {
+function mockTtsProvider(text: string): TtsResult {
   const durationMs = Math.floor(text.length * 60);
   const sampleRate = 24000;
   const numSamples = Math.floor(durationMs * sampleRate / 1000);

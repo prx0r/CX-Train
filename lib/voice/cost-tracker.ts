@@ -1,28 +1,17 @@
 import { VOICE_PROVIDER_COSTS } from './providers';
+import type { VoiceSession } from './providers';
 
-export interface CostLog {
-  sttSeconds: number;
-  ttsSeconds: number;
-  llmInputTokens: number;
-  llmOutputTokens: number;
-  evaluationTokens: number;
-  estimatedCostUsd: number;
-}
+export function estimateCost(session: VoiceSession): number {
+  const sttRates = VOICE_PROVIDER_COSTS[session.sttProvider] ?? VOICE_PROVIDER_COSTS.mock;
+  const ttsRates = VOICE_PROVIDER_COSTS[session.ttsProvider] ?? VOICE_PROVIDER_COSTS.mock;
+  const llmRates = VOICE_PROVIDER_COSTS[session.roleplayProvider] ?? VOICE_PROVIDER_COSTS.mock;
+  const evalRates = VOICE_PROVIDER_COSTS[session.evaluationProvider] ?? VOICE_PROVIDER_COSTS.mock;
 
-export function estimateCost(
-  provider: string,
-  sttSeconds: number,
-  ttsSeconds: number,
-  llmInputTokens: number,
-  llmOutputTokens: number,
-  evaluationTokens: number,
-): number {
-  const rates = VOICE_PROVIDER_COSTS[provider] ?? VOICE_PROVIDER_COSTS.mock;
   return (
-    sttSeconds * rates.sttPerSecond +
-    ttsSeconds * rates.ttsPerSecond +
-    llmInputTokens * rates.llmPerInputToken +
-    llmOutputTokens * rates.llmPerOutputToken +
-    evaluationTokens * rates.llmPerInputToken
+    session.sttSeconds * sttRates.sttPerSecond +
+    session.ttsSeconds * ttsRates.ttsPerSecond +
+    session.llmInputTokens * llmRates.llmPerInputToken +
+    session.llmOutputTokens * llmRates.llmPerOutputToken +
+    session.evaluationTokens * evalRates.llmPerInputToken
   );
 }

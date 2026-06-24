@@ -97,7 +97,7 @@ export async function POST(request: NextRequest,{params}:{params:Promise<{token:
   // Store evaluation
   const{data:evalRecord}=await supabase.from('assessment_call_evaluations').insert({
     transcript_id:transcriptId,
-    evaluator_model:evaluationResult.model,
+    evaluator_model:`${evaluationResult.provider}/${evaluationResult.model}`,
     evaluator_prompt_version:evaluationResult.promptVersion,
     rubric_version:evaluationResult.rubricVersion,
     raw_ai_output_json:evaluationResult.output as unknown as Record<string,unknown>,

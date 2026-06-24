@@ -3,8 +3,35 @@ import test from 'node:test';
 import { createSession, getSession, addTurn, updateSessionStatus, getHistory } from '../lib/voice/session';
 import { MockSttProvider } from '../lib/voice/stt';
 import { MockTtsProvider } from '../lib/voice/tts';
-import { MockClientBrain } from '../lib/voice/client-brain';
+import { MockChatProvider } from '../lib/voice/chat';
 import { estimateCost } from '../lib/voice/cost-tracker';
+import type { VoiceSession } from '../lib/voice/providers';
+
+function makeMockSession(overrides?: Partial<VoiceSession>): VoiceSession {
+  return {
+    id: 'test-session',
+    assessmentSessionId: 'assessment-1',
+    inviteToken: 'abc123',
+    scenarioId: 'scenario-1',
+    scenarioTitle: 'Outlook not sending',
+    candidateName: 'Tom',
+    status: 'in_progress',
+    currentTurnIndex: 0,
+    history: [],
+    sttProvider: 'mock',
+    ttsProvider: 'mock',
+    roleplayProvider: 'mock',
+    sttSeconds: 0,
+    ttsSeconds: 0,
+    llmInputTokens: 0,
+    llmOutputTokens: 0,
+    evaluationTokens: 0,
+    evaluationProvider: 'mock',
+    estimatedCostUsd: 0,
+    startedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
 
 test('createSession creates a new voice session', () => {
   const session = createSession({
@@ -19,6 +46,9 @@ test('createSession creates a new voice session', () => {
   assert.equal(session.currentTurnIndex, 0);
   assert.equal(session.history.length, 0);
   assert.equal(session.estimatedCostUsd, 0);
+  assert.equal(session.sttProvider, 'mock');
+  assert.equal(session.ttsProvider, 'mock');
+  assert.equal(session.roleplayProvider, 'mock');
 });
 
 test('getSession retrieves a created session', () => {
@@ -79,9 +109,9 @@ test('addTurn stores a client turn', () => {
     speaker: 'client',
     text: "Hi, I can't print.",
     ttsModel: 'mock',
-    llmModel: 'mock',
-    llmInputTokens: 50,
-    llmOutputTokens: 30,
+    roleplayModel: 'mock',
+    roleplayInputTokens: 50,
+    roleplayOutputTokens: 30,
   });
   assert.ok(turn);
   assert.equal(turn?.speaker, 'client');
@@ -154,25 +184,24 @@ test('MockTtsProvider returns silent audio base64', async () => {
   assert.ok(result.durationMs > 0);
   assert.equal(result.model, 'mock/silence');
 
-  // Verify it decodes to a valid WAV
   const buffer = Buffer.from(result.audioBase64, 'base64');
   assert.equal(buffer.toString('ascii', 0, 4), 'RIFF');
   assert.equal(buffer.toString('ascii', 8, 12), 'WAVE');
 });
 
-test('MockClientBrain returns a response for first turn', async () => {
-  const brain = new MockClientBrain();
+test('MockChatProvider returns a response for first turn', async () => {
+  const brain = new MockChatProvider();
   const result = await brain.nextClientTurn(
     { scenarioId: 's1', scenarioTitle: 'Outlook not sending', hiddenFacts: {}, callerPersona: 'Frustrated user', intensity: 2 },
     [],
   );
   assert.ok(typeof result.text === 'string');
   assert.ok(result.text.length > 0);
-  assert.ok(result.labels?.includes('call_opening'));
+  assert.equal(result.model, 'mock');
 });
 
-test('MockClientBrain returns followups for subsequent turns', async () => {
-  const brain = new MockClientBrain();
+test('MockChatProvider returns followups for subsequent turns', async () => {
+  const brain = new MockChatProvider();
   const config = { scenarioId: 's1', scenarioTitle: 'Outlook not sending', hiddenFacts: {}, callerPersona: 'Frustrated user', intensity: 2 };
 
   const first = await brain.nextClientTurn(config, [{ speaker: 'candidate', text: 'Hello?' }]);
@@ -189,17 +218,47 @@ test('MockClientBrain returns followups for subsequent turns', async () => {
 // ── Cost tracker tests ─────────────────────────────────────────────────
 
 test('estimateCost returns 0 for mock provider', () => {
-  const cost = estimateCost('mock', 60, 30, 1000, 500, 200);
+  const cost = estimateCost(makeMockSession());
   assert.equal(cost, 0);
 });
 
 test('estimateCost returns positive for openai', () => {
-  const cost = estimateCost('openai', 60, 30, 1000, 500, 200);
+  const cost = estimateCost(makeMockSession({
+    sttProvider: 'openai',
+    ttsProvider: 'openai',
+    roleplayProvider: 'openai',
+    evaluationProvider: 'openai',
+    sttSeconds: 60,
+    ttsSeconds: 30,
+    llmInputTokens: 1000,
+    llmOutputTokens: 500,
+    evaluationTokens: 200,
+  }));
   assert.ok(cost > 0);
 });
 
 test('estimateCost scales with usage', () => {
-  const small = estimateCost('openai', 10, 5, 100, 50, 20);
-  const large = estimateCost('openai', 100, 50, 1000, 500, 200);
+  const small = estimateCost(makeMockSession({
+    sttProvider: 'openai',
+    ttsProvider: 'openai',
+    roleplayProvider: 'openai',
+    evaluationProvider: 'openai',
+    sttSeconds: 10,
+    ttsSeconds: 5,
+    llmInputTokens: 100,
+    llmOutputTokens: 50,
+    evaluationTokens: 20,
+  }));
+  const large = estimateCost(makeMockSession({
+    sttProvider: 'openai',
+    ttsProvider: 'openai',
+    roleplayProvider: 'openai',
+    evaluationProvider: 'openai',
+    sttSeconds: 100,
+    ttsSeconds: 50,
+    llmInputTokens: 1000,
+    llmOutputTokens: 500,
+    evaluationTokens: 200,
+  }));
   assert.ok(large > small);
 });

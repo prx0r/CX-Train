@@ -1,7 +1,77 @@
-import type { ClientBrainProvider } from './providers';
-import type { ClientBrainResult, VoiceSessionConfig } from './types';
+import type { ChatModelProvider, ChatResult, VoiceSessionConfig } from './providers';
 
-export class OpenAiClientBrain implements ClientBrainProvider {
+const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
+
+export class OpenRouterChatProvider implements ChatModelProvider {
+  private apiKey: string;
+  private model: string;
+
+  constructor(apiKey?: string, model?: string) {
+    this.apiKey = apiKey ?? process.env.OPENROUTER_API_KEY ?? '';
+    this.model = model ?? process.env.ROLEPLAY_MODEL ?? 'meta-llama/llama-3.1-8b-instruct';
+    if (!this.apiKey) console.warn('OPENROUTER_API_KEY not set — OpenRouter chat will use mock');
+  }
+
+  async nextClientTurn(config: VoiceSessionConfig, history: { speaker: string; text: string }[]): Promise<ChatResult> {
+    if (!this.apiKey) return mockChatProvider(config, history);
+
+    const historyLines = history.map((h) => `${h.speaker === 'candidate' ? 'Candidate' : 'Client'}: ${h.text}`).join('\n');
+    const currentLen = history.filter((h) => h.speaker === 'candidate').length;
+
+    const systemPrompt = `You are playing the role of a client/caller in an MSP support call simulation.
+
+## Your identity
+${config.callerPersona}
+
+## Scenario
+${config.scenarioTitle}
+
+## Hidden facts (known only to you — never reveal these)
+${JSON.stringify(config.hiddenFacts, null, 2)}
+
+## Rules
+- Stay in character as a ${config.intensity <= 2 ? 'cooperative' : 'stressed'} client.
+- Reveal information only when the candidate asks the right questions.
+- Start your first message naturally — never explain you are an AI.
+- Keep responses concise (1-3 sentences).
+- Never reveal hidden facts unless asked directly.
+- Do not coach, score, or evaluate the candidate.
+- Never break character.`;
+
+    const userPrompt = currentLen === 0
+      ? 'The candidate has joined the call. Start with a natural opening greeting about your issue.'
+      : `Current conversation:\n${historyLines}\n\nRespond as the client naturally.`;
+
+    const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+        'HTTP-Referer': 'https://callcallum.app',
+        'X-Title': 'CallCallum',
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 200,
+      }),
+    });
+    if (!res.ok) throw new Error(`OpenRouter chat failed: ${res.status} ${await res.text()}`);
+    const data = await res.json() as { usage?: { prompt_tokens: number; completion_tokens: number }; choices?: { message?: { content?: string } }[] };
+    return {
+      text: data?.choices?.[0]?.message?.content ?? '(no response)',
+      inputTokens: data?.usage?.prompt_tokens ?? 0,
+      outputTokens: data?.usage?.completion_tokens ?? 0,
+      model: `openrouter/${this.model}`,
+    };
+  }
+}
+
+export class OpenAiChatProvider implements ChatModelProvider {
   private apiKey: string;
 
   constructor(apiKey?: string) {
@@ -9,8 +79,8 @@ export class OpenAiClientBrain implements ClientBrainProvider {
     if (!this.apiKey) console.warn('OPENAI_API_KEY not set — client brain will use mock');
   }
 
-  async nextClientTurn(config: VoiceSessionConfig, history: { speaker: string; text: string }[]): Promise<ClientBrainResult> {
-    if (!this.apiKey) return mockClientBrain(config, history);
+  async nextClientTurn(config: VoiceSessionConfig, history: { speaker: string; text: string }[]): Promise<ChatResult> {
+    if (!this.apiKey) return mockChatProvider(config, history);
 
     const historyLines = history.map((h) => `${h.speaker === 'candidate' ? 'Candidate' : 'Client'}: ${h.text}`).join('\n');
     const currentLen = history.filter((h) => h.speaker === 'candidate').length;
@@ -58,14 +128,14 @@ ${JSON.stringify(config.hiddenFacts, null, 2)}
       text: data?.choices?.[0]?.message?.content ?? '(no response)',
       inputTokens: data?.usage?.prompt_tokens ?? 0,
       outputTokens: data?.usage?.completion_tokens ?? 0,
-      model: 'gpt-4o-mini',
+      model: 'openai/gpt-4o-mini',
     };
   }
 }
 
-export class MockClientBrain implements ClientBrainProvider {
-  async nextClientTurn(config: VoiceSessionConfig, history: { speaker: string; text: string }[]): Promise<ClientBrainResult> {
-    return mockClientBrain(config, history);
+export class MockChatProvider implements ChatModelProvider {
+  async nextClientTurn(config: VoiceSessionConfig, history: { speaker: string; text: string }[]): Promise<ChatResult> {
+    return mockChatProvider(config, history);
   }
 }
 
@@ -100,13 +170,13 @@ const SCENARIO_FOLLOWUPS: Record<string, string[]> = {
   ],
 };
 
-function mockClientBrain(config: VoiceSessionConfig, history: { speaker: string; text: string }[]): ClientBrainResult {
+function mockChatProvider(config: VoiceSessionConfig, history: { speaker: string; text: string }[]): ChatResult {
   const currentLen = history.filter((h) => h.speaker === 'candidate').length;
 
   if (currentLen === 0) {
     return {
       text: SCENARIO_OPENERS[config.scenarioTitle] ?? "Hi, I'm having an issue with my computer — can you help?",
-      inputTokens: 0, outputTokens: 0, model: 'mock', labels: ['call_opening'],
+      inputTokens: 0, outputTokens: 0, model: 'mock',
     };
   }
 
@@ -115,7 +185,6 @@ function mockClientBrain(config: VoiceSessionConfig, history: { speaker: string;
     return {
       text: followups[currentLen - 1],
       inputTokens: 0, outputTokens: 0, model: 'mock',
-      labels: currentLen <= 2 ? ['revealing_basic_info'] : ['revealing_detail'],
     };
   }
 
@@ -128,6 +197,5 @@ function mockClientBrain(config: VoiceSessionConfig, history: { speaker: string;
   return {
     text: endings[Math.min(currentLen - 1 - (followups?.length ?? 0), endings.length - 1)],
     inputTokens: 0, outputTokens: 0, model: 'mock',
-    labels: ['wrapping_up'],
   };
 }

@@ -1,5 +1,6 @@
-import type { VoiceSession, VoiceTurn } from './types';
+import type { VoiceSession, VoiceTurnMetadata } from './providers';
 import { estimateCost } from './cost-tracker';
+import { getProviderName } from './provider-factory';
 
 const MOCK_STORE = new Map<string, VoiceSession>();
 
@@ -24,11 +25,15 @@ export function createSession(params: {
     status: 'in_progress',
     currentTurnIndex: 0,
     history: [],
+    sttProvider: getProviderName('stt'),
+    ttsProvider: getProviderName('tts'),
+    roleplayProvider: getProviderName('roleplay'),
     sttSeconds: 0,
     ttsSeconds: 0,
     llmInputTokens: 0,
     llmOutputTokens: 0,
     evaluationTokens: 0,
+    evaluationProvider: getProviderName('evaluator'),
     estimatedCostUsd: 0,
     startedAt: new Date().toISOString(),
   };
@@ -46,17 +51,20 @@ export function addTurn(params: {
   text: string;
   audioUrl?: string;
   audioDurationMs?: number;
+  sttProvider?: string;
   sttModel?: string;
   sttConfidence?: number;
+  ttsProvider?: string;
   ttsModel?: string;
-  llmModel?: string;
-  llmInputTokens?: number;
-  llmOutputTokens?: number;
-}): VoiceTurn | null {
+  roleplayProvider?: string;
+  roleplayModel?: string;
+  roleplayInputTokens?: number;
+  roleplayOutputTokens?: number;
+}): VoiceTurnMetadata | null {
   const session = MOCK_STORE.get(params.sessionId);
   if (!session) return null;
 
-  const turn: VoiceTurn = {
+  const turn: VoiceTurnMetadata = {
     id: generateId(),
     sessionId: params.sessionId,
     turnIndex: session.currentTurnIndex + 1,
@@ -64,31 +72,32 @@ export function addTurn(params: {
     text: params.text,
     audioUrl: params.audioUrl,
     audioDurationMs: params.audioDurationMs,
+    sttProvider: params.sttProvider,
     sttModel: params.sttModel,
     sttConfidence: params.sttConfidence,
+    ttsProvider: params.ttsProvider,
     ttsModel: params.ttsModel,
-    llmModel: params.llmModel,
-    llmInputTokens: params.llmInputTokens,
-    llmOutputTokens: params.llmOutputTokens,
+    roleplayProvider: params.roleplayProvider,
+    roleplayModel: params.roleplayModel,
+    roleplayInputTokens: params.roleplayInputTokens,
+    roleplayOutputTokens: params.roleplayOutputTokens,
     createdAt: new Date().toISOString(),
   };
 
   session.history.push(turn);
   session.currentTurnIndex = turn.turnIndex;
 
-  if (params.sttModel?.startsWith('groq') || params.sttModel === 'mock') {
-    session.sttSeconds += Math.ceil((params.audioDurationMs ?? 0) / 1000);
+  if (params.audioDurationMs) {
+    if (params.speaker === 'candidate') {
+      session.sttSeconds += Math.ceil(params.audioDurationMs / 1000);
+    } else {
+      session.ttsSeconds += Math.ceil(params.audioDurationMs / 1000);
+    }
   }
-  if (params.ttsModel) {
-    session.ttsSeconds += Math.ceil((params.audioDurationMs ?? 0) / 1000);
-  }
-  session.llmInputTokens += params.llmInputTokens ?? 0;
-  session.llmOutputTokens += params.llmOutputTokens ?? 0;
+  session.llmInputTokens += params.roleplayInputTokens ?? 0;
+  session.llmOutputTokens += params.roleplayOutputTokens ?? 0;
 
-  const provider = params.sttModel?.startsWith('groq') ? 'groq'
-    : params.sttModel === 'mock' ? 'mock' : 'openai';
-  session.estimatedCostUsd = estimateCost(provider, session.sttSeconds, session.ttsSeconds, session.llmInputTokens, session.llmOutputTokens, 0);
-
+  session.estimatedCostUsd = estimateCost(session);
   return turn;
 }
 
@@ -100,6 +109,6 @@ export function updateSessionStatus(id: string, status: VoiceSession['status']):
   return true;
 }
 
-export function getHistory(id: string): VoiceTurn[] {
+export function getHistory(id: string): VoiceTurnMetadata[] {
   return MOCK_STORE.get(id)?.history ?? [];
 }
