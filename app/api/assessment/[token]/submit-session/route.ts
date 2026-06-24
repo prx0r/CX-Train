@@ -33,6 +33,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   if (!checkpointResults) return NextResponse.json({ error: 'Unable to evaluate transcript; please try again' }, { status: 503 });
   const scored = calculateCheckpointScore(required, checkpointResults);
   const feedback = extracted?.feedback_text || String(body.feedback_text || '') || `${scored.missed.length} required checkpoints missed.`;
+  const extractionError = extracted?.extraction_error || null;
 
   const { error } = await supabase.from('sessions').update({
     transcript_json: transcriptJson,
@@ -44,6 +45,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     score_breakdown: { call_score: scored.score, missed: scored.missed, critical_misses: scored.criticalMisses },
     readiness_score: scored.score,
     feedback_text: feedback,
+    evaluation_error: extractionError,
   }).eq('id', session.id).eq('assessment_pack_id', context.pack.id);
   if (error) return NextResponse.json({ error: 'Unable to save call' }, { status: 500 });
   return NextResponse.json({ success: true, call_score: scored.score, step: 'ticket' });

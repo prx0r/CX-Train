@@ -69,9 +69,16 @@ async function main() {
       process.exit(1);
     }
 
-    const content = data.choices?.[0]?.message?.content;
+    const msg = data.choices?.[0]?.message;
+    let content = msg?.content || '';
+    if (!content && msg?.reasoning && typeof msg.reasoning === 'string') content = msg.reasoning;
+    if (!content && Array.isArray(msg?.reasoning_details)) {
+      const last = msg.reasoning_details.filter(r => r.type === 'reasoning.text').pop();
+      if (last?.text) content = last.text;
+    }
     if (!content) {
       console.error('FAIL: OpenRouter returned no choices');
+      console.error('Raw:', JSON.stringify(data.choices?.[0]?.message).slice(0, 500));
       process.exit(1);
     }
 

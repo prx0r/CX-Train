@@ -31,7 +31,14 @@ async function callModel(model, messages, opts = {}) {
     throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
   }
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
+  const msg = data.choices?.[0]?.message;
+  let content = msg?.content || '';
+  if (!content && msg?.reasoning && typeof msg.reasoning === 'string') content = msg.reasoning;
+  if (!content && Array.isArray(msg?.reasoning_details)) {
+    const last = msg.reasoning_details.filter(r => r.type === 'reasoning.text').pop();
+    if (last?.text) content = last.text;
+  }
+  return content;
 }
 
 function extractJson(text) {
