@@ -7,6 +7,10 @@ export async function POST(request: NextRequest) {
     initTables();
     seedDefaults();
 
+    // Use the incoming request's origin so invite links work
+    // in any environment (localhost, codespace, production)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000';
+
     const body = await request.json();
     const candidateName = body.candidate_name || 'Unnamed Candidate';
     const candidateEmail = body.candidate_email || null;
@@ -36,8 +40,6 @@ export async function POST(request: NextRequest) {
 
     db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
       VALUES (?, ?, 'caller', ?, datetime('now'))`).run(makeId(), sessionId, scenario.initial_message);
-
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
     return NextResponse.json({
       assessment_id: assessmentId,
