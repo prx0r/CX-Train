@@ -279,3 +279,92 @@ export const CHECKPOINT_KEYS = [
   'timeframe_given',
   'callback_window_given',
 ] as const;
+
+// ── Evaluation-layer types ──────────────────────────────────────────────
+
+export type TranscriptSource = 'web_voice' | 'custom_gpt' | 'manual_upload';
+
+export interface CallTurn {
+  speaker: 'candidate' | 'client' | 'caller';
+  text: string;
+  turnIndex: number;
+  startedAt?: string;
+  endedAt?: string;
+}
+
+export type EvaluationStatus = 'observed' | 'partially_observed' | 'missed' | 'not_applicable';
+
+export interface CheckpointEvidence {
+  checkpointKey: string;
+  status: EvaluationStatus;
+  evidenceQuote: string | null;
+  turnIndex: number | null;
+  reason?: string;
+  confidence: number;
+}
+
+export interface SkillLabel {
+  label: string;
+  confidence: number;
+  evidenceQuote?: string | null;
+}
+
+export interface RiskLabel {
+  label: string;
+  severity: 'low' | 'medium' | 'high';
+  confidence: number;
+  evidenceQuote?: string | null;
+}
+
+export interface EvaluationOutput {
+  callSummary: string;
+  checkpointEvidence: CheckpointEvidence[];
+  skillLabels: SkillLabel[];
+  riskLabels: RiskLabel[];
+  scenarioLabels: string[];
+  dataQualityLabels: string[];
+  coachingNotes: string[];
+}
+
+export type LabelType = 'skill' | 'risk' | 'scenario' | 'data_quality' | 'outcome';
+export type LabelSource = 'ai' | 'system' | 'manager' | 'candidate';
+
+export interface AssessmentTranscript {
+  id: string;
+  assessmentSessionId: string;
+  candidateId: string;
+  scenarioId: string;
+  rawTranscript: string;
+  source: TranscriptSource;
+  transcriptVersion: number;
+  createdAt: string;
+}
+
+export interface AssessmentEvaluation {
+  id: string;
+  transcriptId: string;
+  evaluatorModel: string;
+  evaluatorPromptVersion: string;
+  rubricVersion: string;
+  rawAiOutputJson: EvaluationOutput;
+  validated: boolean;
+  validationErrors: string[];
+  finalCallScore: number;
+  finalTicketScore: number;
+  finalReadinessScore: number;
+  readinessLabel: string;
+  createdAt: string;
+}
+
+export interface RubricItem {
+  key: string;
+  label: string;
+  weight: number;
+}
+
+export interface DisclosureRules {
+  /** Keys in hidden_facts that can be revealed */
+  allowedFactKeys: string[];
+  /** Checkpoints that are safe to share */
+  allowedCheckpointKeys: string[];
+}

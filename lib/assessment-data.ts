@@ -45,6 +45,10 @@ export async function getInviteContext(token: string) {
 }
 
 export function publicScenario(scenario: Record<string, unknown>) {
-  const { hidden_facts: _hiddenFacts, required_checkpoints: _required, ideal_ticket: _ideal, common_mistakes: _mistakes, ...safe } = scenario;
+  const { hidden_facts: _hiddenFacts, required_checkpoints: _required, ideal_ticket: _ideal, common_mistakes: _mistakes, rubric: _rubric, ...safe } = scenario;
   return safe;
+}
+
+export function safeScenario(scenario: Record<string, unknown>) {
+  return publicScenario(scenario);
 }
