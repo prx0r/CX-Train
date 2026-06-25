@@ -25,7 +25,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const candidateMessage = (body.message || '').trim();
+    const candidateMessage = (body.message || body.text || '').trim();
     if (!candidateMessage) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
@@ -33,6 +33,8 @@ export async function POST(
     const startedAtMs = body.started_at_ms || Date.now();
     const endedAtMs = body.ended_at_ms || Date.now();
     const durationMs = body.duration_ms || null;
+    const inputSource = body.input_source || 'text';
+    const audioMetadata = body.audio_metadata || null;
 
     const db = getDb();
 
@@ -49,6 +51,8 @@ export async function POST(
       started_at_ms: startedAtMs,
       ended_at_ms: endedAtMs,
       duration_ms: durationMs,
+      input_source: inputSource as any,
+      audio_metadata: audioMetadata,
     });
 
     /* Build conversation history */
@@ -132,6 +136,7 @@ CRITICAL RULES:
       reply: callerReply,
       model_used: result.model,
       success: result.success,
+      input_source: inputSource,
     });
   } catch (err) {
     console.error('[MVP] Message error:', err);

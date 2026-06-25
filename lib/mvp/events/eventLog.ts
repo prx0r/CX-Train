@@ -1,5 +1,6 @@
 import { getDb } from '../db';
 import { SessionEvent, SessionEventType, SessionActor } from './types';
+import { InputSource, VoiceMetadata } from '../voice/types';
 
 export function getNextSequenceIndex(sessionId: string): number {
   const db = getDb();
@@ -25,14 +26,20 @@ export function appendSessionEvent(params: {
   started_at_ms?: number | null;
   ended_at_ms?: number | null;
   duration_ms?: number | null;
+  input_source?: InputSource;
+  audio_metadata?: VoiceMetadata | null;
 }): string {
   const db = getDb();
   const id = 'evt-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
   const seq = getNextSequenceIndex(params.session_id);
 
+  const payload = params.payload || {};
+  if (params.input_source) payload.input_source = params.input_source;
+  if (params.audio_metadata) payload.audio_metadata = params.audio_metadata;
+
   db.prepare(`INSERT INTO session_events
-    (id, assessment_id, session_id, sequence_index, event_type, actor, text, tool_id, action_id, label, result_text, state_before_json, state_after_json, payload_json, started_at_ms, ended_at_ms, duration_ms)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    (id, assessment_id, session_id, sequence_index, event_type, actor, text, tool_id, action_id, label, result_text, state_before_json, state_after_json, payload_json, input_source, audio_metadata_json, started_at_ms, ended_at_ms, duration_ms)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     id,
     params.assessment_id,
     params.session_id,
@@ -46,7 +53,9 @@ export function appendSessionEvent(params: {
     params.result_text || null,
     params.state_before ? JSON.stringify(params.state_before) : null,
     params.state_after ? JSON.stringify(params.state_after) : null,
-    params.payload ? JSON.stringify(params.payload) : null,
+    Object.keys(payload).length > 0 ? JSON.stringify(payload) : null,
+    params.input_source || 'text',
+    params.audio_metadata ? JSON.stringify(params.audio_metadata) : null,
     params.started_at_ms ?? null,
     params.ended_at_ms ?? null,
     params.duration_ms ?? null,

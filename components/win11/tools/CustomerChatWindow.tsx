@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import WindowFrame from '../WindowFrame';
 
 interface Message {
@@ -12,9 +12,10 @@ interface CustomerChatWindowProps {
   onSendMessage: (message: string) => void;
   sending: boolean;
   disabled: boolean;
+  voiceButton?: ReactNode;
 }
 
-export default function CustomerChatWindow({ messages, onSendMessage, sending, disabled }: CustomerChatWindowProps) {
+export default function CustomerChatWindow({ messages, onSendMessage, sending, disabled, voiceButton }: CustomerChatWindowProps) {
   const [input, setInput] = useState('');
 
   const handleSend = () => {
@@ -45,39 +46,42 @@ export default function CustomerChatWindow({ messages, onSendMessage, sending, d
             </div>
           ))}
         </div>
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: 10, display: 'flex', gap: 8 }}>
-          <input
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message..."
-            disabled={disabled || sending}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              background: '#333',
-              border: '1px solid #555',
-              borderRadius: 6,
-              color: '#d0d0d0',
-              fontSize: 13,
-            }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={disabled || sending || !input.trim()}
-            style={{
-              padding: '8px 16px',
-              background: sending ? '#555' : '#2563eb',
-              border: 'none',
-              borderRadius: 6,
-              color: '#fff',
-              fontSize: 12,
-              cursor: sending ? 'default' : 'pointer',
-            }}
-          >
-            {sending ? '...' : 'Send'}
-          </button>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              placeholder="Type a message..."
+              disabled={disabled || sending}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: '#333',
+                border: '1px solid #555',
+                borderRadius: 6,
+                color: '#d0d0d0',
+                fontSize: 13,
+              }}
+            />
+            <button
+              onClick={handleSend}
+              disabled={disabled || sending || !input.trim()}
+              style={{
+                padding: '8px 16px',
+                background: sending ? '#555' : '#2563eb',
+                border: 'none',
+                borderRadius: 6,
+                color: '#fff',
+                fontSize: 12,
+                cursor: sending ? 'default' : 'pointer',
+              }}
+            >
+              {sending ? '...' : 'Send'}
+            </button>
+          </div>
+          {voiceButton}
         </div>
       </div>
     </WindowFrame>

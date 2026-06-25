@@ -10,6 +10,8 @@ import CommandPromptWindow from '@/components/win11/tools/CommandPromptWindow';
 import CustomerChatWindow from '@/components/win11/tools/CustomerChatWindow';
 import TicketWindow from '@/components/win11/tools/TicketWindow';
 import SimTimeline from './SimTimeline';
+import { VoiceRecorderButton } from '@/components/mvp/voice/VoiceRecorderButton';
+import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
 
 interface Message {
   role: string;
@@ -53,6 +55,12 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
   const [ticketSubmitted, setTicketSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [simData, setSimData] = useState<SimData | null>(null);
+  const [ttsPlaying, setTtsPlaying] = useState(false);
+  const { speak, setOnPlaying } = useCustomerAudio(token);
+
+  useEffect(() => {
+    setOnPlaying(setTtsPlaying);
+  }, [setOnPlaying]);
 
   const loadSim = useCallback(async () => {
     try {
@@ -71,7 +79,7 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
     return () => clearInterval(interval);
   }, [loadSim, open]);
 
-  async function sendMessage(msg: string) {
+  async function sendMessage(msg: string, inputSource?: string) {
     setSending(true);
     setMessages(prev => [...prev, { role: 'candidate', content: msg }]);
 
@@ -80,16 +88,27 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
       const res = await fetch(`/api/mvp/assessment/${token}/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, started_at_ms: startedAt, ended_at_ms: Date.now() }),
+        body: JSON.stringify({
+          message: msg,
+          started_at_ms: startedAt,
+          ended_at_ms: Date.now(),
+          input_source: inputSource || 'text',
+        }),
       });
       const data = await res.json();
       if (data.reply) {
         setMessages(prev => [...prev, { role: 'caller', content: data.reply }]);
+        /* Speak customer reply if voice-enabled and TTS works */
+        speak(data.reply).catch(() => {});
       } else {
         setError(data.error || 'No response');
       }
     } catch { setError('Failed to send message'); }
     setSending(false);
+  }
+
+  async function handleVoiceTranscript(transcript: string) {
+    await sendMessage(transcript, 'voice');
   }
 
   async function handleAction(actionId: string, toolId: string) {
@@ -135,6 +154,7 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
   const safeActions = simData?.safe_actions || [];
   const safeState = simData?.visible_state?.safe_state || {};
   const phase = simData?.phase || 'not_started';
+  const voiceDisabled = ticketSubmitted || ttsPlaying;
 
   return (
     <div className="win-sim-shell" style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: '#0f172a' }}>
@@ -142,7 +162,20 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
       <OutlookWindow safeActions={safeActions} visibleState={safeState} onAction={handleAction} disabled={ticketSubmitted} />
       <BrowserWindow safeActions={safeActions} onAction={handleAction} disabled={ticketSubmitted} />
       <CommandPromptWindow safeActions={safeActions} onAction={handleAction} disabled={ticketSubmitted} />
-      <CustomerChatWindow messages={messages} onSendMessage={sendMessage} sending={sending} disabled={ticketSubmitted} />
+      <CustomerChatWindow
+        messages={messages}
+        onSendMessage={sendMessage}
+        sending={sending}
+        disabled={ticketSubmitted}
+        voiceButton={
+          <VoiceRecorderButton
+            token={token}
+            onTranscript={handleVoiceTranscript}
+            disabled={voiceDisabled}
+            clickToToggle
+          />
+        }
+      />
       <TicketWindow ticketText={ticketText} onTicketChange={setTicketText} onSubmit={submitTicket} submitted={ticketSubmitted} />
       <Taskbar />
 

@@ -202,6 +202,8 @@ assert('Reinstall VisibleAction has no message field', !('message' in reinstallV
 console.log('\n--- Item 7: session_events is canonical ---');
 
 setupDb();
+const { initTables } = require('../lib/mvp/db');
+initTables();
 const db = getDb();
 
 const assessmentId = BASE_ID + '-a';

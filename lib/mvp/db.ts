@@ -203,6 +203,9 @@ export function initTables(): void {
     `ALTER TABLE assessment_packs ADD COLUMN sim_config_json TEXT`,
     `ALTER TABLE assessment_packs ADD COLUMN sim_initial_state_json TEXT`,
     `ALTER TABLE assessment_packs ADD COLUMN sim_success_conditions_json TEXT`,
+
+    `ALTER TABLE session_events ADD COLUMN input_source TEXT NOT NULL DEFAULT 'text'`,
+    `ALTER TABLE session_events ADD COLUMN audio_metadata_json TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }
