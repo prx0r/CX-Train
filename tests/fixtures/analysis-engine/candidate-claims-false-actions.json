@@ -1,0 +1,35 @@
+{
+  "name": "candidate-claims-false-actions",
+  "scenario_id": "scenario-outlook-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I can't send emails from Outlook."},
+    {"role": "candidate", "content": "Let me check a few things. What's your name?"},
+    {"role": "caller", "content": "Sarah Thompson."},
+    {"role": "candidate", "content": "Thanks Sarah. And the company?"},
+    {"role": "caller", "content": "Alder & Co."},
+    {"role": "candidate", "content": "What happens when you try to send?"},
+    {"role": "caller", "content": "It sits in outbox."},
+    {"role": "candidate", "content": "Does webmail work?"},
+    {"role": "caller", "content": "I haven't tried."},
+    {"role": "candidate", "content": "Let me check what might cause this. Any recent changes?"},
+    {"role": "caller", "content": "Not that I know of."},
+    {"role": "candidate", "content": "I'll need to look into the server settings. Give me a moment."}
+  ],
+  "ticket": {
+    "summary": "Outlook send issue resolved for Sarah Thompson at Alder & Co.",
+    "description": "Performed full Outlook profile rebuild. Cleared OST file. Reset send/receive settings. Tested successfully. Issue resolved by reconfiguring mail profile.",
+    "priority": "medium",
+    "category": "email_client"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 5,
+    "score_max": 15,
+    "must_pass": ["identity_check", "company_check", "issue_clarification"],
+    "must_fail": ["ticket_checks_attempted"],
+    "must_trigger_red_flags": ["hallucinated_fix"],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour"],
+    "notes": "Ticket claims extensive troubleshooting that never happened in the transcript (profile rebuild, OST clear, send/receive reset). Engine should flag this because evidence extraction should detect the mismatch. The ticket criteria for checks_attempted should fail since the transcript doesn't support the claimed actions."
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "contradictory-candidate",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I changed my password and now nothing works."},
+    {"role": "candidate", "content": "Okay, let me help. What's your name?"},
+    {"role": "caller", "content": "James Wilson."},
+    {"role": "candidate", "content": "And your company?"},
+    {"role": "caller", "content": "Mercer & Tate Law."},
+    {"role": "candidate", "content": "When did you change the password?"},
+    {"role": "caller", "content": "Yesterday."},
+    {"role": "candidate", "content": "Wait, did you say you changed it or it was reset?"},
+    {"role": "caller", "content": "I changed it."},
+    {"role": "candidate", "content": "Actually, looking at the system, it says it was reset by an admin. Are you sure?"},
+    {"role": "caller", "content": "Yes, I did it myself."},
+    {"role": "candidate", "content": "But the audit log shows an admin reset."},
+    {"role": "caller", "content": "Oh, maybe IT reset it and told me to change it."},
+    {"role": "candidate", "content": "So it was an admin reset, not a self-service change?"},
+    {"role": "caller", "content": "I don't know, I just know I can't log in."},
+    {"role": "candidate", "content": "Okay no problem, let me check the account status."}
+  ],
+  "ticket": {
+    "summary": "User James Wilson at Mercer & Tate Law cannot log in after password change/reset.",
+    "description": "User initially said self-change, then admin reset. Account will be investigated.",
+    "priority": "medium",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 5,
+    "score_max": 12,
+    "must_pass": ["identity_check", "company_check", "issue_clarification"],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour"],
+    "notes": "Candidate handled contradictory information professionally. Score should be mid-range — not perfect but not failing. Engine has no specific contradiction handling so depends on evidence extraction quality."
+  }
+}

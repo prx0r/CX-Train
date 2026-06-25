@@ -1,0 +1,24 @@
+{
+  "name": "one-message-call",
+  "scenario_id": "scenario-printer-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, the printer isn't working, can you help?"},
+    {"role": "candidate", "content": "I'll escalate this to the IT team. Someone will get back to you."}
+  ],
+  "ticket": {
+    "summary": "Printer issue - escalated",
+    "description": "Printer not working. Escalated to IT team.",
+    "priority": "medium",
+    "category": "hardware_printer"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 0,
+    "score_max": 30,
+    "must_pass": [],
+    "must_fail": ["identity_check", "company_check", "issue_clarification", "impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "recent_changes", "next_steps", "customer_tone"],
+    "must_trigger_red_flags": ["no_troubleshooting"],
+    "notes": "Call with only one candidate message. No questions asked. Immediate escalation without any triage. Must trigger no_troubleshooting gate."
+  }
+}

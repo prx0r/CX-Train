@@ -1,0 +1,33 @@
+{
+  "name": "abusive-candidate",
+  "scenario_id": "scenario-outlook-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I'm having trouble with my Outlook — it's not sending emails. I really need to get this sorted quickly."},
+    {"role": "candidate", "content": "What is it now?"},
+    {"role": "caller", "content": "I can't send emails. I have a meeting."},
+    {"role": "candidate", "content": "Did you turn it off and on?"},
+    {"role": "caller", "content": "Yes, several times."},
+    {"role": "candidate", "content": "Then I don't know what you want me to do about it."},
+    {"role": "caller", "content": "Can you please check the server?"},
+    {"role": "candidate", "content": "Look, I have 50 other tickets. I can't drop everything for your Outlook problem. Figure it out."},
+    {"role": "caller", "content": "This is really important, it's for a client meeting."},
+    {"role": "candidate", "content": "I don't care about your meeting. Contact your manager if you want priority."}
+  ],
+  "ticket": {
+    "summary": "Outlook issue - user informed to contact manager for priority",
+    "description": "User frustrated about Outlook. Advised to contact manager for priority handling.",
+    "priority": "low",
+    "category": "email_client"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 0,
+    "score_max": 20,
+    "must_pass": [],
+    "must_fail": ["professional_conduct", "customer_tone", "customer_communication", "next_steps"],
+    "must_trigger_red_flags": ["refusal_to_help"],
+    "must_not_trigger_red_flags": ["severe_customer_abuse"],
+    "notes": "Candidate was dismissive, refused to help, told customer to figure it out themselves. Should trigger refusal_to_help gate. Borderline could be severe_customer_abuse depending on extraction ('I don't care about your meeting' is dismissive but not profane)."
+  }
+}

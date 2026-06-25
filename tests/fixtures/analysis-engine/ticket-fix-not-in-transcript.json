@@ -1,0 +1,33 @@
+{
+  "name": "ticket-fix-not-in-transcript",
+  "scenario_id": "scenario-printer-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "The printer is showing offline."},
+    {"role": "candidate", "content": "What's your name?"},
+    {"role": "caller", "content": "Dr. Chen."},
+    {"role": "candidate", "content": "And the clinic?"},
+    {"role": "caller", "content": "Westside Medical."},
+    {"role": "candidate", "content": "Let me check the printer status from here."},
+    {"role": "caller", "content": "Okay."},
+    {"role": "candidate", "content": "I can see it's offline. Try turning it off and on."},
+    {"role": "caller", "content": "Done, still offline."},
+    {"role": "candidate", "content": "Let me check the network connection."},
+    {"role": "caller", "content": "Alright."},
+    {"role": "candidate", "content": "The switch port might be down. I'll need to escalate this to the network team."}
+  ],
+  "ticket": {
+    "summary": "HP Printer offline issue resolved",
+    "description": "Dr. Emily Chen at Westside Medical Centre reported HP LaserJet Pro M404dn offline. Performed full printer firmware update, reset network settings on the printer, reconfigured static IP, updated print server drivers, and rebooted the print queue. Tested successfully - printer now online and printing test page. Root cause was outdated firmware incompatible with network switch update.",
+    "priority": "high",
+    "category": "hardware_printer"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 0,
+    "score_max": 15,
+    "must_fail": ["ticket_checks_attempted"],
+    "must_trigger_red_flags": ["hallucinated_fix"],
+    "notes": "Ticket claims extensive firmware update, network reset, IP reconfiguration, driver updates — none of which happened in the transcript. The evidence extraction should detect this mismatch and flag hallucinated_fix since the claimed troubleshooting is not supported by evidence."
+  }
+}

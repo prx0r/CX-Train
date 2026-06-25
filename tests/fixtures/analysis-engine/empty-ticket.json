@@ -1,0 +1,42 @@
+{
+  "name": "empty-ticket",
+  "scenario_id": "scenario-outlook-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I'm having trouble with my Outlook — it's not sending emails. I really need to get this sorted quickly."},
+    {"role": "candidate", "content": "I can help with that. What's your name?"},
+    {"role": "caller", "content": "Sarah Thompson."},
+    {"role": "candidate", "content": "And what company are you with, Sarah?"},
+    {"role": "caller", "content": "Alder & Co Accountants."},
+    {"role": "candidate", "content": "When did this start?"},
+    {"role": "caller", "content": "This morning."},
+    {"role": "candidate", "content": "Is it just you or others?"},
+    {"role": "caller", "content": "Just me."},
+    {"role": "candidate", "content": "What error do you get?"},
+    {"role": "caller", "content": "Send/Receive error."},
+    {"role": "candidate", "content": "Does webmail work?"},
+    {"role": "caller", "content": "Yes, webmail works fine."},
+    {"role": "candidate", "content": "Any recent changes?"},
+    {"role": "caller", "content": "I changed my password yesterday."},
+    {"role": "candidate", "content": "That could be it. Let me check your Outlook profile settings. One moment."},
+    {"role": "caller", "content": "Okay."},
+    {"role": "candidate", "content": "I can see the password wasn't updated in Outlook. Let me update it and test."},
+    {"role": "caller", "content": "Thank you!"},
+    {"role": "candidate", "content": "All set. Your password has been updated in Outlook and a test email sent successfully. You should be good now. I'll include a note about keeping passwords synced."}
+  ],
+  "ticket": {
+    "summary": "",
+    "description": "",
+    "priority": "",
+    "category": ""
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 0,
+    "score_max": 60,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "recent_changes", "next_steps", "customer_tone"],
+    "must_fail": ["ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step"],
+    "must_trigger_red_flags": [],
+    "notes": "Good call but completely empty ticket. Ticket criteria all fail, dragging score down. Should not be ready."
+  }
+}

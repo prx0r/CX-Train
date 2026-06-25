@@ -1,0 +1,34 @@
+{
+  "name": "ambiguous-minimal-call",
+  "scenario_id": "scenario-outlook-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, my email is broken."},
+    {"role": "candidate", "content": "Can you tell me more?"},
+    {"role": "caller", "content": "It's not working."},
+    {"role": "candidate", "content": "Anything specific?"},
+    {"role": "caller", "content": "Just doesn't work."},
+    {"role": "candidate", "content": "Okay, let me check the system logs."},
+    {"role": "caller", "content": "Okay."},
+    {"role": "candidate", "content": "I don't see any server issues. Can you try sending a test email?"},
+    {"role": "caller", "content": "It says cannot send."},
+    {"role": "candidate", "content": "Does webmail work?"},
+    {"role": "caller", "content": "I don't know."},
+    {"role": "candidate", "content": "Please try webmail and let me know."}
+  ],
+  "ticket": {
+    "summary": "User reporting email issue. Server logs normal. Webmail check pending.",
+    "description": "User reported email not working. Candidate checked server logs - no issues found. Asked user to test webmail. Awaiting response.",
+    "priority": "medium",
+    "category": "email_client"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 5,
+    "score_max": 20,
+    "must_pass": ["issue_clarification", "technical_discovery"],
+    "must_fail": ["identity_check", "company_check", "impact", "urgency", "scope", "urgency", "ticket_impact", "ticket_urgency"],
+    "must_trigger_red_flags": [],
+    "notes": "Candidate tried but customer was vague. Candidate never got basic info (name, company). However they did some technical checks. Should be low score but not a critical gate failure."
+  }
+}

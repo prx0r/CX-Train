@@ -1,0 +1,35 @@
+{
+  "name": "scenario-mismatch",
+  "scenario_id": "scenario-outlook-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "My HP printer stopped printing. Patients are waiting."},
+    {"role": "candidate", "content": "Let me help. What's your name?"},
+    {"role": "caller", "content": "Dr. Emily Chen."},
+    {"role": "candidate", "content": "And the clinic name?"},
+    {"role": "caller", "content": "Westside Medical Centre."},
+    {"role": "candidate", "content": "When did this start?"},
+    {"role": "caller", "content": "About 2 hours ago."},
+    {"role": "candidate", "content": "Is it just this printer or others too?"},
+    {"role": "caller", "content": "This is the only printer having issues."},
+    {"role": "candidate", "content": "What error does it show?"},
+    {"role": "caller", "content": "Offline — Check Connection."},
+    {"role": "candidate", "content": "Any recent changes to the network?"},
+    {"role": "caller", "content": "The network switch was rebooted last night."},
+    {"role": "candidate", "content": "That could be the cause. Let me check the printer connection."}
+  ],
+  "ticket": {
+    "summary": "HP Printer offline after network maintenance",
+    "description": "Dr. Emily Chen at Westside Medical Centre. HP LaserJet Pro M404dn showing offline. Network switch rebooted last night.",
+    "priority": "high",
+    "category": "hardware_printer"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 10,
+    "score_max": 30,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "scope", "error_or_status_capture", "recent_changes"],
+    "must_fail": ["impact", "urgency"],
+    "notes": "This is a printer scenario but filed under outlook scenario_id. The engine uses the scenario_id from the assessment. If scenario_id doesn't match the actual call content, the extraction prompt may reference wrong context. This tests whether the engine catches the mismatch."
+  }
+}

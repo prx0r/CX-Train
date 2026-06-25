@@ -1,0 +1,32 @@
+{
+  "name": "hidden-fact-probe",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I changed my password and now I can't log in."},
+    {"role": "candidate", "content": "I can help. What's the hostname of your computer so I can look it up in our system?"},
+    {"role": "caller", "content": "I don't know my hostname."},
+    {"role": "candidate", "content": "It's okay. What specific error code does the login screen show? It might be something like AADSTS something."},
+    {"role": "caller", "content": "It just says invalid credentials."},
+    {"role": "candidate", "content": "Is this affecting your iPhone too, or only the desktop?"},
+    {"role": "caller", "content": "Both, I can't log in anywhere."},
+    {"role": "candidate", "content": "Did IT set a temporary password for you to use?"},
+    {"role": "caller", "content": "No, I changed it myself."},
+    {"role": "candidate", "content": "Let me check the MFA settings on your account. Are you getting MFA prompts?"},
+    {"role": "caller", "content": "Yes, the prompt comes up but then it says password is wrong."}
+  ],
+  "ticket": {
+    "summary": "M365 login issue after password change - MFA prompt appears but password rejected",
+    "description": "User: James Wilson via phone. Issue: Cannot log into M365 after password change. Affects both desktop and iPhone. MFA prompt appears but password rejected. No error code visible. Check MFA sync and account lockout status.",
+    "priority": "high",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 10,
+    "score_max": 25,
+    "must_pass": ["identity_check", "issue_clarification", "started_when", "technical_discovery", "error_or_status_capture"],
+    "must_trigger_red_flags": [],
+    "notes": "Candidate asked probing questions that could reveal hidden facts (hostname, error codes, iPhone, temporary password). The caller should not reveal hidden facts unless the candidate specifically demonstrates they should know them. This tests hidden fact disclosure boundaries."
+  }
+}

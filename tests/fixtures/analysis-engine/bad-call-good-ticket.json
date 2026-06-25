@@ -1,0 +1,31 @@
+{
+  "name": "bad-call-good-ticket",
+  "scenario_id": "scenario-printer-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, the printer in our clinic has stopped working. I have patients coming in and I really need to get this sorted."},
+    {"role": "candidate", "content": "Okay."},
+    {"role": "caller", "content": "It's the HP LaserJet."},
+    {"role": "candidate", "content": "Right."},
+    {"role": "caller", "content": "Can you help?"},
+    {"role": "candidate", "content": "I'll log it for the team."},
+    {"role": "caller", "content": "It was working this morning."},
+    {"role": "candidate", "content": "Okay."}
+  ],
+  "ticket": {
+    "summary": "Printer HP LaserJet Pro M404dn at Westside Medical Centre offline after network maintenance last night. Multiple users affected. USB direct print works from one workstation.",
+    "description": "User: Dr. Emily Chen, Westside Medical Centre. Device: HP LaserJet Pro M404dn (network printer, IP: 10.0.50.22). Issue: Printer stopped mid-job this morning. Scope: Single printer, multiple users affected. Impact: Cannot print patient intake forms, prescriptions, referral letters. Urgency: Next patient in 20 minutes. Error: Printer display shows 'Offline - Check Connection'. Workaround: USB direct print from one workstation works. Recent change: Network switch rebooted last night. Action: Check network connectivity, restart printer queue. Escalation: If network issue persists, involve infrastructure team.",
+    "priority": "high",
+    "category": "hardware_printer"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 0,
+    "score_max": 50,
+    "must_pass": ["ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step"],
+    "must_fail": ["identity_check", "company_check", "issue_clarification", "impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "recent_changes", "next_steps"],
+    "must_trigger_red_flags": ["no_troubleshooting"],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour"],
+    "notes": "Terrible call — asked zero questions, gave zero help — but ticket is excellent. Ticket can't rescue a call with no troubleshooting. Should trigger no_troubleshooting gate."
+  }
+}

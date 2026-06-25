@@ -1,0 +1,44 @@
+{
+  "name": "good-call-bad-ticket",
+  "scenario_id": "scenario-outlook-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I'm having trouble with my Outlook — it's not sending emails."},
+    {"role": "candidate", "content": "I understand. Let me start with your name and company?"},
+    {"role": "caller", "content": "Sarah Thompson, Alder & Co Accountants."},
+    {"role": "candidate", "content": "Thanks Sarah. When did this start?"},
+    {"role": "caller", "content": "This morning."},
+    {"role": "candidate", "content": "Is it just you or others too?"},
+    {"role": "caller", "content": "Just me."},
+    {"role": "candidate", "content": "What's the impact?"},
+    {"role": "caller", "content": "I need to send documents before a client meeting."},
+    {"role": "candidate", "content": "When is that meeting?"},
+    {"role": "caller", "content": "30 minutes."},
+    {"role": "candidate", "content": "That's tight. What error do you see?"},
+    {"role": "caller", "content": "Send/Receive error."},
+    {"role": "candidate", "content": "Does webmail work?"},
+    {"role": "caller", "content": "Yes."},
+    {"role": "candidate", "content": "Any recent changes?"},
+    {"role": "caller", "content": "Password changed yesterday."},
+    {"role": "candidate", "content": "That's the likely cause. Let me update your Outlook profile password."},
+    {"role": "caller", "content": "Okay."},
+    {"role": "candidate", "content": "Done. Test email sent and received. You're all set."},
+    {"role": "caller", "content": "Thank you so much!"}
+  ],
+  "ticket": {
+    "summary": "outlook fixed",
+    "description": "updated password",
+    "priority": "medium",
+    "category": "email"
+  },
+  "expected": {
+    "readiness_label": "needs_supervision",
+    "score_min": 60,
+    "score_max": 80,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "recent_changes", "next_steps", "customer_tone", "professional_conduct", "customer_communication", "safety"],
+    "must_fail": ["ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step"],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "no_troubleshooting"],
+    "notes": "Excellent call with every discovery question, but ticket is two words. Call should carry the score but ticket drags it down."
+  }
+}
