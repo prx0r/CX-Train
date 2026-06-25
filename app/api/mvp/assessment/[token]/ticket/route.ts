@@ -71,7 +71,7 @@ export async function POST(
           actor: 'system',
           label: 'Simulation completed',
           state_after: currentState,
-          timestamp_ms: Date.now(),
+          started_at_ms: Date.now(),
         });
       }
     }

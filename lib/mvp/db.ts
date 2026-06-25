@@ -336,6 +336,7 @@ const PRINTER_PACK_ID = 'pack-printer-v1';
 const WIFI_SCENARIO_ID = 'scenario-wifi-001';
 const WIFI_PACK_ID = 'pack-wifi-v1';
 const OUTLOOK_SIM_PACK_ID = 'pack-outlook-sim-v1';
+const OUTLOOK_SIM_V2_PACK_ID = 'pack-outlook-sim-v2';
 
 export function getDefaultStandardsId(): string { return DEFAULT_STANDARDS_ID; }
 export function getDefaultPackId(): string { return DEFAULT_PACK_ID; }
@@ -822,7 +823,32 @@ export function seedDefaults(): void {
       JSON.stringify(simInitialState),
       JSON.stringify(simSuccessConditions)
     );
-    console.log('Seeded Outlook dashboard sim pack');
+    console.log('Seeded Outlook dashboard sim pack v1');
+  }
+
+  // Seed Outlook dashboard sim pack v2
+  const existingOutlookSimV2Pack = db.prepare('SELECT id FROM assessment_packs WHERE id = ?').get(OUTLOOK_SIM_V2_PACK_ID);
+  if (!existingOutlookSimV2Pack) {
+    const { getOutlookWorkOfflinePack } = require('./sim/packConfig');
+    const pack = getOutlookWorkOfflinePack();
+    db.prepare(`INSERT INTO assessment_packs (id, title, scenario_type, role_level, difficulty, version, customer_persona, hidden_facts_json, expected_behaviours_json, required_ticket_fields_json, red_flags_json, rubric_json, caller_behaviour_prompt, initial_message, is_active, sim_config_json, sim_initial_state_json, sim_success_conditions_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, datetime('now'), datetime('now'))`).run(
+      OUTLOOK_SIM_V2_PACK_ID,
+      'Outlook Not Sending — Work Offline v2',
+      'email_client', 'apprentice', 'first_line', '2.0',
+      `${pack.customer.name} ${pack.customer.role}, ${pack.customer.company}`,
+      JSON.stringify(pack.hiddenTruth),
+      JSON.stringify(pack.idealTicket.requiredFields),
+      JSON.stringify(['user', 'company', 'device', 'issue_summary', 'impact', 'urgency', 'checks_attempted', 'root_cause', 'resolution', 'verification', 'next_step']),
+      JSON.stringify(pack.redFlags.map((r: any) => r.id)),
+      JSON.stringify(pack.rubric),
+      `You are ${pack.customer.name}, ${pack.customer.role} at ${pack.customer.company}. ${pack.customer.openingLine}`,
+      pack.customer.openingLine,
+      JSON.stringify({ tools: pack.tools, actions: pack.actions.map((a: any) => ({ id: a.id, tool: a.tool, label: a.label, allowedPhases: a.allowedPhases, requiresState: a.requiresState, effects: a.effects, observation: a.observation, evidenceTags: a.evidenceTags, scoreImpact: a.scoreImpact })) }),
+      JSON.stringify(pack.initialState),
+      JSON.stringify({ phase: 'submitted' })
+    );
+    console.log('Seeded Outlook dashboard sim pack v2');
   }
 
   // Seed taxonomy from the XLSX-derived JSON if table is empty

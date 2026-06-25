@@ -17,10 +17,12 @@ interface Message {
 }
 
 interface TimelineEntry {
-  action_id: string | null;
+  sequence: number;
+  event_type: string;
+  actor: string;
+  formatted_time: string;
   label: string | null;
   result_text: string | null;
-  formatted_time: string;
   is_red_flag: boolean;
 }
 
@@ -30,10 +32,16 @@ interface SafeAction {
   label: string;
 }
 
+interface VisibleSimState {
+  phase: string;
+  safe_state: Record<string, unknown>;
+}
+
 interface SimData {
   tools: string[];
   safe_actions: SafeAction[];
-  visible_state: Record<string, unknown>;
+  visible_state: VisibleSimState;
+  phase: string;
   timeline: TimelineEntry[];
 }
 
@@ -56,7 +64,6 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
 
   useEffect(() => {
     loadSim();
-    // Auto-open Outlook and Chat on load
     open('outlook', 'Microsoft Outlook', '📧', 'outlook');
     open('chat', 'Customer Chat', '💬', 'chat');
     open('ticket', 'Ticket', '🎫', 'ticket');
@@ -91,7 +98,7 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
       const res = await fetch(`/api/mvp/assessment/${token}/sim/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action_id: actionId, tool_id: toolId, timestamp_ms: Date.now() }),
+        body: JSON.stringify({ action_id: actionId, tool_id: toolId, started_at_ms: Date.now() }),
       });
       const data = await res.json();
       if (data.ok) setSimData(data.data);
@@ -126,22 +133,19 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
   }
 
   const safeActions = simData?.safe_actions || [];
-  const visibleState = simData?.visible_state || {};
+  const safeState = simData?.visible_state?.safe_state || {};
+  const phase = simData?.phase || 'not_started';
 
   return (
     <div className="win-sim-shell" style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: '#0f172a' }}>
-      {/* Windows */}
       <Desktop />
-      <OutlookWindow safeActions={safeActions} visibleState={visibleState} onAction={handleAction} disabled={ticketSubmitted} />
+      <OutlookWindow safeActions={safeActions} visibleState={safeState} onAction={handleAction} disabled={ticketSubmitted} />
       <BrowserWindow safeActions={safeActions} onAction={handleAction} disabled={ticketSubmitted} />
       <CommandPromptWindow safeActions={safeActions} onAction={handleAction} disabled={ticketSubmitted} />
       <CustomerChatWindow messages={messages} onSendMessage={sendMessage} sending={sending} disabled={ticketSubmitted} />
       <TicketWindow ticketText={ticketText} onTicketChange={setTicketText} onSubmit={submitTicket} submitted={ticketSubmitted} />
-
-      {/* Taskbar */}
       <Taskbar />
 
-      {/* Floating error toast */}
       {error && (
         <div style={{
           position: 'fixed', bottom: 60, right: 16,

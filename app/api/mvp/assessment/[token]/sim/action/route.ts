@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initTables, getDb } from '@/lib/mvp/db';
-import { getAssessmentPack, getFullAssessment, makeId } from '@/lib/mvp/query';
+import { getAssessmentPack, getFullAssessment } from '@/lib/mvp/query';
 import { applyAction } from '@/lib/mvp/sim/stateMachine';
-import { insertSimEvent, getSimEvents } from '@/lib/mvp/sim/eventLog';
-import { getSafeActions, getSafeVisibleState } from '@/lib/mvp/sim/packConfig';
+import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
+import { getVisibleActions, getVisibleState } from '@/lib/mvp/sim/safeProjection';
 import { buildTimeline } from '@/lib/mvp/sim/timeline';
-import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
+import { getOutlookWorkOfflinePack } from '@/lib/mvp/sim/packConfig';
+import { SimState } from '@/lib/mvp/sim/types';
 
 export async function POST(
   request: NextRequest,
@@ -26,22 +27,18 @@ export async function POST(
     const body = await request.json();
     const actionId = body.action_id as string;
     const toolId = body.tool_id as string;
-    const timestampMs = body.timestamp_ms || Date.now();
+    const startedAtMs = body.started_at_ms || Date.now();
 
-    if (!actionId || !toolId) {
-      return NextResponse.json({ error: 'action_id and tool_id required' }, { status: 400 });
+    if (!actionId) {
+      return NextResponse.json({ error: 'action_id required' }, { status: 400 });
     }
 
     const packId = (full.assessment as any).assessment_pack_id;
-    const pack = packId ? getAssessmentPack(packId) : null;
-    if (!pack || !pack.sim_config_json) {
-      return NextResponse.json({ error: 'Sim pack not found' }, { status: 404 });
-    }
+    const pack = packId ? getOutlookWorkOfflinePack() : getOutlookWorkOfflinePack();
 
-    const config = JSON.parse(pack.sim_config_json);
-    const action = config.actions?.find((a: any) => a.id === actionId && a.tool === toolId);
+    const action = pack.actions.find(a => a.id === actionId);
     if (!action) {
-      return NextResponse.json({ error: `Action ${actionId} not found for tool ${toolId}` }, { status: 400 });
+      return NextResponse.json({ error: `Action ${actionId} not found` }, { status: 400 });
     }
 
     const db = getDb();
@@ -50,118 +47,118 @@ export async function POST(
       return NextResponse.json({ error: 'Sim session not found' }, { status: 404 });
     }
 
-    const currentState = JSON.parse(simSession.current_state_json);
+    const currentState = JSON.parse(simSession.current_state_json) as SimState;
 
-    // Check preconditions
-    if (action.requires_state) {
-      for (const [key, val] of Object.entries(action.requires_state)) {
-        if (currentState[key] !== val) {
-          return NextResponse.json({
-            ok: false,
-            error: `Action ${actionId} requires ${key}=${val} but current=${currentState[key]}`,
-          }, { status: 400 });
-        }
-      }
+    /* Apply action through state machine */
+    const { result, updatedState } = applyAction(currentState, action);
+
+    if (result.redFlag && !result.phaseTransition && result.state_before === result.state_after) {
+      /* Action was rejected — return precondition error */
+      return NextResponse.json({
+        ok: false,
+        error: result.result_text,
+      }, { status: 400 });
     }
 
-    // Apply action
-    const result = applyAction(currentState, action);
-
-    // Update sim session state
+    /* Update sim session state */
     db.prepare('UPDATE sim_sessions SET current_state_json = ? WHERE id = ?').run(
-      JSON.stringify(result.state_after), simSession.id
+      JSON.stringify(updatedState), simSession.id
     );
 
-    // Insert action_performed event (both sim_events for backward compat + session_events for unified timeline)
+    /* Log action_performed event */
     insertSimEvent({
       session_id: full.session.id,
       assessment_id: full.assessment.id,
       assessment_pack_id: packId,
       event_type: 'action_performed',
       actor: 'candidate',
-      tool_id: toolId,
-      action_id: actionId,
+      tool_id: action.tool,
+      action_id: action.id,
       label: action.label,
-      result_text: action.result,
+      text: null,
+      result_text: result.result_text,
       state_before: result.state_before,
       state_after: result.state_after,
-      timestamp_ms: timestampMs,
+      evidence_tags: result.evidenceTags.length > 0 ? result.evidenceTags : null,
+      red_flag: result.redFlag,
+      started_at_ms: startedAtMs,
     });
 
-    appendSessionEvent({
-      assessment_id: full.assessment.id,
-      session_id: full.session.id,
-      event_type: 'action_performed',
-      actor: 'candidate',
-      tool_id: toolId,
-      action_id: actionId,
-      label: action.label,
-      result_text: action.result,
-      state_before: result.state_before,
-      state_after: result.state_after,
-      started_at_ms: timestampMs,
-    });
-
-    // Insert observation_returned event
+    /* Log observation_returned event */
     insertSimEvent({
       session_id: full.session.id,
       assessment_id: full.assessment.id,
       assessment_pack_id: packId,
       event_type: 'observation_returned',
       actor: 'system',
-      tool_id: toolId,
-      action_id: actionId,
+      tool_id: action.tool,
+      action_id: action.id,
       label: `${action.label} result`,
-      result_text: action.result,
-      timestamp_ms: timestampMs + 100,
+      result_text: result.result_text,
+      started_at_ms: startedAtMs + 100,
     });
 
-    appendSessionEvent({
-      assessment_id: full.assessment.id,
-      session_id: full.session.id,
-      event_type: 'observation_returned',
-      actor: 'system',
-      tool_id: toolId,
-      action_id: actionId,
-      label: `${action.label} result`,
-      result_text: action.result,
-      started_at_ms: timestampMs + 100,
-    });
-
-    // Insert red_flag_triggered if applicable
-    if (action.red_flag) {
+    /* Log red flag */
+    if (result.redFlag) {
       insertSimEvent({
         session_id: full.session.id,
         assessment_id: full.assessment.id,
         assessment_pack_id: packId,
         event_type: 'red_flag_triggered',
         actor: 'system',
-        tool_id: toolId,
-        action_id: actionId,
+        tool_id: action.tool,
+        action_id: action.id,
         label: action.label,
-        result_text: action.red_flag,
+        result_text: result.redFlag.message,
         state_after: result.state_after,
-        timestamp_ms: timestampMs + 200,
-      });
-
-      appendSessionEvent({
-        assessment_id: full.assessment.id,
-        session_id: full.session.id,
-        event_type: 'red_flag_triggered',
-        actor: 'system',
-        tool_id: toolId,
-        action_id: actionId,
-        label: action.label,
-        result_text: action.red_flag,
-        state_after: result.state_after,
-        started_at_ms: timestampMs + 200,
+        red_flag: result.redFlag,
+        started_at_ms: startedAtMs + 200,
       });
     }
 
-    // Refresh events and build response
-    const events = getSimEvents(full.session.id);
-    const safeActions = getSafeActions(result.state_after, config.actions || []);
-    const visibleState = getSafeVisibleState(result.state_after);
+    /* Log phase transition */
+    if (result.phaseTransition) {
+      insertSimEvent({
+        session_id: full.session.id,
+        assessment_id: full.assessment.id,
+        assessment_pack_id: packId,
+        event_type: 'observation_returned',
+        actor: 'system',
+        label: `Phase: ${updatedState.phase}`,
+        result_text: `Transitioned to ${updatedState.phase} phase`,
+        started_at_ms: startedAtMs + 150,
+      });
+    }
+
+    /* Build safe response */
+    const allEvents = db.prepare(
+      'SELECT * FROM sim_events WHERE session_id = ? ORDER BY sequence_index ASC'
+    ).all(full.session.id) as any[];
+
+    const typedEvents = allEvents.map((e: any) => ({
+      id: e.id,
+      session_id: e.session_id,
+      assessment_id: e.assessment_id,
+      assessment_pack_id: e.assessment_pack_id,
+      sequence: e.sequence_index,
+      event_type: e.event_type,
+      actor: e.actor,
+      tool_id: e.tool_id,
+      action_id: e.action_id,
+      label: e.label,
+      text: e.text,
+      result_text: e.result_text,
+      state_before_json: e.state_before_json ? JSON.parse(e.state_before_json) : null,
+      state_after_json: e.state_after_json ? JSON.parse(e.state_after_json) : null,
+      evidence_tags_json: e.evidence_tags_json ? JSON.parse(e.evidence_tags_json) : null,
+      red_flag_json: e.red_flag_json ? JSON.parse(e.red_flag_json) : null,
+      started_at_ms: e.timestamp_ms || e.started_at_ms,
+      ended_at_ms: e.ended_at_ms || null,
+      created_at: e.created_at,
+    }));
+
+    const visibleState = getVisibleState(updatedState);
+    const safeActions = getVisibleActions(updatedState, pack.actions);
 
     return NextResponse.json({
       ok: true,
@@ -170,14 +167,18 @@ export async function POST(
           action_id: result.action_id,
           label: result.label,
           result_text: result.result_text,
+          red_flag: result.redFlag,
         },
         visible_state: visibleState,
         safe_actions: safeActions,
-        timeline: buildTimeline(events).map(t => ({
-          action_id: t.action_id,
+        phase: updatedState.phase,
+        timeline: buildTimeline(typedEvents).map(t => ({
+          sequence: t.sequence,
+          event_type: t.event_type,
+          actor: t.actor,
+          formatted_time: t.formatted_time,
           label: t.label,
           result_text: t.result_text,
-          formatted_time: t.formatted_time,
           is_red_flag: t.is_red_flag,
         })),
       },

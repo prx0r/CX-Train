@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, seedDefaults, initTables } from '@/lib/mvp/db';
-import { makeId, getActiveScenario, getActiveCriteria, getManagerStandards, getAssessmentPack } from '@/lib/mvp/query';
+import { makeId, getActiveScenario, getActiveCriteria, getManagerStandards } from '@/lib/mvp/query';
 import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
+import { getOutlookWorkOfflinePack, OUTLOOK_WORK_OFFLINE_PACK_ID } from '@/lib/mvp/sim/packConfig';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,11 +35,22 @@ export async function POST(request: NextRequest) {
     const title = `Call Readiness: ${candidateName}`;
 
     // Load pack if dashboard_sim
-    let pack = null;
+    let packInitialState: Record<string, unknown> = {};
+    let packId = assessmentPackId;
     if (assessmentMode === 'dashboard_sim') {
-      pack = getAssessmentPack(assessmentPackId);
-      if (!pack) {
-        return NextResponse.json({ error: 'assessment_pack_id required for dashboard_sim mode' }, { status: 400 });
+      if (!packId || packId === OUTLOOK_WORK_OFFLINE_PACK_ID) {
+        packId = OUTLOOK_WORK_OFFLINE_PACK_ID;
+        const codePack = getOutlookWorkOfflinePack();
+        packInitialState = codePack.initialState as unknown as Record<string, unknown>;
+      } else {
+        const { getAssessmentPack } = await import('@/lib/mvp/query');
+        const dbPack = getAssessmentPack(packId);
+        if (!dbPack) {
+          return NextResponse.json({ error: 'assessment_pack_id not found' }, { status: 400 });
+        }
+        if (dbPack.sim_initial_state_json) {
+          packInitialState = JSON.parse(dbPack.sim_initial_state_json);
+        }
       }
     }
 
@@ -67,23 +79,20 @@ export async function POST(request: NextRequest) {
       VALUES (?, ?, 'caller', ?, datetime('now'))`).run(makeId(), sessionId, scenario.initial_message);
 
     // Create sim_session for dashboard_sim
-    if (assessmentMode === 'dashboard_sim' && pack) {
-      const simConfig = pack.sim_config_json ? JSON.parse(pack.sim_config_json) : null;
-      const initialState = pack.sim_initial_state_json ? JSON.parse(pack.sim_initial_state_json) : {};
-
+    if (assessmentMode === 'dashboard_sim') {
       const simSessionId = makeId();
       db.prepare(`INSERT INTO sim_sessions (id, session_id, assessment_id, assessment_pack_id, current_state_json, started_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))`).run(simSessionId, sessionId, assessmentId, assessmentPackId, JSON.stringify(initialState));
+        VALUES (?, ?, ?, ?, ?, datetime('now'))`).run(simSessionId, sessionId, assessmentId, packId, JSON.stringify(packInitialState));
 
       insertSimEvent({
         session_id: sessionId,
         assessment_id: assessmentId,
-        assessment_pack_id: assessmentPackId,
+        assessment_pack_id: packId,
         event_type: 'sim_started',
         actor: 'system',
         label: 'Simulation started',
-        state_after: initialState,
-        timestamp_ms: Date.now(),
+        state_after: packInitialState,
+        started_at_ms: Date.now(),
       });
     }
 

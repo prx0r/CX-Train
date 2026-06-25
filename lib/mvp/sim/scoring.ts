@@ -1,11 +1,11 @@
-import { SimEvent, SimScoringResult, SimActionConfig } from './types';
+import { SimPackEvent, SimScoringResult, SimAction, SimState } from './types';
 
 export function scoreSimEvents(params: {
-  actions: SimActionConfig[];
-  events: SimEvent[];
-  finalState: Record<string, unknown>;
+  pack: { actions: SimAction[]; rubric: Record<string, { weight: number }> };
+  events: SimPackEvent[];
+  finalState: SimState;
 }): SimScoringResult {
-  const { actions, events, finalState } = params;
+  const { pack, events, finalState } = params;
 
   const performedActionIds = new Set(
     events.filter(e => e.event_type === 'action_performed').map(e => e.action_id).filter(Boolean)
@@ -14,83 +14,115 @@ export function scoreSimEvents(params: {
   const redFlagEvents = events.filter(e => e.event_type === 'red_flag_triggered');
   const redFlagActionIds = new Set(redFlagEvents.map(e => e.action_id).filter(Boolean));
 
-  // Check each required action
+  /* ── Criteria computation ─────────────────────────── */
+
   const actionCriteria: Record<string, 'pass' | 'partial' | 'fail'> = {};
+
+  const askedImpact = finalState.evidence.askedImpact || events.some(e =>
+    e.event_type === 'candidate_message' && e.text?.toLowerCase().includes('impact')
+  );
+  actionCriteria.asked_impact = askedImpact ? 'pass' : 'fail';
+
+  const askedScope = finalState.evidence.askedScope || events.some(e =>
+    e.event_type === 'candidate_message' &&
+    (e.text?.toLowerCase().includes('anyone else') || e.text?.toLowerCase().includes('only you'))
+  );
+  actionCriteria.asked_scope = askedScope ? 'pass' : 'fail';
+
+  const confirmedUser = finalState.evidence.confirmedUser || events.some(e =>
+    e.event_type === 'candidate_message' && e.text?.toLowerCase().includes('your name')
+  );
+  actionCriteria.confirmed_user = confirmedUser ? 'pass' : 'fail';
+
+  const openedOutlook = performedActionIds.has('open_outlook');
+  actionCriteria.opened_outlook = openedOutlook ? 'pass' : 'fail';
 
   const checkedStatus = performedActionIds.has('check_outlook_status');
   actionCriteria.checked_outlook_status = checkedStatus ? 'pass' : 'fail';
 
-  // Check webmail: direct action OR chat mention
   const checkedWebmail = performedActionIds.has('check_webmail');
-  const askedInChat = events.some(e =>
-    e.event_type === 'candidate_message' &&
-    e.result_text?.toLowerCase().includes('webmail')
-  );
-  actionCriteria.checked_webmail = checkedWebmail ? 'pass' : askedInChat ? 'partial' : 'fail';
+  actionCriteria.checked_webmail = checkedWebmail ? 'pass' : 'fail';
 
-  const disabledWFO = performedActionIds.has('toggle_work_offline');
+  const disabledWFO = performedActionIds.has('disable_work_offline');
   actionCriteria.disabled_work_offline = disabledWFO ? 'pass' : 'fail';
 
-  const sentTest = performedActionIds.has('send_test_email');
-  const toggledBeforeSend = (() => {
-    const toggleIdx = events.findIndex(e => e.action_id === 'toggle_work_offline');
-    const sendIdx = events.findIndex(e => e.action_id === 'send_test_email');
-    return toggleIdx >= 0 && sendIdx > toggleIdx;
-  })();
-  actionCriteria.sent_test_email = sentTest && toggledBeforeSend ? 'pass' : sentTest ? 'partial' : 'fail';
+  const sentTestOrSendReceive = performedActionIds.has('send_test_email') || performedActionIds.has('send_receive');
+  actionCriteria.verified_fix = sentTestOrSendReceive ? 'pass' : 'fail';
+
+  const usedKB = performedActionIds.has('search_kb_outlook');
+  actionCriteria.used_knowledge_base = usedKB ? 'pass' : 'fail';
 
   const redFlags = redFlagEvents.map(e => e.action_id).filter(Boolean) as string[];
 
-  // Check avoided red flags
   const avoidedRedFlags = redFlags.length === 0;
   actionCriteria.avoided_red_flags = avoidedRedFlags ? 'pass' : 'fail';
 
-  // Check dangerous red flags (reinstall/delete before status check)
   const reinstallBefore = redFlagActionIds.has('reinstall_outlook') && !checkedStatus;
   const deleteBefore = redFlagActionIds.has('delete_mail_profile') && !checkedStatus;
-  const escalateBefore = redFlagActionIds.has('escalate_without_basic_checks') && !(checkedStatus || checkedWebmail);
+  const escalateBefore = redFlagActionIds.has('escalate_without_checks') && !(checkedStatus || checkedWebmail);
+  const guessedBefore = redFlagActionIds.has('blame_outage') && !checkedStatus;
 
-  // Score delta calculation
+  /* ── Score delta computation ──────────────────────── */
+
   let scoreDelta = 0;
-  if (checkedStatus) scoreDelta += 8;
-  if (checkedWebmail) scoreDelta += 5;
-  if (askedInChat && !checkedWebmail) scoreDelta += 2;
-  if (disabledWFO) scoreDelta += 10;
-  if (sentTest && toggledBeforeSend) scoreDelta += 10;
-  if (sentTest && !toggledBeforeSend) scoreDelta += 5;
-  if (avoidedRedFlags) scoreDelta += 7;
-  if (reinstallBefore) scoreDelta -= 15;
-  if (deleteBefore) scoreDelta -= 15;
-  if (escalateBefore) scoreDelta -= 10;
 
-  // Final state bonus
-  if (finalState.test_email_sent) scoreDelta += 5;
-  if (finalState.issue_resolved) scoreDelta += 5;
-  if (finalState.ticket_note_submitted) scoreDelta += 5;
+  if (askedImpact) scoreDelta += 8;
+  if (askedScope) scoreDelta += 8;
+  if (confirmedUser) scoreDelta += 5;
+  if (openedOutlook) scoreDelta += 5;
+  if (checkedStatus) scoreDelta += 15;
+  if (checkedWebmail) scoreDelta += 10;
+  if (disabledWFO) scoreDelta += 20;
+  if (sentTestOrSendReceive) scoreDelta += 10;
+  if (usedKB) scoreDelta += 5;
+  if (avoidedRedFlags) scoreDelta += 10;
+
+  if (reinstallBefore) scoreDelta -= 20;
+  if (deleteBefore) scoreDelta -= 20;
+  if (escalateBefore) scoreDelta -= 15;
+  if (guessedBefore) scoreDelta -= 20;
+
+  /* Phase bonus */
+  if (finalState.phase === 'submitted') scoreDelta += 5;
+  if (sentTestOrSendReceive && disabledWFO) scoreDelta += 5;
 
   scoreDelta = Math.max(0, Math.min(100, scoreDelta));
 
-  // Timeline summary
+  /* ── Timeline summary ──────────────────────────────── */
   const timelineSummary: string[] = [];
   for (const ev of events) {
-    if (ev.event_type === 'action_performed' && ev.label) {
-      timelineSummary.push(`${ev.label} → ${ev.result_text || ''}`);
+    if (ev.event_type === 'customer_message' && ev.text) {
+      timelineSummary.push(`[Customer] ${ev.text}`);
+    } else if (ev.event_type === 'candidate_message' && ev.text) {
+      timelineSummary.push(`[Candidate] ${ev.text}`);
+    } else if (ev.event_type === 'action_performed' && ev.label) {
+      timelineSummary.push(`[Action] ${ev.label} → ${ev.result_text || ''}`);
+    } else if (ev.event_type === 'observation_returned' && ev.result_text) {
+      timelineSummary.push(`[System] ${ev.result_text}`);
     } else if (ev.event_type === 'red_flag_triggered' && ev.label) {
-      timelineSummary.push(`⚠ ${ev.label}`);
+      timelineSummary.push(`[Red Flag] ⚠ ${ev.label}`);
     }
   }
 
-  // Technical path
+  /* ── Technical path ────────────────────────────────── */
   const technicalPath: string[] = [];
-  if (checkedStatus) technicalPath.push('✓ Checked Outlook status before changing settings');
-  else technicalPath.push('✗ Did not check Outlook status');
+  if (confirmedUser) technicalPath.push('✓ Identified the user');
+  else technicalPath.push('✗ Did not identify user');
+  if (askedScope) technicalPath.push('✓ Asked scope (one user or many)');
+  else technicalPath.push('✗ Did not ask scope');
+  if (askedImpact) technicalPath.push('✓ Asked business impact');
+  else technicalPath.push('✗ Did not ask impact');
+  if (openedOutlook) technicalPath.push('✓ Opened Outlook to investigate');
+  else technicalPath.push('✗ Did not open Outlook');
+  if (checkedStatus) technicalPath.push('✓ Checked Outlook connection status');
+  else technicalPath.push('✗ Did not check connection status');
   if (checkedWebmail) technicalPath.push('✓ Checked webmail to isolate scope');
-  if (askedInChat && !checkedWebmail) technicalPath.push('~ Asked about webmail in chat but did not verify directly');
-  if (disabledWFO) technicalPath.push('✓ Found root cause (Work Offline)');
+  else technicalPath.push('✗ Did not check webmail');
+  if (disabledWFO) technicalPath.push('✓ Disabled Work Offline (correct fix)');
   else technicalPath.push('✗ Did not disable Work Offline');
-  if (sentTest && toggledBeforeSend) technicalPath.push('✓ Tested fix after resolving root cause');
-  else if (sentTest) technicalPath.push('~ Sent test email before confirming fix');
-  else technicalPath.push('✗ Did not verify fix with test email');
+  if (sentTestOrSendReceive) technicalPath.push('✓ Verified fix with test email');
+  else technicalPath.push('✗ Did not verify the fix');
+  if (usedKB) technicalPath.push('✓ Used knowledge base');
   if (avoidedRedFlags) technicalPath.push('✓ Avoided dangerous actions');
   if (redFlags.length > 0) technicalPath.push(`⚠ Triggered red flags: ${redFlags.join(', ')}`);
 

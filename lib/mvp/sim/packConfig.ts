@@ -1,149 +1,389 @@
-import { SimActionConfig, SimPackConfig, SimToolId } from './types';
+import { SimPack, SimState, SimToolId } from './types';
 
-const OUTLOOK_TOOLS: SimToolId[] = ['customer_chat', 'ticket', 'outlook', 'browser', 'cmd', 'notes'];
+export const OUTLOOK_WORK_OFFLINE_PACK_ID = 'pack-outlook-sim-v2';
 
-const OUTLOOK_ACTIONS: SimActionConfig[] = [
-  {
-    id: 'open_outlook',
-    tool: 'outlook',
-    label: 'Open Outlook',
-    result: 'Outlook is open. Outbox shows 3 unsent messages.',
-    state_patch: { outlook_open: true },
-    visible_state_patch: { outlook_open: true, outbox_count: 3 },
-    score_tags: ['tool_accessed'],
-  },
-  {
-    id: 'check_outlook_status',
-    tool: 'outlook',
-    label: 'Check Outlook status',
-    result: 'Outlook is showing Working Offline.',
-    requires_state: { outlook_open: true },
-    visible_state_patch: { outlook_status: 'Working Offline' },
-    score_tags: ['technical_discovery', 'error_or_status_capture'],
-  },
-  {
-    id: 'toggle_work_offline',
-    tool: 'outlook',
-    label: 'Turn off Work Offline',
-    result: 'Work Offline is now disabled.',
-    requires_state: { outlook_open: true },
-    state_patch: { outlook_mode: 'online' },
-    visible_state_patch: { outlook_status: 'Online' },
-    score_tags: ['technical_resolution'],
-  },
-  {
-    id: 'send_test_email',
-    tool: 'outlook',
-    label: 'Send test email',
-    result: 'The test email sends successfully and the Outbox clears.',
-    requires_state: { outlook_mode: 'online' },
-    state_patch: { test_email_sent: true, outbox_count: 0, issue_resolved: true },
-    visible_state_patch: { outbox_count: 0, test_email_sent: true },
-    score_tags: ['verification', 'first_call_resolution'],
-  },
-  {
-    id: 'check_outbox',
-    tool: 'outlook',
-    label: 'Check Outbox',
-    result: 'The Outbox contains 3 unsent messages.',
-    requires_state: { outlook_open: true },
-    visible_state_patch: { outbox_count: 3 },
-    score_tags: ['technical_discovery'],
-  },
-  {
-    id: 'open_browser',
-    tool: 'browser',
-    label: 'Open browser',
-    result: 'Browser is open.',
-    state_patch: { browser_open: true },
-    visible_state_patch: { browser_open: true },
-  },
-  {
-    id: 'check_webmail',
-    tool: 'browser',
-    label: 'Check webmail',
-    result: 'Webmail opens and can send email successfully.',
-    requires_state: { browser_open: true },
-    visible_state_patch: { webmail_can_send: true },
-    score_tags: ['scope_isolation', 'technical_discovery'],
-  },
-  {
-    id: 'run_ping',
-    tool: 'cmd',
-    label: 'Run basic connectivity check',
-    result: 'Ping succeeds. Internet connectivity is working.',
-    score_tags: ['scope_isolation'],
-  },
-  {
-    id: 'reinstall_outlook',
-    tool: 'outlook',
-    label: 'Reinstall Outlook',
-    result: 'This is excessive before basic checks and would waste time.',
-    red_flag: 'over_fixing_without_evidence',
-  },
-  {
-    id: 'delete_mail_profile',
-    tool: 'outlook',
-    label: 'Delete mail profile',
-    result: 'This is a risky/destructive step before basic checks.',
-    red_flag: 'destructive_action_without_evidence',
-  },
-  {
-    id: 'escalate_without_basic_checks',
-    tool: 'ticket',
-    label: 'Escalate without basic checks',
-    result: 'Escalation is premature because basic checks have not been completed.',
-    red_flag: 'escalate_without_basic_checks',
-  },
-];
-
-export const OUTLOOK_SIM_PACK_ID = 'pack-outlook-sim-v1';
-
-export function getOutlookSimPackConfig(): SimPackConfig {
-  return { tools: OUTLOOK_TOOLS, actions: OUTLOOK_ACTIONS };
-}
-
-export function getOutlookSimInitialState(): Record<string, unknown> {
+export function getInitialState(): SimState {
   return {
-    outlook_open: false,
-    outlook_mode: 'offline',
-    outbox_count: 3,
-    webmail_can_send: true,
-    test_email_sent: false,
-    issue_resolved: false,
-    ticket_note_submitted: false,
-    browser_open: false,
+    phase: 'not_started',
+    call: {
+      startedAt: null,
+      endedAt: null,
+      customerMood: 'frustrated',
+      factsRevealed: [],
+    },
+    remote: {
+      connected: false,
+      deviceName: 'ALDER-LT-023',
+      currentApp: 'none',
+    },
+    outlook: {
+      workOffline: true,
+      outboxCount: 3,
+      sentTestEmail: false,
+      profileCorrupt: false,
+    },
+    network: {
+      internetReachable: true,
+      dnsWorks: true,
+      exchangeReachable: true,
+    },
+    connectwise: {
+      ticketId: null,
+      priority: null,
+      status: null,
+      notes: [],
+      kbArticlesViewed: [],
+      assetsViewed: [],
+    },
+    evidence: {
+      askedImpact: false,
+      askedScope: false,
+      confirmedUser: false,
+      confirmedDevice: false,
+      checkedObviousCause: false,
+      verifiedFix: false,
+    },
+    flags: {
+      guessedWithoutEvidence: false,
+      performedRiskyAction: false,
+      ignoredUserEmotion: false,
+    },
   };
 }
 
-export function getOutlookSimSuccessConditions(): Record<string, unknown> {
+export function getOutlookWorkOfflinePack(): SimPack {
   return {
-    outlook_mode: 'online',
-    outbox_count: 0,
-    test_email_sent: true,
-    ticket_note_submitted: true,
+    id: OUTLOOK_WORK_OFFLINE_PACK_ID,
+    version: '2.0',
+    title: 'Outlook Not Sending — Work Offline',
+    mode: 'dashboard_sim',
+
+    customer: {
+      name: 'Sarah',
+      company: 'Connexion Dental',
+      role: 'Accounts',
+      temperament: 'stressed',
+      openingLine: "Hi, this is Sarah from Accounts. Outlook won't send my emails. I really need to get this sorted — I have invoices that need to go out this morning.",
+    },
+
+    initialState: getInitialState(),
+
+    hiddenTruth: {
+      rootCause: 'Outlook is stuck in Work Offline mode',
+      correctFix: 'Disable Work Offline in Outlook, then send/receive to clear Outbox',
+      idealDiagnosticPath: [
+        'Open Outlook',
+        'Check Outbox for stuck messages',
+        'Check Outlook status / connection',
+        'Notice Work Offline is enabled',
+        'Disable Work Offline',
+        'Send test email or confirm Outbox clears',
+        'Verify with customer that email sent',
+      ],
+      factsOnlyRevealAfter: {
+        'checked_outlook_status': ['I think I remember clicking something in Outlook yesterday — it said Work Offline or something.'],
+        'checked_work_offline_in_chat': ['Actually, yes — I noticed Outlook said Working Offline at the bottom.'],
+      },
+    },
+
+    tools: ['customer_chat', 'ticket', 'outlook', 'browser', 'cmd', 'control_panel', 'connectwise', 'notes'],
+
+    actions: [
+      /* ── Call lifecycle ────────────────────────────── */
+      {
+        id: 'start_call',
+        tool: 'customer_chat',
+        label: 'Start call',
+        allowedPhases: ['not_started'],
+        observation: 'Call connected. Customer is on the line.',
+        scoreImpact: { positive: ['call_control'] },
+      },
+      {
+        id: 'end_call',
+        tool: 'customer_chat',
+        label: 'End call',
+        allowedPhases: ['call_active', 'remote_active'],
+        effects: { 'call.endedAt': Date.now() },
+        observation: 'Call ended. Proceed to write your ticket.',
+        scoreImpact: { positive: ['call_control'] },
+      },
+
+      /* ── Remote access ─────────────────────────────── */
+      {
+        id: 'remote_connect',
+        tool: 'connectwise',
+        label: 'Remote into ALDER-LT-023',
+        allowedPhases: ['call_active'],
+        effects: {
+          'remote.connected': true,
+          'remote.currentApp': 'none',
+        },
+        observation: 'Remote session established with ALDER-LT-023. Windows desktop visible.',
+        evidenceTags: ['remote_access'],
+        scoreImpact: { positive: ['diagnosis'] },
+      },
+
+      /* ── Outlook actions ───────────────────────────── */
+      {
+        id: 'open_outlook',
+        tool: 'outlook',
+        label: 'Open Outlook',
+        allowedPhases: ['remote_active'],
+        effects: { 'remote.currentApp': 'outlook' },
+        observation: 'Outlook opens. The status bar at the bottom shows "Work Offline" and the Outbox shows 3 unsent messages.',
+        evidenceTags: ['tool_accessed'],
+        scoreImpact: { positive: ['diagnosis'] },
+      },
+      {
+        id: 'check_outbox',
+        tool: 'outlook',
+        label: 'Check Outbox',
+        allowedPhases: ['remote_active'],
+        requiresState: { 'remote.currentApp': 'outlook' },
+        observation: 'Outbox contains 3 unsent emails, all addressed to external recipients. They appear stuck.',
+        evidenceTags: ['technical_discovery'],
+        scoreImpact: { positive: ['diagnosis'] },
+      },
+      {
+        id: 'check_outlook_status',
+        tool: 'outlook',
+        label: 'Check Outlook status / connection',
+        allowedPhases: ['remote_active'],
+        requiresState: { 'remote.currentApp': 'outlook' },
+        effects: {
+          'outlook.workOffline': true,
+          'evidence.checkedObviousCause': true,
+        },
+        observation: 'Outlook connection status: "Work Offline" is enabled. The Send/Receive indicator shows disconnected.',
+        revealsFacts: ['Outlook is in Work Offline mode'],
+        evidenceTags: ['error_or_status_capture', 'technical_discovery'],
+        scoreImpact: { positive: ['diagnosis'] },
+      },
+      {
+        id: 'disable_work_offline',
+        tool: 'outlook',
+        label: 'Turn off Work Offline',
+        allowedPhases: ['remote_active'],
+        requiresState: { 'remote.currentApp': 'outlook' },
+        effects: {
+          'outlook.workOffline': false,
+          'evidence.checkedObviousCause': true,
+        },
+        observation: 'Work Offline is now disabled. Outlook reconnects to Exchange. The status bar shows "Connected."',
+        revealsFacts: ['Work Offline was the cause'],
+        evidenceTags: ['technical_resolution', 'found_root_cause', 'performed_correct_fix'],
+        scoreImpact: { positive: ['fix'] },
+      },
+      {
+        id: 'send_receive',
+        tool: 'outlook',
+        label: 'Send/Receive all folders',
+        allowedPhases: ['remote_active'],
+        requiresState: { 'outlook.workOffline': false },
+        effects: {
+          'outlook.outboxCount': 0,
+          'outlook.sentTestEmail': true,
+        },
+        observation: 'Send/Receive completes. Outbox is now empty — all 3 messages sent successfully.',
+        evidenceTags: ['verification'],
+        scoreImpact: { positive: ['fix', 'verification'] },
+      },
+      {
+        id: 'send_test_email',
+        tool: 'outlook',
+        label: 'Send a test email',
+        allowedPhases: ['remote_active'],
+        requiresState: { 'outlook.workOffline': false },
+        effects: {
+          'outlook.sentTestEmail': true,
+          'evidence.verifiedFix': true,
+        },
+        observation: 'Test email sent to the customer. Customer confirms "Yes, I received it!"',
+        evidenceTags: ['verification', 'first_call_resolution'],
+        scoreImpact: { positive: ['verification'] },
+      },
+
+      /* ── Browser / webmail actions ────────────────── */
+      {
+        id: 'open_browser',
+        tool: 'browser',
+        label: 'Open browser',
+        allowedPhases: ['remote_active'],
+        effects: { 'remote.currentApp': 'browser' },
+        observation: 'Browser opens to the default homepage.',
+      },
+      {
+        id: 'check_webmail',
+        tool: 'browser',
+        label: 'Check Outlook Web App',
+        allowedPhases: ['remote_active'],
+        requiresState: { 'remote.currentApp': 'browser' },
+        effects: { 'network.exchangeReachable': true },
+        observation: 'Outlook Web App loads successfully and can send email. Issue is isolated to the desktop client.',
+        evidenceTags: ['scope_isolation', 'technical_discovery'],
+        scoreImpact: { positive: ['diagnosis'] },
+      },
+
+      /* ── CMD / network diagnostics ─────────────────── */
+      {
+        id: 'run_ping',
+        tool: 'cmd',
+        label: 'Ping outlook.office365.com',
+        allowedPhases: ['remote_active'],
+        effects: { 'remote.currentApp': 'cmd' },
+        observation: 'Reply from 52.96.x.x: bytes=32 time=24ms TTL=114. Internet connectivity and DNS are working.',
+        evidenceTags: ['scope_isolation'],
+        scoreImpact: { positive: ['diagnosis'] },
+      },
+      {
+        id: 'run_ipconfig',
+        tool: 'cmd',
+        label: 'Run ipconfig',
+        allowedPhases: ['remote_active'],
+        effects: { 'remote.currentApp': 'cmd' },
+        observation: 'IP config shows DHCP lease active, DNS servers: 8.8.8.8 / 8.8.4.4.',
+      },
+
+      /* ── ConnectWise / ITSM actions ────────────────── */
+      {
+        id: 'open_ticket',
+        tool: 'connectwise',
+        label: 'Open ticket in ConnectWise',
+        allowedPhases: ['remote_active', 'ticketing'],
+        effects: {
+          'connectwise.ticketId': 'TKT-2847',
+          'connectwise.status': 'In Progress',
+        },
+        observation: 'Ticket TKT-2847 opened for Sarah Thompson / Connexion Dental.',
+        evidenceTags: ['ticket_quality'],
+      },
+      {
+        id: 'update_priority',
+        tool: 'connectwise',
+        label: 'Set priority to High',
+        allowedPhases: ['remote_active', 'ticketing'],
+        effects: { 'connectwise.priority': 'High' },
+        observation: 'Priority set to High — invoices need to go out this morning.',
+        evidenceTags: ['ticket_quality'],
+        scoreImpact: { positive: ['ticket'] },
+      },
+      {
+        id: 'add_ticket_note',
+        tool: 'connectwise',
+        label: 'Add note to ticket',
+        allowedPhases: ['remote_active', 'ticketing'],
+        observation: 'Note added to ticket.',
+        evidenceTags: ['ticket_quality'],
+      },
+      {
+        id: 'search_kb_outlook',
+        tool: 'connectwise',
+        label: 'Search KB: Outlook not sending',
+        allowedPhases: ['remote_active'],
+        effects: { 'connectwise.kbArticlesViewed': ['outlook-work-offline'] },
+        observation: 'KB article "Outlook stuck in Work Offline" found at KB-4421. Suggests checking connection status and disabling Work Offline.',
+        evidenceTags: ['used_knowledge_base'],
+        scoreImpact: { positive: ['diagnosis'] },
+      },
+      {
+        id: 'view_asset',
+        tool: 'connectwise',
+        label: 'View asset ALDER-LT-023',
+        allowedPhases: ['remote_active'],
+        effects: { 'connectwise.assetsViewed': ['ALDER-LT-023'] },
+        observation: 'Asset ALDER-LT-023: Dell Latitude 5540, Windows 11, Outlook 365. Last patched 5 days ago.',
+        evidenceTags: ['used_knowledge_base'],
+        scoreImpact: { positive: ['diagnosis'] },
+      },
+
+      /* ── Red flag actions ──────────────────────────── */
+      {
+        id: 'reinstall_outlook',
+        tool: 'control_panel',
+        label: 'Reinstall Outlook (Programs and Features)',
+        allowedPhases: ['remote_active'],
+        observation: 'This is a disruptive fix to attempt before checking basic causes like Work Offline.',
+        redFlag: {
+          id: 'jumped_to_disruptive_fix',
+          severity: 'major',
+          message: 'Candidate attempted a disruptive fix (reinstall) before checking obvious causes.',
+        },
+        scoreImpact: { negative: ['fix'] },
+      },
+      {
+        id: 'delete_mail_profile',
+        tool: 'control_panel',
+        label: 'Delete and recreate Outlook profile (Mail in Control Panel)',
+        allowedPhases: ['remote_active'],
+        observation: 'This is a destructive step — it will delete all cached data and require profile reconfiguration.',
+        redFlag: {
+          id: 'destructive_action_without_evidence',
+          severity: 'major',
+          message: 'Candidate attempted a destructive profile deletion before checking basic connection status.',
+        },
+        scoreImpact: { negative: ['fix'] },
+      },
+      {
+        id: 'escalate_without_checks',
+        tool: 'connectwise',
+        label: 'Escalate to Tier 2',
+        allowedPhases: ['remote_active'],
+        observation: 'Escalation is premature. Basic checks (connection status, Outbox, webmail) have not been completed.',
+        redFlag: {
+          id: 'escalate_without_basic_checks',
+          severity: 'major',
+          message: 'Candidate escalated to Tier 2 without performing basic diagnostic checks.',
+        },
+        scoreImpact: { negative: ['diagnosis'] },
+      },
+      {
+        id: 'blame_outage',
+        tool: 'customer_chat',
+        label: 'Tell customer it is a Microsoft outage',
+        allowedPhases: ['call_active', 'remote_active'],
+        observation: 'Candidate blamed a Microsoft outage without any evidence. Customer is not reassured.',
+        redFlag: {
+          id: 'guessed_without_evidence',
+          severity: 'major',
+          message: 'Candidate blamed a service outage without running any diagnostics.',
+        },
+        effects: { 'flags.guessedWithoutEvidence': true },
+        scoreImpact: { negative: ['diagnosis'] },
+      },
+    ],
+
+    rubric: {
+      call_control: { weight: 3, label: 'Call control and opening' },
+      diagnosis: { weight: 5, label: 'Diagnostic process' },
+      fix: { weight: 5, label: 'Technical fix' },
+      verification: { weight: 3, label: 'Verification and closure' },
+      ticket: { weight: 3, label: 'Ticket quality' },
+      professionalism: { weight: 2, label: 'Professionalism and communication' },
+    },
+
+    redFlags: [
+      { id: 'jumped_to_disruptive_fix', severity: 'major', message: 'Jumped to disruptive fix before basic checks' },
+      { id: 'destructive_action_without_evidence', severity: 'major', message: 'Destructive action before evidence' },
+      { id: 'escalate_without_basic_checks', severity: 'major', message: 'Escalated without basic checks' },
+      { id: 'guessed_without_evidence', severity: 'major', message: 'Guessed root cause without evidence' },
+    ],
+
+    idealTicket: {
+      summary: 'Outlook stuck in Work Offline mode for Sarah Thompson at Connexion Dental',
+      requiredFields: ['user', 'company', 'device', 'issue_summary', 'impact', 'urgency', 'checks_attempted', 'root_cause', 'resolution', 'verification', 'next_step'],
+      mustMention: [
+        'Sarah Thompson',
+        'Connexion Dental',
+        'Outlook Work Offline',
+        'Outbox cleared',
+        'test email sent',
+      ],
+      mustNotInvent: [
+        'hardware fault',
+        'server outage',
+        'Exchange server down',
+        'corrupt PST',
+      ],
+    },
   };
-}
-
-export function getSafeVisibleState(state: Record<string, unknown>): Record<string, unknown> {
-  const visible: Record<string, unknown> = {};
-  const safeKeys = ['outlook_open', 'outlook_mode', 'outbox_count', 'webmail_can_send', 'test_email_sent', 'issue_resolved', 'browser_open', 'outlook_status'];
-  for (const key of safeKeys) {
-    if (key in state) visible[key] = state[key];
-  }
-  return visible;
-}
-
-export function getSafeActions(state: Record<string, unknown>, allActions: SimActionConfig[]): { id: string; tool: SimToolId; label: string }[] {
-  return allActions
-    .filter(a => {
-      if (!a.requires_state) return true;
-      if (a.red_flag) return true;
-      for (const [key, val] of Object.entries(a.requires_state)) {
-        if (state[key] !== val) return false;
-      }
-      return true;
-    })
-    .filter(a => !a.red_flag) // hide red flag actions from candidate
-    .map(a => ({ id: a.id, tool: a.tool, label: a.label }));
 }

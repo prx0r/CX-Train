@@ -1,6 +1,8 @@
-import { initTables } from '@/lib/mvp/db';
+import { initTables, getDb } from '@/lib/mvp/db';
 import { ok, fail } from '@/lib/mvp/api/responses';
 import { buildMvpContext } from '@/lib/mvp/context/buildMvpContext';
+import { getSessionEvents } from '@/lib/mvp/events/eventLog';
+import { buildEvidenceTimeline, calculateTimingMetrics } from '@/lib/mvp/events/timeline';
 
 export async function GET(
   _request: Request,
@@ -122,6 +124,23 @@ export async function GET(
         notes: feedback.notes,
         created_at: feedback.created_at,
       } : null,
+      // Evidence timeline from session_events
+      events: session ? (() => {
+        const evts = getSessionEvents(session.id);
+        return {
+          count: evts.length,
+          timeline: buildEvidenceTimeline(evts),
+          timingMetrics: calculateTimingMetrics(evts),
+          raw: evts.slice(0, 50).map(e => ({
+            sequence_index: e.sequence_index,
+            event_type: e.event_type,
+            actor: e.actor,
+            label: e.label,
+            result_text: e.result_text,
+            started_at_ms: e.started_at_ms,
+          })),
+        };
+      })() : { count: 0, timeline: [], timingMetrics: {}, raw: [] },
       integrity,
       warnings: result.warnings,
     });

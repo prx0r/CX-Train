@@ -1,20 +1,24 @@
 import { getDb } from '../db';
-import { SimEvent, SimEventType } from './types';
+import { appendSessionEvent, getSessionEvents } from '../events/eventLog';
+import { SimPackEvent, SimEventType, SimRedFlag } from './types';
 
 export function insertSimEvent(params: {
   session_id: string;
   assessment_id: string;
   assessment_pack_id: string | null;
   event_type: SimEventType;
-  actor: string;
+  actor: 'candidate' | 'customer' | 'system' | 'simulator' | 'analysis';
   tool_id?: string | null;
   action_id?: string | null;
   label?: string | null;
+  text?: string | null;
   result_text?: string | null;
   state_before?: Record<string, unknown> | null;
   state_after?: Record<string, unknown> | null;
-  payload?: Record<string, unknown> | null;
-  timestamp_ms?: number | null;
+  evidence_tags?: string[] | null;
+  red_flag?: SimRedFlag | null;
+  started_at_ms?: number | null;
+  ended_at_ms?: number | null;
 }): string {
   const db = getDb();
   const id = 'sev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
@@ -41,38 +45,32 @@ export function insertSimEvent(params: {
     params.result_text || null,
     params.state_before ? JSON.stringify(params.state_before) : null,
     params.state_after ? JSON.stringify(params.state_after) : null,
-    params.payload ? JSON.stringify(params.payload) : null,
-    params.timestamp_ms || null,
+    params.evidence_tags ? JSON.stringify(params.evidence_tags) : null,
+    params.started_at_ms || null,
   );
+
+  /* Also append to canonical session_events table */
+  appendSessionEvent({
+    assessment_id: params.assessment_id,
+    session_id: params.session_id,
+    event_type: params.event_type as any,
+    actor: params.actor as any,
+    text: params.text || null,
+    tool_id: params.tool_id || null,
+    action_id: params.action_id || null,
+    label: params.label || null,
+    result_text: params.result_text || null,
+    state_before: params.state_before || null,
+    state_after: params.state_after || null,
+    payload: params.evidence_tags ? { evidence_tags: params.evidence_tags, red_flag: params.red_flag } : params.red_flag ? { red_flag: params.red_flag } : null,
+    started_at_ms: params.started_at_ms ?? null,
+    ended_at_ms: params.ended_at_ms ?? null,
+  });
 
   return id;
 }
 
-export function getSimEvents(sessionId: string): SimEvent[] {
-  const db = getDb();
-  const rows = db.prepare(
-    'SELECT * FROM sim_events WHERE session_id = ? ORDER BY sequence_index ASC'
-  ).all(sessionId) as any[];
-
-  return rows.map(r => ({
-    id: r.id,
-    session_id: r.session_id,
-    assessment_id: r.assessment_id,
-    assessment_pack_id: r.assessment_pack_id,
-    sequence_index: r.sequence_index,
-    event_type: r.event_type as SimEventType,
-    actor: r.actor,
-    tool_id: r.tool_id,
-    action_id: r.action_id,
-    label: r.label,
-    result_text: r.result_text,
-    state_before_json: r.state_before_json ? JSON.parse(r.state_before_json) : null,
-    state_after_json: r.state_after_json ? JSON.parse(r.state_after_json) : null,
-    payload_json: r.payload_json ? JSON.parse(r.payload_json) : null,
-    timestamp_ms: r.timestamp_ms,
-    created_at: r.created_at,
-  }));
-}
+export { getSessionEvents as getSimEvents };
 
 export function getSimEventCount(sessionId: string): number {
   const db = getDb();

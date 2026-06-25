@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initTables, getDb } from '@/lib/mvp/db';
-import { getAssessmentPack, getFullAssessment } from '@/lib/mvp/query';
-import { getSimEvents } from '@/lib/mvp/sim/eventLog';
-import { getSafeActions, getSafeVisibleState } from '@/lib/mvp/sim/packConfig';
+import { getFullAssessment } from '@/lib/mvp/query';
+import { getOutlookWorkOfflinePack } from '@/lib/mvp/sim/packConfig';
+import { getVisibleActions, getVisibleState } from '@/lib/mvp/sim/safeProjection';
 import { buildTimeline } from '@/lib/mvp/sim/timeline';
+import { SimState } from '@/lib/mvp/sim/types';
 
 export async function GET(
   _request: NextRequest,
@@ -16,37 +17,57 @@ export async function GET(
       return NextResponse.json({ error: 'Assessment not found' }, { status: 404 });
     }
 
-    const assessmentMode = (full.assessment as any).assessment_mode;
-    if (assessmentMode !== 'dashboard_sim') {
-      return NextResponse.json({ error: 'Not a dashboard sim assessment' }, { status: 400 });
-    }
+    const pack = getOutlookWorkOfflinePack();
 
-    const packId = (full.assessment as any).assessment_pack_id;
-    const pack = packId ? getAssessmentPack(packId) : null;
-    if (!pack || !pack.sim_config_json) {
-      return NextResponse.json({ error: 'Sim pack not found' }, { status: 404 });
-    }
-
-    const config = JSON.parse(pack.sim_config_json);
     const db = getDb();
     const simSession = db.prepare('SELECT current_state_json FROM sim_sessions WHERE session_id = ?').get(full.session.id) as any;
-    const currentState = simSession ? JSON.parse(simSession.current_state_json) : {};
+    const currentState: SimState = simSession
+      ? JSON.parse(simSession.current_state_json)
+      : pack.initialState;
 
-    const events = getSimEvents(full.session.id);
-    const safeActions = getSafeActions(currentState, config.actions || []);
-    const visibleState = getSafeVisibleState(currentState);
+    const allEvents = db.prepare(
+      'SELECT * FROM sim_events WHERE session_id = ? ORDER BY sequence_index ASC'
+    ).all(full.session.id) as any[];
+
+    const typedEvents = allEvents.map((e: any) => ({
+      id: e.id,
+      session_id: e.session_id,
+      assessment_id: e.assessment_id,
+      assessment_pack_id: e.assessment_pack_id,
+      sequence: e.sequence_index,
+      event_type: e.event_type,
+      actor: e.actor,
+      tool_id: e.tool_id,
+      action_id: e.action_id,
+      label: e.label,
+      text: e.text,
+      result_text: e.result_text,
+      state_before_json: e.state_before_json ? JSON.parse(e.state_before_json) : null,
+      state_after_json: e.state_after_json ? JSON.parse(e.state_after_json) : null,
+      evidence_tags_json: e.payload_json ? JSON.parse(e.payload_json) : null,
+      red_flag_json: null,
+      started_at_ms: e.timestamp_ms || e.started_at_ms,
+      ended_at_ms: e.ended_at_ms || null,
+      created_at: e.created_at,
+    }));
+
+    const visibleState = getVisibleState(currentState);
+    const safeActions = getVisibleActions(currentState, pack.actions);
 
     return NextResponse.json({
       ok: true,
       data: {
-        tools: config.tools || [],
+        tools: pack.tools,
         safe_actions: safeActions,
         visible_state: visibleState,
-        timeline: buildTimeline(events).map(t => ({
-          action_id: t.action_id,
+        phase: currentState.phase,
+        timeline: buildTimeline(typedEvents).map(t => ({
+          sequence: t.sequence,
+          event_type: t.event_type,
+          actor: t.actor,
+          formatted_time: t.formatted_time,
           label: t.label,
           result_text: t.result_text,
-          formatted_time: t.formatted_time,
           is_red_flag: t.is_red_flag,
         })),
       },

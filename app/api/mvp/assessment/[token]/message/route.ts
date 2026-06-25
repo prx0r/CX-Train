@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, initTables } from '@/lib/mvp/db';
 import { getAssessmentByToken, getSessionByAssessment, getMessages, makeId, getActiveScenario, getAssessmentPack } from '@/lib/mvp/query';
-import { getSimEvents } from '@/lib/mvp/sim/eventLog';
-import { buildSimSummary } from '@/lib/mvp/sim/timeline';
+import { getSessionEvents } from '@/lib/mvp/events/eventLog';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
+import { buildSimSummary } from '@/lib/mvp/sim/timeline';
 import { runAiTask } from '@/lib/ai/provider';
 
 export async function POST(
@@ -65,8 +65,9 @@ export async function POST(
     const assessmentMode = (assessment as any).assessment_mode || 'chat_call';
     let simContext = '';
     if (assessmentMode === 'dashboard_sim') {
-      const events = getSimEvents(session.id);
-      simContext = '\n\n' + buildSimSummary(events);
+      const db = getDb();
+      const rawEvents: any[] = db.prepare('SELECT * FROM sim_events WHERE session_id = ? ORDER BY sequence_index ASC').all(session.id) as any[];
+      simContext = '\n\n' + buildSimSummary(rawEvents as any);
     }
 
     const systemMessage = `${callerPrompt}
