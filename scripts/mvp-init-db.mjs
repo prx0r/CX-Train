@@ -153,6 +153,27 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS analysis_runs (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL DEFAULT 'org-default',
+    manager_id TEXT NOT NULL DEFAULT 'manager-default',
+    session_id TEXT NOT NULL,
+    assessment_id TEXT,
+    assessment_pack_id TEXT,
+    analysis_type TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    rubric_version TEXT NOT NULL,
+    model_provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    temperature REAL NOT NULL DEFAULT 0,
+    input_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    result_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (result_id) REFERENCES assessment_results(id)
+  );
 `);
 
 console.log('[mvp:init-db] Tables created successfully');

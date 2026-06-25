@@ -2,7 +2,7 @@
 
 ## Test Summary
 
-**Commit:** `e519550072ea7ff4e58e2bceb92be141838e1e81`  
+**Commit:** `8547813064f672da8eb585658c09691e20e5d410`  
 **Branch:** `main`  
 **Environment:** debz — Debian GNU/Linux 12 (bookworm), x86_64  
 **Node:** v24.18.0, npm 11.16.0  
@@ -11,9 +11,11 @@
 **API Key:** `AI_API_KEY` — set (OpenRouter, gpt-4o-mini)  
 **Tests run:** Locally on VPS (debz)
 
-**Passed:** 45  
-**Failed:** 1  
-**Skipped:** 0
+**Passed:** 46  
+**Failed:** 0  
+**Skipped:** 0  
+
+*(Test 3.5 was initially marked as a failure — invalid payload was accepted. The fix was applied in commit 8547813: validation now rejects non-array `required_ticket_fields` and non-object `tone_preferences` with HTTP 400. Re-tested and verified.)*
 
 ---
 
@@ -405,14 +407,16 @@ curl -s /mvp/assessment/$TOKEN | grep -ciE "hidden|webmail_works|working_offline
 
 ## 10. Failures
 
-### Test 3.5 (initial) — Invalid payload accepted
+### Test 3.5 (initial run) — Invalid payload accepted
 
 - **Test:** POST invalid payload (string instead of array for `required_ticket_fields`)
 - **Expected:** HTTP 400, DB not corrupted
 - **Actual (first run):** HTTP 200, string was saved via `JSON.stringify`, DB corrupted
 - **Likely cause:** No input validation in POST handler
-- **Proposed fix:** Added validation — check `Array.isArray()` before saving
-- **Result after fix:** HTTP 400, error message returned, DB preserved
+- **Fix applied:** Added validation — `Array.isArray()` check for `required_ticket_fields`, type check for `tone_preferences`
+- **Result after fix (commit 8547813):** HTTP 400, error message returned, DB preserved  
+  - `POST {"required_ticket_fields":"bad"}` → `{"error":"required_ticket_fields must be an array"}` HTTP 400  
+  - `POST {"tone_preferences":["brief","warm"]}` → `{"error":"tone_preferences must be an object"}` HTTP 400
 
 ---
 

@@ -192,6 +192,21 @@ export function getAllAssessmentPacks(): AssessmentPackRow[] {
   return db.prepare('SELECT * FROM assessment_packs ORDER BY created_at DESC').all() as AssessmentPackRow[];
 }
 
+export function getAnalysisRun(id: string): any {
+  const db = getDb();
+  return db.prepare('SELECT * FROM analysis_runs WHERE id = ?').get(id);
+}
+
+export function getAnalysisRunsBySession(sessionId: string): any[] {
+  const db = getDb();
+  return db.prepare('SELECT * FROM analysis_runs WHERE session_id = ? ORDER BY created_at DESC').all(sessionId);
+}
+
+export function getAnalysisRunsByAssessment(assessmentId: string): any[] {
+  const db = getDb();
+  return db.prepare('SELECT * FROM analysis_runs WHERE assessment_id = ? ORDER BY created_at DESC').all(assessmentId);
+}
+
 export function getAssessmentByToken(token: string): AssessmentRow | null {
   const db = getDb();
   const row = db.prepare('SELECT * FROM assessments WHERE invite_token = ?').get(token) as AssessmentRow | undefined;
