@@ -132,7 +132,9 @@ export function detectFailGates(
   const seen = new Set<string>();
 
   for (const flag of redFlags) {
-    const gate = FAIL_GATES.find(g => g.redFlagType === flag.type);
+    if (!flag || !flag.type) continue;
+    const normalizedType = flag.type.toString().toLowerCase().trim();
+    const gate = FAIL_GATES.find(g => g.redFlagType === normalizedType);
     if (!gate) continue;
     if (seen.has(gate.id)) continue;
     seen.add(gate.id);
