@@ -1,0 +1,45 @@
+{
+  "name": "multi-message-customer-thread",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I can't log in after changing my password."},
+    {"role": "candidate", "content": "Hello! Let me help you with that. First, could I get your name and company please?"},
+    {"role": "caller", "content": "James Wilson, Mercer & Tate Law."},
+    {"role": "candidate", "content": "Thank you James. When did you change the password?"},
+    {"role": "caller", "content": "Yesterday afternoon."},
+    {"role": "candidate", "content": "And what happens when you try to log in?"},
+    {"role": "caller", "content": "It says invalid credentials for everything."},
+    {"role": "candidate", "content": "Is this just on one device or all devices?"},
+    {"role": "caller", "content": "All of them — my desktop, laptop, and phone."},
+    {"role": "candidate", "content": "Do you see an MFA prompt?"},
+    {"role": "caller", "content": "Yes, it comes up on my phone, but even after approving it still says wrong password."},
+    {"role": "candidate", "content": "That's useful. Let me check your account. I'll be just a moment."},
+    {"role": "caller", "content": "Okay, I'll wait."},
+    {"role": "candidate", "content": "James, I can see your account is locked due to the password change. I'm going to reset the sync and unlock it now."},
+    {"role": "caller", "content": "How long will it take?"},
+    {"role": "candidate", "content": "About 5 minutes. I'll send a temporary password to your manager's email, and you'll be prompted to set a new one when you log in."},
+    {"role": "caller", "content": "Perfect, thank you. I have a court filing at 3pm so I really need this fixed."},
+    {"role": "candidate", "content": "I understand the urgency. Let me prioritise this and get it done right away."},
+    {"role": "caller", "content": "I really appreciate that."},
+    {"role": "candidate", "content": "All done. The sync has reset. Your manager should receive the temp password email within the next few minutes. Please call us back if you have any issues logging in."},
+    {"role": "caller", "content": "Will do, thank you very much!"},
+    {"role": "candidate", "content": "You're welcome, James. Good luck with your filing."}
+  ],
+  "ticket": {
+    "summary": "M365 account locked after password change — James Wilson, Mercer & Tate Law. Sync reset, account unlocked, temp password sent to manager.",
+    "description": "User: James Wilson, Mercer & Tate Law. Issue: Cannot log in after password change yesterday. Scope: All devices (desktop, laptop, phone). Error: Invalid credentials on all apps. MFA prompt appears but password rejected. Impact: Cannot access email or document management. User has court filing deadline at 3pm today. Diagnosis: Account locked due to password change sync failure. Action taken: Reset sync, unlocked account, sent temporary password to manager's email. Next step: User logs in with temp password, sets new password, verifies all applications. Follow-up if issues persist.",
+    "priority": "high",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "ready",
+    "score_min": 85,
+    "score_max": 100,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "recent_changes", "next_steps", "customer_tone", "professional_conduct", "customer_communication", "safety", "ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step", "escalation_judgement"],
+    "must_fail": [],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "refusal_to_help", "hallucinated_fix", "no_troubleshooting"],
+    "notes": "Excellent multi-message thread demonstrating ideal customer interaction. Thorough discovery, clear communication, professional tone, excellent documentation. This is the standard to measure against. The multi-message format reflects realistic helpdesk conversations from external datasets."
+  }
+}

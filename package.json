@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsc tests/assessment-scoring.test.ts tests/evaluation-scoring.test.ts tests/voice-session.test.ts tests/analysis-engine.test.ts tests/mvp-analysis-scoring.test.ts lib/assessment-scoring.ts lib/evaluation/scoring.ts lib/evaluation/evaluator.ts lib/evaluation/scenarios.ts lib/evaluation/prompts.ts lib/voice/session.ts lib/voice/cost-tracker.ts lib/voice/stt.ts lib/voice/tts.ts lib/types.ts lib/voice/chat.ts lib/voice/providers.ts lib/ai/provider.ts lib/ai/mock-provider.ts lib/mvp/analysis/scoring.ts lib/mvp/analysis/validation.ts lib/mvp/analysis/types.ts --outDir .test-dist --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck && node --test .test-dist/tests/assessment-scoring.test.js .test-dist/tests/evaluation-scoring.test.js .test-dist/tests/voice-session.test.js .test-dist/tests/analysis-engine.test.js .test-dist/tests/mvp-analysis-scoring.test.js",
+    "test": "tsc tests/assessment-scoring.test.ts tests/evaluation-scoring.test.ts tests/voice-session.test.ts tests/analysis-engine.test.ts tests/mvp-analysis-scoring.test.ts tests/datasets-quality.test.ts tests/taxonomy.test.ts tests/analysis-gold.test.ts lib/assessment-scoring.ts lib/evaluation/scoring.ts lib/evaluation/evaluator.ts lib/evaluation/scenarios.ts lib/evaluation/prompts.ts lib/voice/session.ts lib/voice/cost-tracker.ts lib/voice/stt.ts lib/voice/tts.ts lib/types.ts lib/voice/chat.ts lib/voice/providers.ts lib/ai/provider.ts lib/ai/mock-provider.ts lib/mvp/analysis/scoring.ts lib/mvp/analysis/validation.ts lib/mvp/analysis/types.ts --outDir .test-dist --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck && node --test .test-dist/tests/assessment-scoring.test.js .test-dist/tests/evaluation-scoring.test.js .test-dist/tests/voice-session.test.js .test-dist/tests/analysis-engine.test.js .test-dist/tests/mvp-analysis-scoring.test.js .test-dist/tests/datasets-quality.test.js .test-dist/tests/taxonomy.test.js .test-dist/tests/analysis-gold.test.js",
     "mvp:init-db": "node scripts/mvp-init-db.mjs",
     "mvp:reset-db": "node scripts/mvp-reset-db.mjs",
     "migrate:assessment": "node scripts/run-assessment-migration.mjs",
@@ -18,7 +18,12 @@
     "test:analysis-hardening": "npm run build:scoring && node scripts/test-analysis-hardening.mjs",
     "test:adversarial": "npm run build:scoring && node scripts/test-adversarial.mjs",
     "test:calibration": "npm run build:scoring && node scripts/test-50-transcripts.mjs",
-    "test:quality": "npm test && npm run test:analysis-scoring && npm run test:analysis-hardening && npm run test:mvp-flow && npm run test:adversarial && npm run test:calibration"
+    "test:quality": "npm test && npm run test:analysis-scoring && npm run test:analysis-hardening && npm run test:mvp-flow && npm run test:adversarial && npm run test:calibration",
+    "datasets:profile": "npx tsx scripts/datasets/profile-helpdesk-datasets.ts",
+    "datasets:build-bank": "npx tsx scripts/datasets/build-support-quality-bank.ts",
+    "taxonomy:import": "node scripts/datasets/import-taxonomy.mjs",
+    "test:taxonomy": "npx tsx tests/taxonomy.test.ts",
+    "test:analysis:gold": "npx tsx tests/analysis-gold.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

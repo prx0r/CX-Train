@@ -145,6 +145,19 @@ export interface StructuredOutput {
   narrative: NarrativeFeedback;
 }
 
+export interface TaxonomyClassificationMatch {
+  taxonomy_item_id: string | null;
+  expected_type: string;
+  expected_sub_type: string;
+  expected_item: string;
+  predicted_type: string;
+  predicted_sub_type: string;
+  predicted_item: string;
+  correct: 'yes' | 'partial' | 'no';
+  missed_playbook_questions: string[];
+  escalation_guidance_followed: 'yes' | 'partial' | 'no';
+}
+
 export interface AnalysisContext {
   org_id: string;
   manager_id: string;

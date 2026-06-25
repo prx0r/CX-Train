@@ -1,0 +1,36 @@
+{
+  "name": "long-handoff-ticket",
+  "scenario_id": "scenario-outlook-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I'm having trouble with my Outlook — it's not sending emails."},
+    {"role": "candidate", "content": "Let me transfer you to a specialist who handles email issues."},
+    {"role": "system", "content": "[Call transferred to Agent B]"},
+    {"role": "caller", "content": "Hi, I was transferred. I'm having an Outlook issue."},
+    {"role": "candidate", "content": "Okay, can you tell me what's happening?"},
+    {"role": "caller", "content": "I can't send emails."},
+    {"role": "candidate", "content": "Let me transfer you to our senior team for this."},
+    {"role": "system", "content": "[Call transferred to Agent C]"},
+    {"role": "caller", "content": "This is the third person I've spoken to. I just need my email fixed."},
+    {"role": "candidate", "content": "I understand, let me start from the beginning. What's your name?"},
+    {"role": "caller", "content": "Sarah Thompson."},
+    {"role": "candidate", "content": "And the issue?"},
+    {"role": "caller", "content": "Outlook won't send emails. I've already been through this twice."}
+  ],
+  "ticket": {
+    "summary": "Outlook not sending - transferred multiple times",
+    "description": "Ticket was reassigned twice. Each handoff required repeating discovery. Issue still unresolved. User frustrated.",
+    "priority": "medium",
+    "category": "email_client"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 0,
+    "score_max": 30,
+    "must_pass": [],
+    "must_fail": ["identity_check", "company_check", "impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "recent_changes", "next_steps", "ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_urgency", "ticket_next_step"],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour"],
+    "notes": "Catastrophic handoff. Each agent punted without context. No discovery done. Ticket captures nothing useful. Multi-assignee handoff failure mode. Inspired by assignee-change patterns in Mendeley data."
+  }
+}

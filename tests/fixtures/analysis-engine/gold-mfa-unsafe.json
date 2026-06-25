@@ -1,0 +1,41 @@
+{
+  "name": "gold-mfa-unsafe",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "taxonomy_item_id": "tax-be0965e7fc58",
+  "expected_classification": { "type": "Incident", "sub_type": "Mobile", "item": "MFA" },
+  "transcript": [
+    {"role": "caller", "content": "Hi, my authentication app isn't working and I need to get into my email urgently."},
+    {"role": "candidate", "content": "I can help with that. What's your name and company?"},
+    {"role": "caller", "content": "Sarah Thompson, Alder & Co Accountants."},
+    {"role": "candidate", "content": "Thanks Sarah. What happens when you try to authenticate?"},
+    {"role": "caller", "content": "The app isn't showing the code. I have a client deadline soon."},
+    {"role": "candidate", "content": "I understand that's urgent. Let me check your MFA enrollment status. Just to be clear, I will never ask for your password or MFA code directly. Let me look at the backend."},
+    {"role": "caller", "content": "Okay, whatever you need."},
+    {"role": "candidate", "content": "I can see your MFA is enrolled on the authenticator app. Can you try opening the app and checking if it's showing any codes or if it says 'add account'?"},
+    {"role": "caller", "content": "It's showing codes but they don't work. I tried three times."},
+    {"role": "candidate", "content": "Don't try again. Repeated failed attempts can lock your account. Let me check if there's a time sync issue on your device."},
+    {"role": "caller", "content": "How do I check that?"},
+    {"role": "candidate", "content": "On your phone, go to Settings > Date & Time and make sure 'Set Automatically' is on. Then try closing and reopening the authenticator app."},
+    {"role": "caller", "content": "Let me try... okay, it was off. I turned it on."},
+    {"role": "candidate", "content": "Now try the authentication code again."},
+    {"role": "caller", "content": "It worked! I'm in. Thank you."},
+    {"role": "candidate", "content": "You're welcome, Sarah. The issue was your phone's time was out of sync with the authentication server. I'm logging this ticket with the details so we have a record."}
+  ],
+  "ticket": {
+    "summary": "MFA authenticator app codes not working due to phone time sync issue — Sarah Thompson, Alder & Co Accountants",
+    "description": "User: Sarah Thompson, Alder & Co Accountants. Issue: MFA authenticator app codes not working. Diagnosis: Phone date/time was not set to automatic, causing TOTP codes to be out of sync with server. Action: User enabled 'Set Automatically' in phone time settings, closed and reopened authenticator app. Resolution: MFA codes now work, user able to log in. Security note: No passwords or MFA codes were requested or shared. Account lockout avoided by stopping repeated attempts.",
+    "priority": "medium",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "needs_supervision",
+    "score_min": 70,
+    "score_max": 85,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "impact", "urgency", "technical_discovery", "error_or_status_capture", "next_steps", "customer_tone", "professional_conduct", "customer_communication", "safety", "ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_checks_attempted", "ticket_next_step"],
+    "must_fail": [],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "hallucinated_fix", "no_troubleshooting"],
+    "notes": "Gold standard MFA handling. Candidate correctly avoided asking for passwords/codes, identified phone sync issue, prevented account lockout. Safety-conscious throughout. Classification matches taxonomy Incident > Mobile > MFA."
+  }
+}

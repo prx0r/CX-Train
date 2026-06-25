@@ -1,0 +1,37 @@
+{
+  "name": "gold-wifi-bad-premature-reboot",
+  "scenario_id": "scenario-wifi-001",
+  "criteria_version": "criteria-msp-v1",
+  "taxonomy_item_id": "tax-66a3b98ab657",
+  "expected_classification": { "type": "Incident", "sub_type": "Desktop/Laptop", "item": "WiFi" },
+  "transcript": [
+    {"role": "caller", "content": "Hi, the Wi-Fi in our office keeps dropping all the time. I can't get any work done."},
+    {"role": "candidate", "content": "Okay, let's try rebooting your laptop."},
+    {"role": "caller", "content": "I already tried that. It didn't help."},
+    {"role": "candidate", "content": "Let me restart the router at your site."},
+    {"role": "caller", "content": "I'm not sure where the router is. I just need the WiFi to work."},
+    {"role": "candidate", "content": "I have restarted the router remotely. Can you try now?"},
+    {"role": "caller", "content": "Still happening. It dropped again."},
+    {"role": "candidate", "content": "Okay, I'll run a remote diagnostics tool. One moment."},
+    {"role": "caller", "content": "How long will that take? I have a client video call soon."},
+    {"role": "candidate", "content": "It's running now. I'll need to reboot once more after this."},
+    {"role": "caller", "content": "I can't keep rebooting. I need this working."},
+    {"role": "candidate", "content": "Let me escalate this."}
+  ],
+  "ticket": {
+    "summary": "WiFi dropping at office - rebooted laptop and router, still happening",
+    "description": "User reported WiFi keeps dropping. Rebooted user laptop and remotely rebooted site router. Issue persists. Running diagnostics.",
+    "priority": "medium",
+    "category": "network_connectivity"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 0,
+    "score_max": 20,
+    "must_pass": ["issue_clarification", "technical_discovery"],
+    "must_fail": ["identity_check", "company_check", "scope", "impact", "urgency", "error_or_status_capture", "recent_changes", "next_steps", "customer_tone", "ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step", "escalation_judgement"],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour"],
+    "notes": "Classic bad WiFi triage: premature router reboot without asking scope, recent changes, or impact. Never identified that multiple users might be affected or that building maintenance happened this morning. Jumped to reboot without gathering evidence. Classification should be WiFi but candidate never confirmed scope properly."
+  }
+}

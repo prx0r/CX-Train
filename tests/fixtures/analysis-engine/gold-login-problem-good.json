@@ -1,0 +1,41 @@
+{
+  "name": "gold-login-problem-good",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "taxonomy_item_id": "tax-59209405432c",
+  "expected_classification": { "type": "Incident", "sub_type": "Desktop/Laptop", "item": "Login Problem" },
+  "transcript": [
+    {"role": "caller", "content": "Hi, I changed my password and now I can't log in to anything."},
+    {"role": "candidate", "content": "Let me start with your name and company to verify your account."},
+    {"role": "caller", "content": "James Wilson, Mercer & Tate Law."},
+    {"role": "candidate", "content": "Thanks James. When did you change the password?"},
+    {"role": "caller", "content": "Yesterday afternoon, as required by IT."},
+    {"role": "candidate", "content": "And what exactly happens when you try to log in now?"},
+    {"role": "caller", "content": "Invalid credentials on everything — Outlook, Teams, document management."},
+    {"role": "candidate", "content": "Is it all devices or just one?"},
+    {"role": "caller", "content": "All of them — my desktop, laptop, and phone."},
+    {"role": "candidate", "content": "Do you see an MFA prompt?"},
+    {"role": "caller", "content": "Yes, but even after approving MFA it still says wrong password."},
+    {"role": "candidate", "content": "That's useful. Let me check your account sync status."},
+    {"role": "caller", "content": "I have a court filing at 3pm so this is urgent."},
+    {"role": "candidate", "content": "I understand the urgency. I can see your account is locked due to the password change not syncing properly. Let me reset the sync and unlock it now."},
+    {"role": "caller", "content": "How long?"},
+    {"role": "candidate", "content": "About 5 minutes. I'll send a temp password to your manager. You'll set a new one on first login."}
+  ],
+  "ticket": {
+    "summary": "M365 account locked after password change — James Wilson, Mercer & Tate Law. Sync reset, account unlocked, temp password to manager.",
+    "description": "User: James Wilson, Mercer & Tate Law. Issue: Cannot log in after password change yesterday. Scope: All devices (desktop, laptop, phone). Error: Invalid credentials, MFA prompts but password rejected. Impact: Cannot access email or document management. Urgency: Court filing deadline at 3pm today. Diagnosis: Account locked due to password change sync failure. Action: Reset sync, unlocked account, temp password sent to manager. Follow-up: User logs in with temp password, sets new password, verifies all apps.",
+    "priority": "high",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "ready",
+    "score_min": 85,
+    "score_max": 100,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "recent_changes", "next_steps", "customer_tone", "professional_conduct", "customer_communication", "safety", "ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step", "escalation_judgement"],
+    "must_fail": [],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "no_troubleshooting", "hallucinated_fix"],
+    "notes": "Gold standard login problem handling. Full discovery: identity, scope, impact, urgency, error details, MFA check. Excellent escalation judgement. Classification matches taxonomy Incident > Desktop/Laptop > Login Problem."
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "_meta": {
+    "generated_at": "2026-06-25T16:58:36.616Z",
+    "source_datasets": [
+      "mendeley_helpdesk_tickets_v2",
+      "callcallum_authored_scenarios"
+    ],
+    "description": "Ticket quality examples inspired by external dataset patterns. These are not assessment truth — they are reference material.",
+    "total_examples": 4
+  },
+  "examples": [
+    {
+      "id": "tq-missing-user",
+      "category": "identity_access",
+      "priority": "medium",
+      "summary": "User cannot log in",
+      "description": "User reported they cannot log in. Password reset attempted. Issue unresolved.",
+      "quality_flags": [
+        "missing_affected_user",
+        "missing_scope",
+        "missing_business_impact",
+        "unclear_resolution"
+      ],
+      "quality_score": 15,
+      "notes": "No user name, no scope, no impact, no resolution detail. Typical low-quality ticket from dataset."
+    },
+    {
+      "id": "tq-good-password-reset",
+      "category": "identity_access",
+      "priority": "high",
+      "summary": "User James Wilson (Mercer & Tate Law) cannot log into M365 after password change. Account locked due to sync failure.",
+      "description": "User: James Wilson, Mercer & Tate Law. Device: Windows desktop. Issue: Password changed yesterday, now cannot log into Outlook, Teams, document management. Scope: Single user. Impact: Cannot access email or documents for court filing. Urgency: Deadline 3pm today. Error: Invalid credentials. MFA prompts appear but password rejected. Diagnosis: Account locked after password change sync failure. Action: Reset sync, unlock account.",
+      "quality_flags": [],
+      "quality_score": 95,
+      "notes": "Exemplary ticket with all required fields. Derived from authored scenario, inspired by realistic dataset patterns."
+    },
+    {
+      "id": "tq-vague-escalation",
+      "category": "email_client",
+      "priority": "medium",
+      "summary": "Outlook issue - escalating to L2",
+      "description": "User is having Outlook issues. Tried basic troubleshooting. Please escalate to second line.",
+      "quality_flags": [
+        "missing_affected_user",
+        "missing_error_message",
+        "missing_troubleshooting_steps",
+        "missing_escalation_reason"
+      ],
+      "quality_score": 10,
+      "notes": "No user, no error, no troubleshooting steps documented, no escalation reason. Common pattern in helpdesk data."
+    },
+    {
+      "id": "tq-partial-discovery-printer",
+      "category": "hardware_printer",
+      "priority": "medium",
+      "summary": "HP LaserJet not printing at Westside Medical Centre",
+      "description": "Printer: HP LaserJet Pro M404dn. Error: \"Offline — Check Connection\". Started: 2 hours ago. Other details pending.",
+      "quality_flags": [
+        "missing_scope",
+        "missing_business_impact"
+      ],
+      "quality_score": 55,
+      "notes": "Captured device and error but missed scope (multiple users affected) and impact (patient forms)."
+    }
+  ]
+}

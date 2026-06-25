@@ -1,0 +1,35 @@
+{
+  "name": "priority-mismatch-ticket",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I changed my password and now I can't log in to anything."},
+    {"role": "candidate", "content": "No problem, it happens. Let's get you sorted. What's your name?"},
+    {"role": "caller", "content": "James Wilson."},
+    {"role": "candidate", "content": "Company?"},
+    {"role": "caller", "content": "Mercer & Tate Law."},
+    {"role": "candidate", "content": "Is it just you or everyone?"},
+    {"role": "caller", "content": "Just me."},
+    {"role": "candidate", "content": "Right, so it's just a single user issue. Let me check your account."},
+    {"role": "caller", "content": "Okay. I'm under a bit of time pressure here."},
+    {"role": "candidate", "content": "Don't worry, single-user password issues are low priority. I'll fit you in."},
+    {"role": "caller", "content": "I have a court filing deadline at 3pm."},
+    {"role": "candidate", "content": "Oh, that is urgent. Let me escalate this."}
+  ],
+  "ticket": {
+    "summary": "Password reset issue - single user",
+    "description": "User James Wilson, Mercer & Tate Law. Single user affected. Cannot log in after password change. Ticket marked as low priority initially.",
+    "priority": "low",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 5,
+    "score_max": 25,
+    "must_pass": ["identity_check", "company_check", "scope", "recent_changes"],
+    "must_fail": ["impact", "technical_discovery", "error_or_status_capture", "next_steps", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "escalation_judgement"],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "no_troubleshooting"],
+    "notes": "Candidate categorized as low priority based on single-user scope, ignoring the court filing deadline. Priority/category mismatch — should be high due to legal deadline. Inspired by priority-vs-impact mismatch patterns in helpdesk data."
+  }
+}

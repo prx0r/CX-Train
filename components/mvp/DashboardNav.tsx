@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 
 const navItems = [
   { label: 'Overview', href: '/mvp', icon: '⊞' },
+  { label: 'Taxonomy', href: '/mvp/taxonomy', icon: '🏷' },
   { label: 'Assessments', href: '/mvp/assessments', icon: '📋' },
   { label: 'Standards', href: '/mvp/standards', icon: '⚙' },
   { label: 'Assist (planned)', href: '/mvp/assist', icon: '💬' },

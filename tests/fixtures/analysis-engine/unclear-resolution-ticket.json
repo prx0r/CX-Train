@@ -1,0 +1,35 @@
+{
+  "name": "unclear-resolution-ticket",
+  "scenario_id": "scenario-outlook-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, my Outlook isn't sending emails."},
+    {"role": "candidate", "content": "Let me check your account settings. What's your name?"},
+    {"role": "caller", "content": "Sarah Thompson, Alder & Co Accountants."},
+    {"role": "candidate", "content": "When did this start?"},
+    {"role": "caller", "content": "This morning."},
+    {"role": "candidate", "content": "Any recent password changes?"},
+    {"role": "caller", "content": "I changed my Windows password yesterday."},
+    {"role": "candidate", "content": "Let me update your Outlook profile. One moment."},
+    {"role": "caller", "content": "Okay."},
+    {"role": "candidate", "content": "Done. Try sending now."},
+    {"role": "caller", "content": "It worked! Thank you."},
+    {"role": "candidate", "content": "Great. Closing this ticket."}
+  ],
+  "ticket": {
+    "summary": "Outlook fixed",
+    "description": "User could not send emails. Issue resolved.",
+    "priority": "medium",
+    "category": "email_client"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 45,
+    "score_max": 60,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "recent_changes", "technical_discovery", "next_steps", "customer_tone", "professional_conduct", "customer_communication", "safety"],
+    "must_fail": ["impact", "urgency", "scope", "ticket_user_company", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step"],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "no_troubleshooting"],
+    "notes": "Good call with reasonable discovery, but the ticket is useless — no resolution details, no root cause, no confirmation note. Classic unclear-resolution failure mode where the fix works but the documentation fails."
+  }
+}

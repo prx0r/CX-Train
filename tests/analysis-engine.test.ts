@@ -262,8 +262,8 @@ test('Prompt injection fixture does not crash', () => {
   assert.ok(typeof r.rating === 'string');
 });
 
-test('All 16 fixture files load correctly', () => {
-  assert.equal(fixtures.length, 16, `Expected 16 fixtures, got ${fixtures.length}`);
+test('All fixture files load correctly', () => {
+  assert.ok(fixtures.length >= 16, `Expected at least 16 fixtures, got ${fixtures.length}`);
   const names = fixtures.map(f => f.name);
   const expectedNames = [
     'excellent-password-reset', 'bad-password-reset', 'unsafe-password-reset',
@@ -272,6 +272,10 @@ test('All 16 fixture files load correctly', () => {
     'one-message-call', 'ambiguous-minimal-call', 'long-noisy-call',
     'scenario-mismatch', 'hidden-fact-probe', 'abusive-candidate',
     'ticket-fix-not-in-transcript',
+    'vague-escalation-ticket', 'missing-scope-ticket', 'long-handoff-ticket',
+    'priority-mismatch-ticket', 'unclear-resolution-ticket', 'multi-message-customer-thread',
+    'gold-wifi-good', 'gold-wifi-bad-premature-reboot', 'gold-login-problem-good',
+    'gold-mfa-unsafe', 'gold-new-starter-electracom',
   ];
   for (const name of expectedNames) {
     assert.ok(names.includes(name), `Missing fixture: ${name}`);

@@ -1,0 +1,39 @@
+{
+  "name": "gold-wifi-good",
+  "scenario_id": "scenario-wifi-001",
+  "criteria_version": "criteria-msp-v1",
+  "taxonomy_item_id": "tax-66a3b98ab657",
+  "expected_classification": { "type": "Incident", "sub_type": "Desktop/Laptop", "item": "WiFi" },
+  "transcript": [
+    {"role": "caller", "content": "Hi, the Wi-Fi in our office keeps dropping. I keep getting disconnected from everything."},
+    {"role": "candidate", "content": "I'm sorry to hear that. What's your name and company?"},
+    {"role": "caller", "content": "Marcus Chen, Chen & Associates."},
+    {"role": "candidate", "content": "Thanks Marcus. When did this start?"},
+    {"role": "caller", "content": "This morning, after the building maintenance came in."},
+    {"role": "candidate", "content": "Is it just you or are others affected too?"},
+    {"role": "caller", "content": "I think others on this floor are having issues too."},
+    {"role": "candidate", "content": "What happens exactly? Does the WiFi icon show connected or disconnected?"},
+    {"role": "caller", "content": "It says connected but nothing loads. I have to disconnect and reconnect."},
+    {"role": "candidate", "content": "Does it happen every few minutes?"},
+    {"role": "caller", "content": "Yes, about every 10-15 minutes."},
+    {"role": "candidate", "content": "Do you have a wired connection available to test?"},
+    {"role": "caller", "content": "The meeting room has a cable — that works fine."},
+    {"role": "candidate", "content": "That's very helpful. Since it started after building maintenance and affects multiple users with wired working, this looks like a network issue triggered by the maintenance work. Let me escalate this to the network team with full details, and I'll provide the wired meeting room as a workaround in the meantime."}
+  ],
+  "ticket": {
+    "summary": "Wi-Fi dropping every 10-15 min at Chen & Associates satellite office (Bldg B, Floor 3) after building maintenance. Multiple users affected. Wired in meeting room works.",
+    "description": "User: Marcus Chen, Chen & Associates (satellite office, Building B, Floor 3). Device: Dell Latitude 5540. Issue: Wi-Fi drops every 10-15 min, shows connected but no internet access. Scope: Multiple users on floor 3 affected. Impact: Cannot work, video calls disrupted. Started: This morning after building maintenance worked on floor 3. Workaround: Wired ethernet in meeting room works. Diagnosis: Likely network closet disruption from maintenance. Action: Escalated to network team. Advised use of meeting room wired connection as interim workaround.",
+    "priority": "high",
+    "category": "network_connectivity"
+  },
+  "expected": {
+    "readiness_label": "ready",
+    "score_min": 80,
+    "score_max": 100,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "recent_changes", "next_steps", "customer_tone", "professional_conduct", "customer_communication", "safety", "ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step", "escalation_judgement"],
+    "must_fail": [],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "no_troubleshooting", "hallucinated_fix"],
+    "notes": "Gold standard: excellent Wi-Fi triage. Captured scope (multiple users), recent changes (building maintenance), workaround (wired), escalation. Classification matches taxonomy Incident > Desktop/Laptop > WiFi."
+  }
+}

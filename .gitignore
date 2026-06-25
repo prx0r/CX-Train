@@ -10,7 +10,11 @@ out
 build
 dist
 *.tsbuildinfo
-data/
+data/external/*
+!data/external/README.md
+!data/external/.gitkeep
+data/callcallum.db
+data/callcallum.db.*
 
 # Env & secrets
 .env

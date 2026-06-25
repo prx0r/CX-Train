@@ -1,0 +1,33 @@
+{
+  "name": "vague-escalation-ticket",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I changed my password and now I can't log in."},
+    {"role": "candidate", "content": "Let me check a few things. Your name?"},
+    {"role": "caller", "content": "James Wilson."},
+    {"role": "candidate", "content": "Company?"},
+    {"role": "caller", "content": "Mercer & Tate Law."},
+    {"role": "candidate", "content": "When did this start?"},
+    {"role": "caller", "content": "Yesterday, after I changed my password."},
+    {"role": "candidate", "content": "I'm not sure what's causing this. I'll escalate to second line."},
+    {"role": "caller", "content": "Okay, how long will that take?"},
+    {"role": "candidate", "content": "I don't know, they'll get back to you."}
+  ],
+  "ticket": {
+    "summary": "User cannot log in - escalating to L2",
+    "description": "User James Wilson from Mercer & Tate Law changed password yesterday and now cannot log in. Escalating because I cannot figure out the issue.",
+    "priority": "medium",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 5,
+    "score_max": 20,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "recent_changes"],
+    "must_fail": ["impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "next_steps", "customer_tone", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step", "escalation_judgement"],
+    "must_trigger_red_flags": ["no_troubleshooting"],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour"],
+    "notes": "Candidate got basic identity info but did no troubleshooting, asked no probing questions, and escalated without any real context. Ticket lacks impact, urgency, error details, and escalation reason. Classic vague-escalation failure mode."
+  }
+}

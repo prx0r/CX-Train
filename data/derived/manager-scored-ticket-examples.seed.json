@@ -1,0 +1,70 @@
+{
+  "_meta": {
+    "generated_at": "2026-06-25T16:58:36.616Z",
+    "source_datasets": [
+      "mendeley_helpdesk_tickets_v2"
+    ],
+    "description": "Calibration examples inspired by Mendeley scored_issues_snapshot_sample.xlsx. These scores are NOT CallCallum readiness scores.",
+    "warning": "Mendeley manager scores are for an unknown appraisal model. Do not use as CallCallum readiness scoring.",
+    "total_examples": 2
+  },
+  "examples": [
+    {
+      "source": "mendeley_helpdesk_tickets_v2",
+      "external_id": "calibration-example-001",
+      "scores": {
+        "target_1": 4,
+        "target_2": 3,
+        "target_3": 5
+      },
+      "observed_ticket_features": {
+        "category_present": true,
+        "priority_present": true,
+        "resolution_time_available": true,
+        "messages_available": true,
+        "manager_score_available": true
+      },
+      "callcallum_interpretation": {
+        "possible_quality_signals": [
+          "Ticket has category and priority — enables routing",
+          "Resolution time available — enables SLA tracking",
+          "Manager scored — possible calibration reference"
+        ],
+        "limitations": [
+          "Manager scoring target names need interpretation before use",
+          "Scores are for a different appraisal model, not CallCallum readiness",
+          "Original scoring context and rubric are not available in this derived record",
+          "Cannot map target_1/2/3 to CallCallum criteria without original rubric"
+        ]
+      }
+    },
+    {
+      "source": "mendeley_helpdesk_tickets_v2",
+      "external_id": "calibration-example-002",
+      "scores": {
+        "target_1": 2,
+        "target_2": 2,
+        "target_3": 3
+      },
+      "observed_ticket_features": {
+        "category_present": true,
+        "priority_present": false,
+        "resolution_time_available": true,
+        "messages_available": false,
+        "manager_score_available": true
+      },
+      "callcallum_interpretation": {
+        "possible_quality_signals": [
+          "Category present helps routing",
+          "Missing priority may indicate incomplete triage",
+          "No messages available — limited evidence for assessment"
+        ],
+        "limitations": [
+          "Low scores across all targets — suggests quality issues",
+          "Cannot determine what targets measure without original documentation",
+          "Missing priority in original dataset may be intentional or a data quality issue"
+        ]
+      }
+    }
+  ]
+}

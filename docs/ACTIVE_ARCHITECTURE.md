@@ -63,6 +63,35 @@ All tables are created by `lib/mvp/db.ts:initTables()` and seeded by `seedDefaul
 - AI never produces authoritative score — code computes final readiness
 - Candidate endpoints never expose hidden facts, rubric, or manager data
 
+## External Datasets (Support-Quality Reference)
+
+External datasets are used for support-quality research, examples, fixture generation, and failure-mode taxonomy. They are not used as authoritative candidate assessment truth. Candidate scoring remains controlled by scenario hidden truth, deterministic rubric, and manager standards snapshot.
+
+### Current Datasets
+
+| Dataset | Licence | Status | Use |
+|---|---|---|---|
+| Help Desk Tickets (Mendeley v2) | CC BY 4.0 | Documented | Failure-mode taxonomy, utterance examples, calibration reference |
+| IT Helpdesk Chatbot (Kaggle) | Unknown | Licence check required | Not used until verified |
+
+### Data Boundary
+
+```
+data/external/   — raw downloads (gitignored, never committed)
+data/derived/    — lightweight derived JSON (committed, no raw data)
+scripts/datasets/ — import/profile/transform scripts
+```
+
+### Rules
+- External datasets are **reference material only** — never assessment truth
+- Manager scores from external datasets are not CallCallum readiness scores
+- No raw personal data from any dataset is committed
+- All derived data is synthetic or heavily transformed
+- App must not depend on external dataset files at runtime
+- See `docs/DATASET_EVALUATION.md` for full dataset evaluation
+- See `docs/DATASET_ATTRIBUTION.md` for licence compliance
+- See `docs/DATASET_PROFILE_SUMMARY.md` for profile statistics
+
 ## Frozen Legacy
 
 The following are **not part of the active MVP spine**. Do not add new features here:

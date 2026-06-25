@@ -1,0 +1,35 @@
+{
+  "name": "missing-scope-ticket",
+  "scenario_id": "scenario-printer-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, the printer in our clinic has stopped working."},
+    {"role": "candidate", "content": "Okay, what printer is it?"},
+    {"role": "caller", "content": "The one in the main office, an HP."},
+    {"role": "candidate", "content": "What happens when you try to print?"},
+    {"role": "caller", "content": "Nothing happens. It just sits there."},
+    {"role": "candidate", "content": "Does it show any error?"},
+    {"role": "caller", "content": "It says offline on the display."},
+    {"role": "candidate", "content": "I'll restart the print spooler on my end. One moment."},
+    {"role": "caller", "content": "Okay."},
+    {"role": "candidate", "content": "I've restarted it. Can you try printing now?"},
+    {"role": "caller", "content": "Still not working."},
+    {"role": "candidate", "content": "Alright, let me log a ticket for the printer team."}
+  ],
+  "ticket": {
+    "summary": "HP Printer offline - spooler restarted",
+    "description": "Printer HP in main office showing offline. Print spooler restarted but issue persists. Needs printer team review.",
+    "priority": "medium",
+    "category": "hardware_printer"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 5,
+    "score_max": 20,
+    "must_pass": ["issue_clarification", "error_or_status_capture", "technical_discovery"],
+    "must_fail": ["identity_check", "company_check", "impact", "urgency", "scope", "recent_changes", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step", "escalation_judgement"],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "no_troubleshooting"],
+    "notes": "Candidate captured device and error but never asked who was calling, what company, whether one user or multiple affected, or what the business impact was. Missing scope is the key failure — printer issue likely affects multiple users in a clinic with patient care implications."
+  }
+}

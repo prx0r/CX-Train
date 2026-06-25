@@ -1,0 +1,194 @@
+{
+  "_meta": {
+    "generated_at": "2026-06-25T16:58:36.615Z",
+    "source_datasets": [
+      "mendeley_helpdesk_tickets_v2"
+    ],
+    "description": "Failure-mode taxonomy derived from external helpdesk dataset patterns and CallCallum assessment experience",
+    "total_modes": 13
+  },
+  "failure_modes": [
+    {
+      "id": "missing_affected_user",
+      "label": "Missing affected user",
+      "definition": "Ticket does not identify which user(s) are affected by the issue.",
+      "operational_consequence": "Second line cannot verify user identity or contact them for follow-up.",
+      "evidence_patterns": [
+        "Ticket says \"user\" or \"customer\" without name",
+        "No user ID or email in ticket",
+        "Candidate did not ask caller name during call"
+      ],
+      "coaching_action": "Train first-line to always capture the affected user name, email, and contact method at the start of every interaction.",
+      "severity": "critical",
+      "category": "discovery"
+    },
+    {
+      "id": "missing_affected_device",
+      "label": "Missing affected device",
+      "definition": "Ticket does not specify which device, system, or application is affected.",
+      "operational_consequence": "Technician must contact user to determine device details before starting work.",
+      "evidence_patterns": [
+        "Ticket says \"computer\" or \"laptop\" without hostname or model",
+        "No IP address or asset tag recorded",
+        "No application name or version specified"
+      ],
+      "coaching_action": "Train first-line to capture device hostname, OS, IP address, and application version when applicable.",
+      "severity": "critical",
+      "category": "discovery"
+    },
+    {
+      "id": "missing_scope",
+      "label": "Missing affected scope",
+      "definition": "Ticket does not state whether the issue affects one user, multiple users, one device, one site, or a wider service.",
+      "operational_consequence": "Second line may repeat discovery questions or misprioritise the issue.",
+      "evidence_patterns": [
+        "Ticket describes issue without stating scope",
+        "No indication of single-user vs. widespread",
+        "No site or location information"
+      ],
+      "coaching_action": "Train first-line to document affected user(s), device(s), service, and business impact.",
+      "severity": "major",
+      "category": "discovery"
+    },
+    {
+      "id": "missing_business_impact",
+      "label": "Missing business impact",
+      "definition": "Ticket does not describe what the user cannot do as a result of the issue.",
+      "operational_consequence": "Priority may be mis-set and second line lacks context for urgency.",
+      "evidence_patterns": [
+        "Ticket says \"not working\" without impact description",
+        "No mention of deadline, client, or revenue impact",
+        "No documentation of blocked tasks"
+      ],
+      "coaching_action": "Train first-line to ask \"What are you unable to do because of this?\" and document the answer in the ticket.",
+      "severity": "critical",
+      "category": "discovery"
+    },
+    {
+      "id": "missing_error_message",
+      "label": "Missing error message or status",
+      "definition": "Ticket does not record any error message, error code, or system status.",
+      "operational_consequence": "Second line lacks diagnostic starting point.",
+      "evidence_patterns": [
+        "Ticket says \"error\" without the actual message",
+        "No error code captured",
+        "No screenshot or exact wording of error"
+      ],
+      "coaching_action": "Train first-line to always capture the exact error message, code, or system status before escalating.",
+      "severity": "major",
+      "category": "technical"
+    },
+    {
+      "id": "missing_troubleshooting_steps",
+      "label": "Missing troubleshooting steps attempted",
+      "definition": "Ticket does not document what troubleshooting was already attempted by the user or first-line.",
+      "operational_consequence": "Second line may repeat already-done steps, wasting time.",
+      "evidence_patterns": [
+        "Ticket says \"troubleshot\" without specifics",
+        "No list of steps already tried",
+        "No documentation of results of attempted fixes"
+      ],
+      "coaching_action": "Train first-line to document every troubleshooting step attempted and its result, even if unsuccessful.",
+      "severity": "major",
+      "category": "process"
+    },
+    {
+      "id": "missing_escalation_reason",
+      "label": "Missing escalation reason",
+      "definition": "Escalated ticket does not explain why first-line cannot resolve.",
+      "operational_consequence": "Second line lacks context and may reject or delay escalation.",
+      "evidence_patterns": [
+        "Ticket says \"escalating\" without reason",
+        "No indication of what was attempted before escalation",
+        "No specific request for second-line action"
+      ],
+      "coaching_action": "Train first-line to always include specific reason for escalation, what was tried, and what second-line action is needed.",
+      "severity": "critical",
+      "category": "process"
+    },
+    {
+      "id": "unclear_resolution",
+      "label": "Unclear resolution",
+      "definition": "Ticket does not clearly describe what was done to resolve the issue.",
+      "operational_consequence": "Knowledge base cannot be built from resolved tickets; issue may recur without known fix.",
+      "evidence_patterns": [
+        "Ticket says \"fixed\" or \"resolved\" without details",
+        "No root cause documented",
+        "No resolution steps recorded"
+      ],
+      "coaching_action": "Train first-line to document the root cause and exact resolution steps before closing a ticket.",
+      "severity": "major",
+      "category": "ticket"
+    },
+    {
+      "id": "poor_closure_confirmation",
+      "label": "Poor closure confirmation",
+      "definition": "Ticket is closed without confirming with the user that the issue is resolved.",
+      "operational_consequence": "User may still be affected, leading to re-opened tickets and poor satisfaction.",
+      "evidence_patterns": [
+        "No customer confirmation before closure",
+        "Ticket closed based on technical fix alone",
+        "No follow-up message to user"
+      ],
+      "coaching_action": "Train first-line to always confirm resolution with the user before closing a ticket.",
+      "severity": "major",
+      "category": "communication"
+    },
+    {
+      "id": "multi_assignee_handoff",
+      "label": "Multi-assignee handoff without context",
+      "definition": "Ticket is reassigned multiple times without carrying context forward.",
+      "operational_consequence": "Each new assignee must re-do discovery, causing user frustration.",
+      "evidence_patterns": [
+        "Multiple assignee changes in history",
+        "No handover notes between assignees",
+        "Context lost with each reassignment"
+      ],
+      "coaching_action": "Train first-line to write clear handover notes when reassigning, including what has been done and what remains.",
+      "severity": "major",
+      "category": "process"
+    },
+    {
+      "id": "long_unresolved_time",
+      "label": "Long time in unresolved state",
+      "definition": "Ticket remains in open/unresolved state for extended period without update.",
+      "operational_consequence": "User perceives neglect; SLA likely breached.",
+      "evidence_patterns": [
+        "Ticket open for days without assignee action",
+        "No status updates during long resolution",
+        "Gaps between status changes exceed SLA thresholds"
+      ],
+      "coaching_action": "Train first-line to provide regular status updates on long-running tickets, even if no resolution is ready.",
+      "severity": "minor",
+      "category": "process"
+    },
+    {
+      "id": "priority_category_mismatch",
+      "label": "Priority/category mismatch",
+      "definition": "Assigned priority or category does not match the described severity or issue type.",
+      "operational_consequence": "Ticket may be routed incorrectly or receive insufficient attention.",
+      "evidence_patterns": [
+        "High-impact issue assigned low priority",
+        "Category does not match described symptoms",
+        "Priority set before scope/impact determined"
+      ],
+      "coaching_action": "Train first-line to set priority and category based on documented impact and scope, not assumption.",
+      "severity": "major",
+      "category": "ticket"
+    },
+    {
+      "id": "vague_customer_update",
+      "label": "Vague customer update",
+      "definition": "Update to customer is vague and does not communicate status, timeline, or next steps.",
+      "operational_consequence": "Customer remains uncertain and may escalate unnecessarily.",
+      "evidence_patterns": [
+        "Update says \"working on it\" without specifics",
+        "No ETA or timeline provided",
+        "No explanation of current status"
+      ],
+      "coaching_action": "Train first-line to provide structured updates: what is being done, what is the ETA, what the customer should expect next.",
+      "severity": "minor",
+      "category": "communication"
+    }
+  ]
+}

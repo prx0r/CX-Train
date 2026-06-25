@@ -1,0 +1,99 @@
+{
+  "_meta": {
+    "generated_at": "2026-06-25T16:58:36.616Z",
+    "source_datasets": [
+      "mendeley_helpdesk_tickets_v2",
+      "callcallum_authored_scenarios"
+    ],
+    "description": "Support utterance examples demonstrating quality signals and anti-patterns.",
+    "total_examples": 8
+  },
+  "examples": [
+    {
+      "id": "su-vague-start",
+      "role": "customer",
+      "message": "My email is not working. Can you fix it?",
+      "context": "Opening message — customer reports email issue without details",
+      "quality_tags": [
+        "vague",
+        "no_scope",
+        "no_error"
+      ]
+    },
+    {
+      "id": "su-good-discovery-agent",
+      "role": "agent",
+      "message": "I understand this is urgent. When did this start, and what happens when you try to send an email?",
+      "context": "Agent probing for timing and error details",
+      "quality_tags": [
+        "good_discovery",
+        "urgency_acknowledgement",
+        "specific_question"
+      ]
+    },
+    {
+      "id": "su-vague-agent-response",
+      "role": "agent",
+      "message": "Okay, I will log a ticket. Someone will get back to you.",
+      "context": "Agent closes without troubleshooting or documenting",
+      "quality_tags": [
+        "no_discovery",
+        "no_troubleshooting",
+        "vague_next_steps"
+      ]
+    },
+    {
+      "id": "su-customer-impact",
+      "role": "customer",
+      "message": "I have a court filing deadline at 3pm today. I cannot access any of my documents.",
+      "context": "Customer provides impact and urgency when prompted",
+      "quality_tags": [
+        "impact_provided",
+        "urgency_provided",
+        "specific_deadline"
+      ]
+    },
+    {
+      "id": "su-agent-scope-probe",
+      "role": "agent",
+      "message": "Is it just you affected, or are others in your firm having this issue too?",
+      "context": "Agent probing for scope of outage",
+      "quality_tags": [
+        "good_discovery",
+        "scope_probe"
+      ]
+    },
+    {
+      "id": "su-customer-vague-update",
+      "role": "customer",
+      "message": "It is still not working. I tried what you said.",
+      "context": "Customer providing vague update after attempted fix",
+      "quality_tags": [
+        "vague_update",
+        "no_detail"
+      ]
+    },
+    {
+      "id": "su-agent-structured-update",
+      "role": "agent",
+      "message": "I have identified the cause — your account password did not sync properly. I am resetting it now and will send a temporary password to your manager. You should be able to log in within 5 minutes.",
+      "context": "Agent provides clear diagnosis, action, and timeline",
+      "quality_tags": [
+        "good_update",
+        "cause_stated",
+        "action_stated",
+        "timeline_provided"
+      ]
+    },
+    {
+      "id": "su-agent-no-escalation-context",
+      "role": "agent",
+      "message": "This needs to be escalated to L2.",
+      "context": "Agent escalates without providing context or reason",
+      "quality_tags": [
+        "no_escalation_reason",
+        "no_context"
+      ]
+    }
+  ]
+}

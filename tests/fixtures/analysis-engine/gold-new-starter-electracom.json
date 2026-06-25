@@ -1,0 +1,36 @@
+{
+  "name": "gold-new-starter-electracom",
+  "scenario_id": "scenario-outlook-001",
+  "criteria_version": "criteria-msp-v1",
+  "taxonomy_item_id": "tax-206dd3545914",
+  "expected_classification": { "type": "Request", "sub_type": "User Management", "item": "New Starter Electracom Contractor" },
+  "transcript": [
+    {"role": "caller", "content": "Hi, we have a new contractor starting at Electracom next Monday. I need to get them set up."},
+    {"role": "candidate", "content": "Of course. Let me start with your details. Your name and company?"},
+    {"role": "caller", "content": "David Chen, Electracom."},
+    {"role": "candidate", "content": "Thanks David. What's the new starter's name and what do they need access to?"},
+    {"role": "caller", "content": "Alex Rivera. They need email, Teams, and access to the shared drive."},
+    {"role": "candidate", "content": "Is this a full-time employee or a contractor? And what's their start date?"},
+    {"role": "caller", "content": "Contractor, starting Monday."},
+    {"role": "candidate", "content": "For Electracom contractors, Tier 1 can handle the setup. I'll need their full name, email, department, and manager's name. Do you have that ready?"},
+    {"role": "caller", "content": "Yes — Alex Rivera, alex.rivera@electracom.com, Engineering department, reporting to Sarah Chen."},
+    {"role": "candidate", "content": "Perfect. I'll create the account with email, Teams, and shared drive access. The account will be active by Monday. I'll send you a confirmation email with the details."},
+    {"role": "caller", "content": "Great, thank you!"}
+  ],
+  "ticket": {
+    "summary": "New starter setup — Alex Rivera, Electracom contractor, Engineering dept, starting Monday. Email + Teams + shared drive access.",
+    "description": "Requester: David Chen (Electracom). New starter: Alex Rivera. Role: Contractor (Electracom). Department: Engineering. Start date: Monday. Manager: Sarah Chen. Email: alex.rivera@electracom.com. Access required: Email, Teams, shared drive. SOP: Electracom contractor new starter procedure. Action: Account created, accesses provisioned. Confirmation sent to requester.",
+    "priority": "low",
+    "category": "user_management"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 45,
+    "score_max": 70,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "next_steps", "customer_tone", "professional_conduct", "customer_communication", "safety", "ticket_user_company", "ticket_issue_summary", "ticket_checks_attempted", "ticket_next_step"],
+    "must_fail": [],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour"],
+    "notes": "Gold standard new starter handling. Candidate correctly identified this as a T1-eligible Electracom contractor request (special exception category in taxonomy). Followed the expected procedure, captured all required details. Classification matches taxonomy Request > User Management > New Starter Electracom Contractor."
+  }
+}

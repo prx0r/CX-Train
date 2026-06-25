@@ -1,0 +1,54 @@
+{
+  "source": "mendeley_helpdesk_tickets_v2",
+  "status": "not_downloaded",
+  "files": [
+    {
+      "filename": "issues.csv",
+      "expected_type": "CSV",
+      "status": "not_downloaded"
+    },
+    {
+      "filename": "issues_change_history.csv",
+      "expected_type": "CSV",
+      "status": "not_downloaded"
+    },
+    {
+      "filename": "issues_snapshots.csv",
+      "expected_type": "CSV",
+      "status": "not_downloaded"
+    },
+    {
+      "filename": "scored_issues_snapshot_sample.xlsx",
+      "expected_type": "XLSX",
+      "status": "not_downloaded"
+    },
+    {
+      "filename": "sample_utterances.csv",
+      "expected_type": "CSV",
+      "status": "not_downloaded"
+    },
+    {
+      "filename": "FEATURES.md",
+      "expected_type": "Markdown",
+      "status": "not_downloaded"
+    },
+    {
+      "filename": "EXAMPLE.md",
+      "expected_type": "Markdown",
+      "status": "not_downloaded"
+    },
+    {
+      "filename": "process-flow.png",
+      "expected_type": "PNG",
+      "status": "not_downloaded"
+    }
+  ],
+  "generated_at": "2026-06-25T16:58:36.421Z",
+  "notes": [
+    "Download from https://data.mendeley.com/datasets/btm76zndnt/2",
+    "Licence: CC BY 4.0 — commercial use permitted with attribution",
+    "Fields reported_by and assigned_to are anonymised/masked",
+    "scores in scored_issues_snapshot_sample.xlsx use 1-5 scale across 3 unnamed targets",
+    "Dataset published 30 May 2025, covers tickets Jan 2016 - Mar 2023"
+  ]
+}

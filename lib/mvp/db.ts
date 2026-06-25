@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 
 let db: Database.Database | null = null;
 
@@ -191,12 +192,37 @@ export function initTables(): void {
     `ALTER TABLE manager_standards ADD COLUMN manager_profile_id TEXT`,
     `ALTER TABLE manager_standards ADD COLUMN version INTEGER NOT NULL DEFAULT 1`,
     `ALTER TABLE manager_standards ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`,
+
+    `ALTER TABLE assessment_packs ADD COLUMN taxonomy_item_id TEXT REFERENCES taxonomy_items(id)`,
+    `ALTER TABLE scenarios ADD COLUMN taxonomy_item_id TEXT REFERENCES taxonomy_items(id)`,
+    `ALTER TABLE assessment_results ADD COLUMN taxonomy_classification_json TEXT`,
+    `ALTER TABLE analysis_runs ADD COLUMN taxonomy_match_json TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }
   }
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS taxonomy_items (
+      id TEXT PRIMARY KEY,
+      source_id INTEGER,
+      board_name TEXT NOT NULL DEFAULT 'Tier 1 Service Board',
+      type TEXT NOT NULL,
+      sub_type TEXT NOT NULL,
+      item TEXT NOT NULL,
+      definition_scope TEXT NOT NULL DEFAULT '',
+      playbook TEXT NOT NULL DEFAULT '',
+      keywords TEXT NOT NULL DEFAULT '',
+      helpdesk_tier TEXT NOT NULL DEFAULT '',
+      escalation_guidance TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_taxonomy_type ON taxonomy_items(type);
+    CREATE INDEX IF NOT EXISTS idx_taxonomy_subtype ON taxonomy_items(sub_type);
+    CREATE INDEX IF NOT EXISTS idx_taxonomy_item ON taxonomy_items(item);
+
     CREATE TABLE IF NOT EXISTS manager_profiles (
       id TEXT PRIMARY KEY,
       display_name TEXT NOT NULL,
@@ -231,6 +257,9 @@ const PASSWORD_RESET_SCENARIO_ID = 'scenario-password-001';
 const PASSWORD_RESET_PACK_ID = 'pack-password-v1';
 const PRINTER_SCENARIO_ID = 'scenario-printer-001';
 const PRINTER_PACK_ID = 'pack-printer-v1';
+
+const WIFI_SCENARIO_ID = 'scenario-wifi-001';
+const WIFI_PACK_ID = 'pack-wifi-v1';
 
 export function getDefaultStandardsId(): string { return DEFAULT_STANDARDS_ID; }
 export function getDefaultPackId(): string { return DEFAULT_PACK_ID; }
@@ -652,6 +681,206 @@ export function seedDefaults(): void {
       'Hi, the printer in our clinic has stopped working. I have patients coming in and I really need to get this sorted.'
     );
   }
+
+  // Seed taxonomy from the XLSX-derived JSON if table is empty
+  const taxonomyCount = (db.prepare('SELECT COUNT(*) as c FROM taxonomy_items').get() as any).c;
+  if (taxonomyCount === 0) {
+    seedTaxonomyFromJson(db);
+  }
+
+  // Wi-Fi / Connectivity scenario + pack
+  const existingWiFiScenario = db.prepare('SELECT id FROM scenarios WHERE id = ?').get(WIFI_SCENARIO_ID);
+  if (!existingWiFiScenario) {
+    db.prepare(`INSERT INTO scenarios (id, title, industry, difficulty, caller_persona, hidden_facts_json, caller_behaviour_prompt, initial_message, ideal_ticket_hints, active, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))`).run(
+      WIFI_SCENARIO_ID, 'Wi-Fi dropping — remote site',
+      'legal', 'first_line',
+      'Marcus Chen, a solicitor at Chen & Associates who is working from a remote satellite office. Wi-Fi keeps dropping every 10-15 minutes, disrupting video calls and document access.',
+      JSON.stringify({
+        issue: 'Wi-Fi drops connection every 10-15 minutes',
+        user: 'Marcus Chen',
+        company: 'Chen & Associates (Satellite Office — Building B, Floor 3)',
+        device: 'Dell Latitude 5540 (DELL-MARCUS-02)',
+        scope: 'multiple users in satellite office affected',
+        impact: 'cannot maintain video calls with clients, cannot access cloud document system reliably',
+        deadline: 'client video call in 45 minutes',
+        started: 'this morning, after building maintenance finished',
+        error_message: 'Wi-Fi icon shows connected but no internet access; requires disconnect/reconnect',
+        workaround: 'wired ethernet in meeting room works',
+        recent_changes: 'building maintenance worked on floor 3 electrical/network closet this morning',
+      }),
+      `You are Marcus Chen, a solicitor at Chen & Associates. You are working from your firm's satellite office on floor 3. The Wi-Fi has been dropping all morning.
+- Start vague: "the Wi-Fi keeps cutting out" or "internet keeps disconnecting"
+- Do NOT mention the building maintenance unless asked about recent changes
+- Do NOT mention that wired ethernet works unless asked about alternatives/scope
+- Do NOT mention that other users are affected unless asked about scope
+- Do NOT mention the 45-minute client call deadline unless asked about urgency
+- You are frustrated because you cannot do your work, but remain professional
+- Keep responses 1-3 sentences`,
+      'Hi, the Wi-Fi in our office keeps dropping. It is really affecting my work — I keep getting disconnected from everything.',
+      'User Marcus Chen at Chen & Associates satellite office (Bldg B, Floor 3). Dell Latitude 5540. Wi-Fi drops every 10-15 min. Multiple users affected. Building maintenance worked on floor 3 network closet this morning. Wired ethernet in meeting room works. Client video call in 45 min.'
+    );
+  }
+
+  const existingWiFiPack = db.prepare('SELECT id FROM assessment_packs WHERE id = ?').get(WIFI_PACK_ID);
+  if (!existingWiFiPack) {
+    db.prepare(`INSERT INTO assessment_packs (id, title, scenario_type, role_level, difficulty, version, customer_persona, hidden_facts_json, expected_behaviours_json, required_ticket_fields_json, red_flags_json, rubric_json, caller_behaviour_prompt, initial_message, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`).run(
+      WIFI_PACK_ID, 'Wi-Fi Dropping — First-Line Apprentice',
+      'network_connectivity', 'apprentice', 'first_line', '1',
+      'Marcus Chen, a solicitor at Chen & Associates whose Wi-Fi keeps dropping at the satellite office',
+      JSON.stringify({
+        issue: 'Wi-Fi drops connection every 10-15 minutes at satellite office',
+        user: 'Marcus Chen',
+        company: 'Chen & Associates (Satellite Office — Building B, Floor 3)',
+        device: 'Dell Latitude 5540 (DELL-MARCUS-02)',
+        scope: 'single reporter but likely multiple users affected',
+        impact: 'cannot maintain video calls or access cloud document system',
+        deadline: 'client video call in 45 minutes',
+        started: 'this morning, after building maintenance',
+        workaround: 'wired ethernet in meeting room works',
+        error_message: 'connected but no internet access',
+        recent_changes: 'building maintenance on floor 3 electrical/network closet',
+      }),
+      JSON.stringify([
+        'confirm user identity', 'confirm firm and location',
+        'clarify exact issue', 'ask when issue started',
+        'ask impact', 'ask urgency',
+        'ask whether one user or multiple affected',
+        'ask whether other devices or sites affected',
+        'ask what error messages appear',
+        'ask about recent changes (building, network, equipment)',
+        'ask about alternative connectivity options',
+        'avoid blaming the user or their device prematurely',
+        'explain next step', 'write ticket with actionable details',
+      ]),
+      JSON.stringify(['user', 'company', 'location_or_site', 'device_or_application', 'issue_summary', 'impact', 'urgency', 'scope', 'checks_attempted', 'next_step']),
+      JSON.stringify(['unsafe_advice', 'invented_fix_without_evidence', 'critical_urgency_missed', 'no_clear_next_step', 'blaming_user_hardware']),
+      JSON.stringify({
+        identity_check: { weight: 1 },
+        company_check: { weight: 1 },
+        issue_clarification: { weight: 2 },
+        started_when: { weight: 1 },
+        impact: { weight: 3 },
+        urgency: { weight: 3 },
+        scope: { weight: 2 },
+        technical_discovery: { weight: 2 },
+        error_or_status_capture: { weight: 2 },
+        recent_changes: { weight: 3 },
+        next_steps: { weight: 3 },
+        customer_tone: { weight: 1 },
+        ticket_user_company: { weight: 1 },
+        ticket_issue_summary: { weight: 2 },
+        ticket_impact: { weight: 2 },
+        ticket_urgency: { weight: 2 },
+        ticket_checks_attempted: { weight: 2 },
+        ticket_next_step: { weight: 2 },
+        escalation_judgement: { weight: 2 },
+        safety: { weight: 4 },
+      }),
+      `You are Marcus Chen, a solicitor at Chen & Associates. You are working from your firm's satellite office on floor 3. The Wi-Fi has been dropping all morning.
+- Start vague: "the Wi-Fi keeps cutting out" or "internet keeps disconnecting"
+- Do NOT mention the building maintenance unless asked about recent changes
+- Do NOT mention that wired ethernet works unless asked about alternatives/scope
+- Do NOT mention that other users are affected unless asked about scope
+- Do NOT mention the 45-minute client call deadline unless asked about urgency
+- You are frustrated because you cannot do your work, but remain professional
+- Keep responses 1-3 sentences`,
+      'Hi, the Wi-Fi in our office keeps dropping. It is really affecting my work — I keep getting disconnected from everything.'
+    );
+  }
+}
+
+export function seedTaxonomyFromJson(db: Database.Database): void {
+  const jsonPath = process.env.TAXONOMY_JSON_PATH || 'taxonomy/taxonomy.json';
+  const xlsxPath = process.env.TAXONOMY_XLSX_PATH || 'taxonomy/Master Triage classification list.xlsx';
+
+  // Prefer XLSX, fall back to JSON
+  if (fs.existsSync(xlsxPath)) {
+    try {
+      const XLSX = require('xlsx');
+      const wb = XLSX.readFile(xlsxPath);
+      const ws = wb.Sheets['Sheet1'];
+      if (!ws) { console.warn('No Sheet1 found in XLSX'); return; }
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      const insert = db.prepare(`INSERT OR IGNORE INTO taxonomy_items
+        (id, source_id, board_name, type, sub_type, item, definition_scope, playbook, keywords, helpdesk_tier, escalation_guidance)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      const tx = db.transaction(() => {
+        for (const r of rows) {
+          const safeId = 'tax-' + crypto.createHash('md5').update(String(r.ID) + r.Type + r.SubType + r.Item).digest('hex').slice(0, 12);
+          insert.run(
+            safeId,
+            r.ID || null,
+            r.Board_Name || 'Tier 1 Service Board',
+            r.Type || '',
+            r.SubType || '',
+            r.Item || '',
+            r['definition scope'] || '',
+            r.Playbook || '',
+            r.keywords || '',
+            r['Helpdesk Tier'] || '',
+            r['Escalation Guidance'] || ''
+          );
+        }
+      });
+      tx();
+      console.log(`Seeded ${rows.length} taxonomy items from XLSX`);
+      return;
+    } catch (e) {
+      console.warn('XLSX seed failed, falling back to JSON:', e);
+    }
+  }
+
+  // Fallback to JSON seed
+  if (fs.existsSync(jsonPath)) {
+    try {
+      const raw = fs.readFileSync(jsonPath, 'utf-8');
+      const data = JSON.parse(raw);
+      const items = data.items || [];
+      const insert = db.prepare(`INSERT OR IGNORE INTO taxonomy_items
+        (id, type, sub_type, item, definition_scope, playbook, keywords)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`);
+      const tx = db.transaction(() => {
+        for (const r of items) {
+          insert.run(
+            r.id || 'tax-' + crypto.createHash('md5').update(r.category + r.subcategory + r.title).digest('hex').slice(0, 12),
+            r.category || '',
+            r.subcategory || '',
+            r.title || '',
+            r.description || '',
+            (r.triage_questions || []).join('\n'),
+            (r.triage_steps || []).join('\n')
+          );
+        }
+      });
+      tx();
+      console.log(`Seeded ${items.length} taxonomy items from JSON`);
+    } catch (e) {
+      console.warn('JSON seed failed:', e);
+    }
+  }
+}
+
+export function taxonomySearch(q: string, limit = 50): any[] {
+  const d = getDb();
+  const pattern = `%${q}%`;
+  return d.prepare(`
+    SELECT * FROM taxonomy_items
+    WHERE type LIKE ? OR sub_type LIKE ? OR item LIKE ? OR definition_scope LIKE ? OR keywords LIKE ?
+    ORDER BY source_id ASC
+    LIMIT ?
+  `).all(pattern, pattern, pattern, pattern, pattern, limit);
+}
+
+export function taxonomyGetAll(): any[] {
+  const d = getDb();
+  return d.prepare('SELECT * FROM taxonomy_items ORDER BY source_id ASC').all();
+}
+
+export function taxonomyGetById(id: string): any {
+  const d = getDb();
+  return d.prepare('SELECT * FROM taxonomy_items WHERE id = ?').get(id);
 }
 
 export { DEFAULT_CRITERIA_ID, DEFAULT_SCENARIO_ID, DEFAULT_STANDARDS_ID, DEFAULT_PACK_ID };

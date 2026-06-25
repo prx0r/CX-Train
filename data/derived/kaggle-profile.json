@@ -1,0 +1,18 @@
+{
+  "source": "kaggle_it_helpdesk_chatbot",
+  "status": "licence_pending",
+  "files": [
+    {
+      "filename": "unknown (dataset not yet inspected)",
+      "expected_type": "CSV/JSON",
+      "status": "not_downloaded"
+    }
+  ],
+  "generated_at": "2026-06-25T16:58:36.421Z",
+  "notes": [
+    "Source: https://www.kaggle.com/datasets/bitsofishan/it-helpdesk-chatbot-dataset",
+    "Licence: UNVERIFIED — do not use until confirmed",
+    "Requires Kaggle account to download",
+    "Likely contains IT helpdesk Q&A pairs for chatbot training"
+  ]
+}
