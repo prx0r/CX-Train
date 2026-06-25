@@ -104,16 +104,13 @@ export default function CandidatePage() {
     }
   }
 
-  // Defer to DashboardSimShell for dashboard_sim mode
+  // Defer to ItsmCandidateShell for dashboard_sim mode
   if (assessmentMode === 'dashboard_sim') {
-    const CandidateSimShell = React.lazy(() => import('@/components/mvp/sim/CandidateSimShell'));
+    const ItsmShell = React.lazy(() => import('@/components/mvp/sim/ItsmCandidateShell'));
     return (
-      <React.Suspense fallback={<div className="p-8 text-center text-gray-500">Loading simulation...</div>}>
-        <CandidateSimShell
+      <React.Suspense fallback={<div className="p-8 text-center text-gray-500">Loading Service Desk...</div>}>
+        <ItsmShell
           token={token}
-          assessmentTitle={title}
-          scenarioTitle={scenarioTitle}
-          packTitle={packTitle}
           initialMessages={messages}
         />
       </React.Suspense>
