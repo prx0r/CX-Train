@@ -1,3 +1,4 @@
+import { getDb } from '@/lib/mvp/db';
 import { getFullAssessment } from '@/lib/mvp/query';
 import { getManagerStandards } from '@/lib/mvp/query';
 import { getActiveCriteria, getActiveScenario } from '@/lib/mvp/query';
@@ -12,9 +13,28 @@ export function buildAssessmentContext(assessmentId: string): AnalysisContext | 
   ).join('\n\n');
 
   const ticketText = full.ticket?.candidate_ticket_text || null;
-  const standards = getManagerStandards();
   const criteria = getActiveCriteria();
   const scenario = getActiveScenario();
+
+  // Use snapshot if available, otherwise fall back to current standards
+  let managerStandards = null;
+  const standardsSnapshotRaw = (full.assessment as any).standards_snapshot_json;
+  if (standardsSnapshotRaw) {
+    try {
+      managerStandards = JSON.parse(standardsSnapshotRaw);
+    } catch { /* ignore parse error */ }
+  }
+  if (!managerStandards) {
+    const current = getManagerStandards();
+    if (current) {
+      managerStandards = {
+        id: current.id,
+        required_ticket_fields: JSON.parse(current.required_ticket_fields_json || '[]'),
+        call_requirements: current.call_requirements,
+        escalation_requirements: current.escalation_requirements,
+      };
+    }
+  }
 
   return {
     org_id: 'org-default',
@@ -25,12 +45,7 @@ export function buildAssessmentContext(assessmentId: string): AnalysisContext | 
     transcript_messages: full.messages.map(m => ({ role: m.role, content: m.content })),
     transcript_text: transcriptText,
     submitted_ticket: ticketText,
-    manager_standards: standards ? {
-      id: standards.id,
-      required_ticket_fields: JSON.parse(standards.required_ticket_fields_json || '[]'),
-      call_requirements: standards.call_requirements,
-      escalation_requirements: standards.escalation_requirements,
-    } : null,
+    manager_standards: managerStandards,
     active_criteria: criteria ? JSON.parse(criteria.criteria_json) : null,
     active_scenario: scenario ? {
       id: scenario.id,

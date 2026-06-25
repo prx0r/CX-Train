@@ -173,9 +173,50 @@ export function initTables(): void {
       input_hash TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
       result_id TEXT,
+      error_code TEXT,
+      error_message TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (result_id) REFERENCES assessment_results(id)
+    );
+  `);
+
+  const migrations = [
+    `ALTER TABLE analysis_runs ADD COLUMN error_code TEXT`,
+    `ALTER TABLE analysis_runs ADD COLUMN error_message TEXT`,
+    `ALTER TABLE assessments ADD COLUMN manager_profile_id TEXT`,
+    `ALTER TABLE assessments ADD COLUMN standards_snapshot_json TEXT`,
+    `ALTER TABLE assessments ADD COLUMN invite_expires_at TEXT`,
+    `ALTER TABLE assessments ADD COLUMN invite_revoked INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE manager_standards ADD COLUMN manager_profile_id TEXT`,
+    `ALTER TABLE manager_standards ADD COLUMN version INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE manager_standards ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`,
+  ];
+  for (const sql of migrations) {
+    try { db.exec(sql); } catch { /* column already exists */ }
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS manager_profiles (
+      id TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      company_name TEXT,
+      role TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS manager_criterion_feedback (
+      id TEXT PRIMARY KEY,
+      feedback_id TEXT NOT NULL,
+      criterion_id TEXT NOT NULL,
+      original_status TEXT NOT NULL,
+      manager_status TEXT NOT NULL,
+      original_score REAL NOT NULL DEFAULT 0,
+      manager_score REAL NOT NULL DEFAULT 0,
+      manager_comment TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (feedback_id) REFERENCES manager_feedback(id)
     );
   `);
 }
@@ -184,6 +225,12 @@ const DEFAULT_CRITERIA_ID = 'criteria-msp-v1';
 const DEFAULT_SCENARIO_ID = 'scenario-outlook-001';
 const DEFAULT_STANDARDS_ID = 'standards-default-v1';
 const DEFAULT_PACK_ID = 'pack-outlook-v1';
+const DEFAULT_MANAGER_PROFILE_ID = 'manager-default-v1';
+
+const PASSWORD_RESET_SCENARIO_ID = 'scenario-password-001';
+const PASSWORD_RESET_PACK_ID = 'pack-password-v1';
+const PRINTER_SCENARIO_ID = 'scenario-printer-001';
+const PRINTER_PACK_ID = 'pack-printer-v1';
 
 export function getDefaultStandardsId(): string { return DEFAULT_STANDARDS_ID; }
 export function getDefaultPackId(): string { return DEFAULT_PACK_ID; }
@@ -323,6 +370,13 @@ export function seedDefaults(): void {
     );
   }
 
+  const existingProfile = db.prepare('SELECT id FROM manager_profiles WHERE id = ?').get(DEFAULT_MANAGER_PROFILE_ID);
+  if (!existingProfile) {
+    db.prepare('INSERT INTO manager_profiles (id, display_name, company_name, role, created_at, updated_at) VALUES (?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))').run(
+      DEFAULT_MANAGER_PROFILE_ID, 'Default Manager', 'Default MSP', 'Service Desk Manager'
+    );
+  }
+
   const existingPack = db.prepare('SELECT id FROM assessment_packs WHERE id = ?').get(DEFAULT_PACK_ID);
   if (!existingPack) {
     const pack = {
@@ -406,6 +460,196 @@ export function seedDefaults(): void {
       pack.customer_persona, pack.hidden_facts_json, pack.expected_behaviours_json,
       pack.required_ticket_fields_json, pack.red_flags_json, pack.rubric_json,
       pack.caller_behaviour_prompt, pack.initial_message
+    );
+  }
+
+  // Password Reset scenario + pack
+  const existingPasswordScenario = db.prepare('SELECT id FROM scenarios WHERE id = ?').get(PASSWORD_RESET_SCENARIO_ID);
+  if (!existingPasswordScenario) {
+    db.prepare(`INSERT INTO scenarios (id, title, industry, difficulty, caller_persona, hidden_facts_json, caller_behaviour_prompt, initial_message, ideal_ticket_hints, active, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))`).run(
+      PASSWORD_RESET_SCENARIO_ID, 'Password reset not working after change',
+      'legal', 'first_line',
+      'James Wilson, a stressed paralegal at Mercer & Tate Law who changed his password yesterday but now cannot log in to any Microsoft 365 apps',
+      JSON.stringify({
+        issue: 'Password was reset yesterday but now all logins fail',
+        user: 'James Wilson',
+        company: 'Mercer & Tate Law',
+        device: 'Windows desktop (MERCER-PC-117) + iPhone',
+        scope: 'single user, all devices',
+        impact: 'cannot access email or document management ahead of court filing deadline',
+        deadline: 'this afternoon (3pm)',
+        started: 'after password reset yesterday',
+        workaround: 'IT can set a temporary password if needed',
+        mfa_issue: 'MFA prompts appear but password is rejected',
+      }),
+      `You are James Wilson, a paralegal at Mercer & Tate Law. You changed your Microsoft 365 password yesterday as required by IT policy, but now you cannot log in to anything — Outlook, Teams, even the document management system.
+- Start vague: "I changed my password and now nothing works"
+- Do NOT mention the court filing deadline unless asked about urgency/impact
+- Do NOT reveal you have an iPhone unless asked about scope/devices
+- Do NOT mention MFA prompts appear unless asked about error messages
+- You are anxious about the deadline but cooperative
+- Keep responses 1-3 sentences`,
+      'Hi, I changed my password yesterday like the email told me to, and now I can\'t log in to anything. This is really bad timing.',
+      'User James Wilson (Mercer & Tate Law). M365 account locked after password reset. All devices affected. MFA prompts appear. Needs access before 3pm filing deadline. Reset password and test MFA.'
+    );
+  }
+
+  const existingPasswordPack = db.prepare('SELECT id FROM assessment_packs WHERE id = ?').get(PASSWORD_RESET_PACK_ID);
+  if (!existingPasswordPack) {
+    db.prepare(`INSERT INTO assessment_packs (id, title, scenario_type, role_level, difficulty, version, customer_persona, hidden_facts_json, expected_behaviours_json, required_ticket_fields_json, red_flags_json, rubric_json, caller_behaviour_prompt, initial_message, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`).run(
+      PASSWORD_RESET_PACK_ID, 'Password Reset Not Working — First-Line Apprentice',
+      'identity_access', 'apprentice', 'first_line', '1',
+      'James Wilson, a stressed paralegal at Mercer & Tate Law who changed his password but now cannot log in to any Microsoft 365 apps',
+      JSON.stringify({
+        issue: 'Account locked after password reset',
+        user: 'James Wilson',
+        company: 'Mercer & Tate Law',
+        device: 'Windows desktop (MERCER-PC-117)',
+        scope: 'single user, all devices (including iPhone)',
+        impact: 'cannot access email or document management before 3pm court filing deadline',
+        deadline: '3pm today',
+        started: 'after password reset yesterday',
+        workaround: 'IT can set a temporary password',
+        mfa_issue: 'MFA prompts appear but password rejected',
+      }),
+      JSON.stringify([
+        'confirm user identity', 'confirm company', 'clarify exact issue',
+        'ask when issue started', 'ask impact', 'ask urgency',
+        'ask what error appears', 'ask whether MFA works',
+        'ask what apps are affected', 'ask which devices',
+        'avoid giving password advice without lockout check',
+        'explain next step', 'write ticket with actionable details',
+      ]),
+      JSON.stringify(['user', 'company', 'device_or_application', 'issue_summary', 'impact', 'urgency', 'checks_attempted', 'next_step']),
+      JSON.stringify(['unsafe_advice', 'invented_fix_without_evidence', 'critical_urgency_missed', 'no_clear_next_step']),
+      JSON.stringify({
+        identity_check: { weight: 1 },
+        company_check: { weight: 1 },
+        issue_clarification: { weight: 2 },
+        started_when: { weight: 1 },
+        impact: { weight: 3 },
+        urgency: { weight: 3 },
+        scope: { weight: 2 },
+        technical_discovery: { weight: 2 },
+        error_or_status_capture: { weight: 2 },
+        recent_changes: { weight: 1 },
+        next_steps: { weight: 3 },
+        customer_tone: { weight: 1 },
+        ticket_user_company: { weight: 1 },
+        ticket_issue_summary: { weight: 2 },
+        ticket_impact: { weight: 2 },
+        ticket_urgency: { weight: 2 },
+        ticket_checks_attempted: { weight: 2 },
+        ticket_next_step: { weight: 2 },
+        escalation_judgement: { weight: 2 },
+        safety: { weight: 4 },
+      }),
+      `You are James Wilson, a paralegal at Mercer & Tate Law. You changed your Microsoft 365 password yesterday as required by IT policy, but now you cannot log in to anything — Outlook, Teams, even the document management system.
+- Start vague: "I changed my password and now nothing works"
+- Do NOT mention the court filing deadline unless asked about urgency/impact
+- Do NOT reveal you have an iPhone unless asked about scope/devices
+- Do NOT mention MFA prompts appear unless asked about error messages
+- You are anxious about the deadline but cooperative
+- Keep responses 1-3 sentences`,
+      'Hi, I changed my password yesterday like the email told me to, and now I can\'t log in to anything. This is really bad timing.'
+    );
+  }
+
+  // Printer scenario + pack
+  const existingPrinterScenario = db.prepare('SELECT id FROM scenarios WHERE id = ?').get(PRINTER_SCENARIO_ID);
+  if (!existingPrinterScenario) {
+    db.prepare(`INSERT INTO scenarios (id, title, industry, difficulty, caller_persona, hidden_facts_json, caller_behaviour_prompt, initial_message, ideal_ticket_hints, active, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))`).run(
+      PRINTER_SCENARIO_ID, 'Printer not printing — HP LaserJet Pro',
+      'healthcare', 'first_line',
+      'Dr. Emily Chen, a physician at Westside Medical Centre whose HP LaserJet Pro stopped printing mid-morning',
+      JSON.stringify({
+        issue: 'HP LaserJet Pro M404dn stopped printing mid-job',
+        user: 'Dr. Emily Chen',
+        company: 'Westside Medical Centre',
+        device: 'HP LaserJet Pro M404dn (network printer, IP: 10.0.50.22)',
+        scope: 'single printer, multiple users affected',
+        impact: 'cannot print patient intake forms, prescriptions, or referral letters',
+        deadline: 'needs to print before next patient in 20 minutes',
+        started: 'about 2 hours ago',
+        error_message: 'printer shows "Offline — Check Connection" on the display',
+        workaround: 'USB direct print from one workstation works',
+        recent_changes: 'network switch was rebooted last night for maintenance',
+      }),
+      `You are Dr. Emily Chen, a physician at Westside Medical Centre. The HP LaserJet Pro stopped printing about 2 hours ago. Several staff are affected.
+- Start vague: "the printer isn't working, can you help?"
+- Do NOT mention the network switch reboot unless asked about recent changes
+- Do NOT mention USB workaround or that multiple users are affected unless asked about scope
+- Do NOT mention the 20-minute patient deadline unless asked about urgency
+- You are busy with patients and need this fixed quickly
+- Keep responses 1-3 sentences`,
+      'Hi, the printer in our clinic has stopped working. I have patients coming in and I really need to get this sorted.',
+      'HP LaserJet Pro M404dn (10.0.50.22) offline after network maintenance last night. Multiple users at Westside Medical Centre affected. USB direct print works. Error: "Offline — Check Connection". Next: check network connectivity and restart printer queue.'
+    );
+  }
+
+  const existingPrinterPack = db.prepare('SELECT id FROM assessment_packs WHERE id = ?').get(PRINTER_PACK_ID);
+  if (!existingPrinterPack) {
+    db.prepare(`INSERT INTO assessment_packs (id, title, scenario_type, role_level, difficulty, version, customer_persona, hidden_facts_json, expected_behaviours_json, required_ticket_fields_json, red_flags_json, rubric_json, caller_behaviour_prompt, initial_message, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`).run(
+      PRINTER_PACK_ID, 'Printer Not Printing — First-Line Apprentice',
+      'hardware_printer', 'apprentice', 'first_line', '1',
+      'Dr. Emily Chen, a physician at Westside Medical Centre whose HP LaserJet Pro stopped printing mid-morning',
+      JSON.stringify({
+        issue: 'HP LaserJet Pro M404dn stopped printing mid-job',
+        user: 'Dr. Emily Chen',
+        company: 'Westside Medical Centre',
+        device: 'HP LaserJet Pro M404dn (IP: 10.0.50.22)',
+        scope: 'single printer, multiple users affected',
+        impact: 'cannot print patient intake forms, prescriptions, referral letters',
+        deadline: 'next patient in 20 minutes',
+        started: 'about 2 hours ago',
+        error_message: 'printer display shows "Offline — Check Connection"',
+        workaround: 'USB direct print from one workstation works',
+        recent_changes: 'network switch rebooted last night',
+      }),
+      JSON.stringify([
+        'confirm user identity', 'confirm clinic', 'clarify exact issue',
+        'ask when issue started', 'ask impact', 'ask urgency',
+        'ask whether one user or multiple', 'ask what error shows',
+        'ask whether other printers/workstations affected',
+        'ask about recent network changes',
+        'explain next step', 'write ticket with actionable details',
+      ]),
+      JSON.stringify(['user', 'company', 'device_or_application', 'issue_summary', 'impact', 'urgency', 'checks_attempted', 'next_step']),
+      JSON.stringify(['unsafe_advice', 'invented_fix_without_evidence', 'critical_urgency_missed', 'no_clear_next_step']),
+      JSON.stringify({
+        identity_check: { weight: 1 },
+        company_check: { weight: 1 },
+        issue_clarification: { weight: 2 },
+        started_when: { weight: 1 },
+        impact: { weight: 3 },
+        urgency: { weight: 3 },
+        scope: { weight: 2 },
+        technical_discovery: { weight: 2 },
+        error_or_status_capture: { weight: 2 },
+        recent_changes: { weight: 2 },
+        next_steps: { weight: 3 },
+        customer_tone: { weight: 1 },
+        ticket_user_company: { weight: 1 },
+        ticket_issue_summary: { weight: 2 },
+        ticket_impact: { weight: 2 },
+        ticket_urgency: { weight: 2 },
+        ticket_checks_attempted: { weight: 2 },
+        ticket_next_step: { weight: 2 },
+        escalation_judgement: { weight: 2 },
+        safety: { weight: 4 },
+      }),
+      `You are Dr. Emily Chen, a physician at Westside Medical Centre. The HP LaserJet Pro stopped printing about 2 hours ago. Several staff are affected.
+- Start vague: "the printer isn't working, can you help?"
+- Do NOT mention the network switch reboot unless asked about recent changes
+- Do NOT mention USB workaround or that multiple users are affected unless asked about scope
+- Do NOT mention the 20-minute patient deadline unless asked about urgency
+- You are busy with patients and need this fixed quickly
+- Keep responses 1-3 sentences`,
+      'Hi, the printer in our clinic has stopped working. I have patients coming in and I really need to get this sorted.'
     );
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, seedDefaults, initTables } from '@/lib/mvp/db';
-import { makeId, getActiveScenario, getActiveCriteria } from '@/lib/mvp/query';
+import { getDb, seedDefaults, initTables, getDefaultStandardsId } from '@/lib/mvp/db';
+import { makeId, getActiveScenario, getActiveCriteria, getManagerStandards } from '@/lib/mvp/query';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const candidateName = body.candidate_name || 'Unnamed Candidate';
     const candidateEmail = body.candidate_email || null;
+    const managerProfileId = body.manager_profile_id || 'manager-default-v1';
 
     const scenario = getActiveScenario();
     const criteria = getActiveCriteria();
@@ -30,9 +31,21 @@ export async function POST(request: NextRequest) {
 
     const title = `Call Readiness: ${candidateName}`;
 
-    db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, created_at)
-      VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, datetime('now'))`).run(
-      assessmentId, title, candidateName, candidateEmail, inviteToken, scenario.id, criteria?.id || null
+    // Snapshot current standards
+    const standards = getManagerStandards();
+    const standardsSnapshot = standards ? {
+      id: standards.id,
+      required_ticket_fields: JSON.parse(standards.required_ticket_fields_json || '[]'),
+      call_requirements: standards.call_requirements,
+      escalation_requirements: standards.escalation_requirements,
+      good_ticket_example: standards.good_ticket_example,
+      bad_ticket_example: standards.bad_ticket_example,
+    } : null;
+
+    db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, created_at)
+      VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, datetime('now'))`).run(
+      assessmentId, title, candidateName, candidateEmail, inviteToken, scenario.id, criteria?.id || null,
+      managerProfileId, standardsSnapshot ? JSON.stringify(standardsSnapshot) : null
     );
 
     db.prepare(`INSERT INTO sessions (id, assessment_id, status, started_at)

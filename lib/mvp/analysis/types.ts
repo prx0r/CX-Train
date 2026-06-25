@@ -1,6 +1,6 @@
 export type AnalysisType = 'base_callum' | 'callum_for_you' | 'manager_profile_refresh';
 export type AnalysisStatus = 'pending' | 'running' | 'complete' | 'failed';
-export type CriterionStatus = 'pass' | 'partial' | 'fail' | 'not_applicable';
+export type CriterionStatus = 'pass' | 'partial' | 'fail' | 'not_applicable' | 'not_observed';
 
 export interface AnalysisRunRecord {
   id: string;
@@ -30,6 +30,7 @@ export interface CriterionResult {
 
 export interface RedFlag {
   type: string;
+  severity?: string;
   evidence: string;
 }
 
@@ -50,6 +51,11 @@ export interface EvidenceExtraction {
   ticket_assessment: TicketAssessment;
 }
 
+export interface ManagerStandardFit {
+  status: 'pass' | 'partial' | 'fail';
+  notes: string[];
+}
+
 export interface NarrativeFeedback {
   summary: string;
   strengths: string[];
@@ -57,7 +63,25 @@ export interface NarrativeFeedback {
   most_costly_miss: string;
   ticket_feedback: string;
   better_phrasing_examples: string[];
+  manager_standard_fit: ManagerStandardFit;
   coaching_focus: string[];
+}
+
+export interface DeterministicScore {
+  score: number;
+  rating: 'ready' | 'needs_supervision' | 'not_ready';
+  earnedScore: number;
+  maxPossibleScore: number;
+  failedRequiredChecks: string[];
+  triggeredDealbreakers: string[];
+  skillBreakdown: Record<string, { score: number; maxScore: number; percent: number }>;
+}
+
+export interface StructuredOutput {
+  schema_version: string;
+  evidence_extraction: EvidenceExtraction;
+  deterministic_score: DeterministicScore;
+  narrative: NarrativeFeedback;
 }
 
 export interface AnalysisContext {

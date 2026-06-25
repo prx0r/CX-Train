@@ -1,185 +1,160 @@
-# CX-Train — CallCallum MVP
+# CallCallum — MSP First-Call Readiness Assessment
 
-MSP technician call-readiness assessment platform. Managers create assessment links, candidates complete simulated support calls through the web app, and the system generates AI-powered reports with evidence-based scoring.
-
-## Foundational Layer
-
-The architecture has three tiers that build on each other:
-
-### 1. Data Layer — SQLite (local) → Supabase (production)
-
-```
-┌──────────────────────────────────────────────────┐
-│  assessment_criteria_versions  — scoring rubrics │
-│  scenarios                     — caller scripts  │
-│  assessments                   — manager-created │
-│  sessions                      — per-call state  │
-│  messages                      — chat transcript │
-│  tickets                       — candidate write │
-│  assessment_results            — AI evaluation   │
-│  manager_feedback              — human override  │
-└──────────────────────────────────────────────────┘
-```
-
-Local SQLite (`better-sqlite3`) for zero-config development. The schema maps directly to Supabase tables for production.
-
-### 2. AI Layer — OpenRouter free models
-
-```
-┌──────────────┐    ┌─────────────────┐    ┌──────────────┐
-│  AI_CALLER   │    │  AI_EVALUATOR   │    │  AI_TICKET   │
-│  model       │    │  model          │    │  model       │
-│              │    │                  │    │              │
-│  openrouter  │    │  openrouter     │    │  openrouter  │
-│  /free       │    │  /free          │    │  /free       │
-└──────┬───────┘    └────────┬────────┘    └──────┬───────┘
-       │                     │                    │
-       ▼                     ▼                    ▼
-  Plays caller          Scores transcript    Assesses ticket
-  Sarah Thompson        against 14           quality, captures
-  (frustrated           checkpoints          error, hostname,
-  accountant)                                 scope, impact
-```
-
-Three task-specific models, each with its own system prompt. Fallback chain retries with `AI_FALLBACK_MODEL` on 429 rate limits.
-
-### 3. Application Layer — Next.js 14 App Router
-
-```
-app/
-├── api/mvp/
-│   ├── assessments           POST (create) + GET (list)
-│   ├── assessment/[token]    GET (load candidate view)
-│   ├── assessment/[token]/message   POST (chat with AI)
-│   ├── assessment/[token]/end       POST (end call)
-│   ├── assessment/[token]/ticket    POST (submit ticket)
-│   ├── assessments/[id]      GET (manager detail)
-│   ├── assessments/[id]/analyse     POST (run AI eval)
-│   └── assessments/[id]/feedback    POST (manager review)
-│
-├── mvp/
-│   ├── page.tsx              Manager dashboard
-│   ├── assessment/[token]    Candidate chat UI
-│   └── assessments/[id]      Manager detail + analysis
-│
-lib/
-├── mvp/
-│   ├── db.ts                 SQLite init + seed
-│   └── query.ts              All database queries
-└── ai/
-    └── provider.ts           OpenRouter API + retry logic
-```
-
-## How It Works
-
-### Full Product Loop
-
-```
-Manager                Candidate               System
-─────────────────────────────────────────────────────────
-  1. Create                          
-     assessment ──────────────────────►  Generates invite
-     Copy link                           link, stores in
-                                         SQLite, seeds
-     ┌─────────────────────┐             initial message
-     │ Invite link sent    │
-     │ to candidate        │
-     └─────────┬───────────┘
-               │
-               ▼
-                            2. Open link
-                               Chat with caller ──────►  AI plays "Sarah
-                               (Sarah Thompson              Thompson"
-                               from Alder & Co)             frustated
-                                                             accountant
-                            3. End call
-                               Write ticket ──────────►  Stored in DB
-                            4. Done
-               │
-               ▼
-  5. Open detail                            
-     Click "Run Analysis" ──────────────►  Sends transcript
-                                           + ticket to AI
-                                           evaluator model
-                                           Returns JSON:
-                                           score, readiness,
-                                           checkpoints,
-                                           strengths, etc.
-
-  6. Review score
-     Add feedback ──────────────────────►  Stored in
-     (agree/too_harsh/                     manager_feedback
-      wrong/useful/etc.)
-     Optionally override score
-```
-
-### Routes
-
-| Path | Who | What |
-|---|---|---|
-| `/mvp` | Manager | Dashboard — create assessments, list all, copy invite links |
-| `/mvp/assessment/:token` | Candidate | Chat UI — talk to AI caller, end call, submit ticket |
-| `/mvp/assessments/:id` | Manager | Detail view — transcript, ticket, AI analysis, manager feedback |
-
-### Scoring Model
-
-14 checkpoints across 3 categories:
-
-**Critical** (auto-fail): invented fix, unsafe advice
-**Core** (high weight): confirmed user, asked scope, asked impact
-**Supporting** (standard weight): captured hostname, clarified issue, asked deadline, asked error message, asked recent changes, set next steps, clear language, empathy
-
-Readiness labels:
-- **Ready** (80+): good first-line technician
-- **Needs supervision** (60-79): margin for coaching
-- **Not ready** (<60 or unsafe advice): needs more training
+Manager-calibrated, evidence-backed, deterministic first-call readiness assessment for MSP technicians.
 
 ## Quick Start
 
 ```bash
 npm install
-npm run mvp:reset-db      # Creates SQLite DB with seed data
-npm run test:openrouter    # Verify AI API key works
-npm run test:mvp-flow      # 37 automated flow tests
+npm run mvp:init-db        # Create SQLite DB with seed data
 npm run dev                # Start dev server
 ```
 
 Open `http://localhost:3000/mvp`
 
-### Environment Variables
+No Supabase, no Clerk, no external auth required for local MVP.
+
+## Core Product Loop
+
+```
+Manager                      Candidate                    System
+─────────────────────────────────────────────────────────────────────
+1. Create assessment ──────►                               Generate invite link
+                                                           (high-entropy token)
+                            2. Open link
+                               Chat with AI caller ──────► Store transcript
+                            3. Submit ticket ────────────► Store ticket
+                            4. Done
+
+5. Run analysis ─────────────────────────────────────────► AI extracts evidence
+                                                          Code computes score
+                                                          Generates report
+6. Review + override ───────────────────────────────────► Store manager calibration
+```
+
+### Key Design Decisions
+
+- **AI extracts evidence only.** The backend computes the authoritative score deterministically.
+- **Standards are versioned and snapshotted.** Changing standards never alters past scores.
+- **Analysis runs are hashed.** Same input → same cached result.
+- **Three scenario packs** seeded: Outlook Not Sending, Password Reset, Printer Not Printing.
+- **Manager profiles** are local (no Supabase). Default profile created on init.
+
+## Architecture
+
+```
+Active spine:    /mvp + SQLite + local manager profiles + invite tokens + deterministic scorer
+Frozen legacy:   Supabase/training-hub/GPT Actions architecture (see docs/ACTIVE_ARCHITECTURE.md)
+```
+
+### Directory Map
+
+```
+app/
+├── api/mvp/                    # Active MVP API routes
+├── mvp/                        # Active MVP pages
+└── ...                         # Frozen legacy routes
+
+lib/
+├── mvp/                        # Active MVP logic (db, query, analysis, context)
+├── ai/                         # AI provider abstraction
+├── mvp/api/                    # Response helpers, error codes, route registry
+├── mvp/diagnostics/            # DB diagnostics helpers
+└── mvp/context/                # Shared context loader
+
+docs/
+├── ACTIVE_ARCHITECTURE.md      # What is active vs frozen
+└── AGENT_RULES.md              # Rules for building on this repo
+```
+
+### Database Tables (SQLite, 13 tables)
+
+| Table | Purpose |
+|---|---|
+| `assessments` | Manager-created assessment records |
+| `sessions` | Per-call state |
+| `messages` | Chat transcripts |
+| `tickets` | Candidate-written tickets |
+| `assessment_results` | Analysis scores and evidence |
+| `manager_feedback` | Manager review + calibration |
+| `manager_criterion_feedback` | Criterion-level overrides |
+| `scenarios` | Caller scripts and hidden facts |
+| `assessment_criteria_versions` | Scoring rubrics |
+| `manager_standards` | Versioned manager standards |
+| `assessment_packs` | Scenario packs with rubric/red-flags |
+| `analysis_runs` | Analysis execution metadata (hashed) |
+| `manager_profiles` | Local manager identities |
+
+## Routes
+
+### Active MVP Routes
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/mvp/assessments` | Create assessment + invite |
+| GET | `/api/mvp/assessments` | List assessments |
+| GET | `/api/mvp/assessments/[id]` | Manager assessment detail |
+| POST | `/api/mvp/assessments/[id]/analyse` | Run deterministic analysis |
+| POST | `/api/mvp/assessments/[id]/feedback` | Manager review |
+| GET | `/api/mvp/assessment/[token]` | Candidate load |
+| POST | `/api/mvp/assessment/[token]/message` | Candidate chat |
+| POST | `/api/mvp/assessment/[token]/ticket` | Candidate ticket |
+| GET | `/api/mvp/standards` | Get standards |
+| POST | `/api/mvp/standards` | Update standards |
+| GET | `/api/mvp/debug/status` | System status (dev) |
+| GET | `/api/mvp/debug/assessment/[id]` | Assessment debug (dev) |
+
+### MVP Pages
+
+| Path | Purpose |
+|---|---|
+| `/mvp` | Manager dashboard |
+| `/mvp/standards` | Standards editor |
+| `/mvp/assessment/[token]` | Candidate chat UI |
+| `/mvp/assessments` | Assessment list |
+| `/mvp/assessments/[id]` | Manager review page |
+| `/mvp/system` | Developer/operator status page |
+
+## Environment
 
 Copy `.env.example` to `.env.local`:
 
 ```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000     # Used for invite links
-
+# Required: Local MVP
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 MVP_DB_PROVIDER=sqlite
 MVP_SQLITE_PATH=./data/callcallum.db
 
+# AI Provider (optional — mock used if missing)
 AI_PROVIDER=openrouter
 AI_BASE_URL=https://openrouter.ai/api/v1
-AI_API_KEY=sk-or-v1-...                       # From openrouter.ai/keys
+AI_API_KEY=
 AI_CALLER_MODEL=openrouter/free
 AI_EVALUATOR_MODEL=openrouter/free
-AI_TICKET_MODEL=openrouter/free
-AI_REPORT_MODEL=openrouter/free
+
+# All Supabase/Clerk/Chutes vars are legacy/frozen — not required
 ```
 
-### Running Tests
+No Supabase is required for local MVP. The app runs fully on SQLite with mock AI if no API key is set.
+
+## Tests
 
 ```bash
-npm run test:openrouter    # Verifies API key + free model access
-npm run test:mvp-flow      # 37 integration tests (DB, create, chat, score, feedback)
-npm run mvp:reset-db       # Reset to clean seed state
+npm test                     # 40 unit tests (scoring, evaluation, voice session)
+npm run test:mvp-flow        # 37 integration tests against SQLite
+npm run build                # Production build
 ```
 
-## Future Expansion Points
+## Frozen Legacy
 
-- **Auth**: Wire Supabase Auth or Clerk for manager sign-in — routes already scoped in middleware
-- **Multi-scenario**: Manager selects from multiple caller scenarios when creating assessment
-- **Multi-tenant**: Organizations, teams, role-based access
-- **Voice**: STT/TTS for spoken candidate responses instead of chat
-- **Custom GPT**: External GPTs can POST session results via API
-- **Billing**: Track usage per assessment, per AI call
-- **Analytics**: Aggregate scores across candidates, scenarios, time
-- **LMS**: Training pathways, staged difficulty, boss-battle scenarios
+The following are **not part of the active MVP spine**:
+
+- Supabase integration and migrations
+- Clerk authentication
+- GPT Actions / Custom GPT integration
+- Taxonomy system
+- Chutes AI
+- Voice evaluation
+- Dashboard admin/trainee pages
+
+See `docs/ACTIVE_ARCHITECTURE.md` for details and `docs/AGENT_RULES.md` for build rules.

@@ -6,11 +6,12 @@ const navItems = [
   { label: 'Overview', href: '/mvp', icon: '⊞' },
   { label: 'Assessments', href: '/mvp/assessments', icon: '📋' },
   { label: 'Standards', href: '/mvp/standards', icon: '⚙' },
-  { label: 'Assist', href: '/mvp/assist', icon: '💬' },
-  { label: 'Knowledge', href: '/mvp/knowledge', icon: '📘' },
-  { label: 'Clients', href: '/mvp/clients', icon: '🏢' },
-  { label: 'People', href: '/mvp/people', icon: '👤' },
-  { label: 'Analytics', href: '/mvp/analytics', icon: '📊' },
+  { label: 'Assist (planned)', href: '/mvp/assist', icon: '💬' },
+  { label: 'Knowledge (planned)', href: '/mvp/knowledge', icon: '📘' },
+  { label: 'Clients (planned)', href: '/mvp/clients', icon: '🏢' },
+  { label: 'People (planned)', href: '/mvp/people', icon: '👤' },
+  { label: 'Analytics (planned)', href: '/mvp/analytics', icon: '📊' },
+  { label: 'System', href: '/mvp/system', icon: '🔍' },
   { label: 'Settings', href: '/mvp/settings', icon: '⚙' },
 ];
 

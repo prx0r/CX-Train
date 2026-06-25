@@ -13,6 +13,48 @@ interface Checkpoints {
   [key: string]: boolean;
 }
 
+interface CriteriaItem {
+  status: string;
+  severity?: string;
+  evidence?: string[];
+  notes?: string;
+}
+
+interface DeterministicScore {
+  score: number;
+  rating: string;
+  earnedScore: number;
+  maxPossibleScore: number;
+  failedRequiredChecks: string[];
+  triggeredDealbreakers: string[];
+  skillBreakdown: Record<string, { score: number; maxScore: number; percent: number }>;
+}
+
+interface NarrativeFeedback {
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  most_costly_miss: string;
+  ticket_feedback: string;
+  better_phrasing_examples: string[];
+  manager_standard_fit: { status: string; notes: string[] };
+  coaching_focus: string[];
+}
+
+interface EvidenceExtraction {
+  criteria: Record<string, CriteriaItem>;
+  missed_questions: string[];
+  red_flags: { type: string; severity?: string; evidence?: string }[];
+  ticket_assessment: { status: string; missing_fields: string[]; evidence: string };
+}
+
+interface StructuredOutput {
+  schema_version: string;
+  evidence_extraction: EvidenceExtraction;
+  deterministic_score: DeterministicScore;
+  narrative: NarrativeFeedback;
+}
+
 interface AnalysisResult {
   status: string;
   overall_score?: number;
@@ -25,6 +67,7 @@ interface AnalysisResult {
   ticket_score?: number;
   ticket_feedback?: string;
   error?: string;
+  structured?: StructuredOutput;
 }
 
 export default function ManagerDetailPage() {
@@ -47,6 +90,15 @@ export default function ManagerDetailPage() {
       const apiData = await res.json();
       setData(apiData);
       if (apiData.result) {
+        let structured: StructuredOutput | undefined;
+        if (apiData.result.raw_model_json) {
+          try {
+            const parsed = JSON.parse(apiData.result.raw_model_json);
+            if (parsed.schema_version?.startsWith('base-callum-deterministic')) {
+              structured = parsed;
+            }
+          } catch {}
+        }
         setAnalysisResult({
           status: 'analysed',
           overall_score: apiData.result.overall_score,
@@ -56,6 +108,7 @@ export default function ManagerDetailPage() {
           weaknesses: apiData.result.weaknesses_json ? JSON.parse(apiData.result.weaknesses_json) : [],
           checkpoints: apiData.result.checkpoint_json ? JSON.parse(apiData.result.checkpoint_json) : {},
           ticket_score: apiData.result.ticket_score,
+          structured,
         });
       }
       if (apiData.feedback) {
@@ -253,6 +306,126 @@ export default function ManagerDetailPage() {
                     <li key={i} className="text-gray-400 italic">&ldquo;{q}&rdquo;</li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* Structured criteria breakdown */}
+            {analysisResult.structured && (
+              <div className="mt-4 border-t border-gray-700 pt-4">
+                <h3 className="text-sm text-gray-300 font-semibold mb-2">Criteria Breakdown</h3>
+                <div className="grid grid-cols-1 gap-2 text-sm max-h-96 overflow-y-auto">
+                  {Object.entries(analysisResult.structured.evidence_extraction.criteria).map(([key, criterion]) => {
+                    const c = criterion as CriteriaItem;
+                    const statusColor = c.status === 'pass' ? 'text-green-400' : c.status === 'partial' ? 'text-yellow-400' : 'text-red-400';
+                    const severityColor = c.severity === 'high' ? 'text-red-400' : c.severity === 'medium' ? 'text-yellow-400' : 'text-gray-400';
+                    return (
+                      <div key={key} className="bg-gray-800/50 rounded p-3 border border-gray-700">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-gray-200">{key.replace(/_/g, ' ')}</span>
+                          <span className={`${statusColor} text-xs font-semibold uppercase`}>{c.status}</span>
+                        </div>
+                        {c.severity && <span className={`${severityColor} text-xs`}>Severity: {c.severity}</span>}
+                        {c.evidence && c.evidence.length > 0 && (
+                          <ul className="mt-1 text-xs text-gray-400 list-disc list-inside">
+                            {c.evidence.map((e: string, i: number) => (
+                              <li key={i}>{e}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {c.notes && <p className="mt-1 text-xs text-gray-500 italic">{c.notes}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {analysisResult.structured.evidence_extraction.missed_questions.length > 0 && (
+                  <div className="mt-3">
+                    <h4 className="text-sm text-yellow-400 font-semibold mb-1">Missed Questions</h4>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {analysisResult.structured.evidence_extraction.missed_questions.map((q: string, i: number) => (
+                        <li key={i} className="text-yellow-300">{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {analysisResult.structured.evidence_extraction.red_flags.length > 0 && (
+                  <div className="mt-3">
+                    <h4 className="text-sm text-red-400 font-semibold mb-1">Red Flags</h4>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {analysisResult.structured.evidence_extraction.red_flags.map((f: any, i: number) => (
+                        <li key={i} className="text-red-300">{f.type.replace(/_/g, ' ')}{f.evidence ? `: ${f.evidence}` : ''}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {analysisResult.structured.deterministic_score.triggeredDealbreakers.length > 0 && (
+                  <div className="mt-3">
+                    <h4 className="text-sm text-red-400 font-semibold mb-1">Dealbreakers Triggered</h4>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {analysisResult.structured.deterministic_score.triggeredDealbreakers.map((d: string, i: number) => (
+                        <li key={i} className="text-red-300">{d.replace(/_/g, ' ')}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {analysisResult.structured.deterministic_score.failedRequiredChecks.length > 0 && (
+                  <div className="mt-3">
+                    <h4 className="text-sm text-red-400 font-semibold mb-1">Failed Required Checks</h4>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {analysisResult.structured.deterministic_score.failedRequiredChecks.map((c: string, i: number) => (
+                        <li key={i} className="text-red-300">{c.replace(/_/g, ' ')}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {analysisResult.structured.narrative.ticket_feedback && (
+                  <div className="mt-3 bg-gray-800 rounded p-3">
+                    <h4 className="text-sm text-blue-400 font-semibold mb-1">Ticket Feedback</h4>
+                    <p className="text-sm text-gray-300">{analysisResult.structured.narrative.ticket_feedback}</p>
+                  </div>
+                )}
+
+                {analysisResult.structured.narrative.manager_standard_fit && (
+                  <div className="mt-3">
+                    <h4 className="text-sm text-purple-400 font-semibold mb-1">Manager Standard Fit</h4>
+                    <span className={`text-xs font-semibold uppercase ${analysisResult.structured.narrative.manager_standard_fit.status === 'pass' ? 'text-green-400' : analysisResult.structured.narrative.manager_standard_fit.status === 'partial' ? 'text-yellow-400' : 'text-red-400'}`}>
+                      {analysisResult.structured.narrative.manager_standard_fit.status}
+                    </span>
+                    {analysisResult.structured.narrative.manager_standard_fit.notes.length > 0 && (
+                      <ul className="list-disc list-inside text-xs text-gray-400 mt-1 space-y-0.5">
+                        {analysisResult.structured.narrative.manager_standard_fit.notes.map((n: string, i: number) => (
+                          <li key={i}>{n}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {analysisResult.structured.narrative.coaching_focus.length > 0 && (
+                  <div className="mt-3">
+                    <h4 className="text-sm text-cyan-400 font-semibold mb-1">Coaching Focus</h4>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {analysisResult.structured.narrative.coaching_focus.map((c: string, i: number) => (
+                        <li key={i} className="text-cyan-300">{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {analysisResult.structured.narrative.better_phrasing_examples.length > 0 && (
+                  <div className="mt-3">
+                    <h4 className="text-sm text-amber-400 font-semibold mb-1">Better Phrasing Examples</h4>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {analysisResult.structured.narrative.better_phrasing_examples.map((p: string, i: number) => (
+                        <li key={i} className="text-amber-300 italic">&ldquo;{p}&rdquo;</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
