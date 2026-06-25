@@ -116,6 +116,43 @@ db.exec(`
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS manager_standards (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL DEFAULT 'org-default',
+    manager_id TEXT NOT NULL DEFAULT 'manager-default',
+    required_ticket_fields_json TEXT NOT NULL,
+    call_requirements TEXT,
+    escalation_requirements TEXT,
+    tone_preferences_json TEXT,
+    good_ticket_example TEXT,
+    bad_ticket_example TEXT,
+    good_customer_update_example TEXT,
+    good_internal_note_example TEXT,
+    good_escalation_note_example TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS assessment_packs (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    scenario_type TEXT NOT NULL,
+    role_level TEXT NOT NULL,
+    difficulty TEXT NOT NULL,
+    version TEXT NOT NULL,
+    customer_persona TEXT,
+    hidden_facts_json TEXT NOT NULL,
+    expected_behaviours_json TEXT NOT NULL,
+    required_ticket_fields_json TEXT NOT NULL,
+    red_flags_json TEXT NOT NULL,
+    rubric_json TEXT NOT NULL,
+    caller_behaviour_prompt TEXT NOT NULL DEFAULT '',
+    initial_message TEXT NOT NULL DEFAULT '',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 console.log('[mvp:init-db] Tables created successfully');
@@ -211,6 +248,93 @@ if (!existingScenario) {
   console.log('[mvp:init-db] Seeded scenario: Outlook not sending before meeting');
 } else {
   console.log('[mvp:init-db] Scenario already exists, skipping');
+}
+
+const DEFAULT_STANDARDS_ID = 'standards-default-v1';
+const DEFAULT_PACK_ID = 'pack-outlook-v1';
+
+const existingStandards = db.prepare('SELECT id FROM manager_standards WHERE id = ?').get(DEFAULT_STANDARDS_ID);
+if (!existingStandards) {
+  db.prepare(`INSERT INTO manager_standards (id, org_id, manager_id, required_ticket_fields_json, call_requirements, escalation_requirements, tone_preferences_json, good_ticket_example, bad_ticket_example, good_customer_update_example, good_internal_note_example, good_escalation_note_example, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`).run(
+    DEFAULT_STANDARDS_ID,
+    'org-default',
+    'manager-default',
+    JSON.stringify(['user', 'company', 'device_or_application', 'issue_summary', 'impact', 'urgency', 'checks_attempted', 'next_step']),
+    'Acknowledge the caller. Confirm identity and company. Clarify the issue. Ask scope (one user or multiple). Ask impact. Ask urgency/deadline. Ask for error messages. Ask about recent changes. Set clear next steps. Use professional language. Show empathy.',
+    'Escalate if: outage suspected, security incident, multiple users affected, unsafe workaround attempted, caller demands manager.',
+    JSON.stringify({ professional: true, empathetic: true, patient: true, no_blame: true, no_jargon_overload: true }),
+    'User: Sarah Thompson, Alder & Co Accountants. Device: Windows laptop (ALDER-LT-023). Issue: Outlook desktop cannot send emails. Impact: Cannot send client documents before 2pm meeting. Urgency: High (30min deadline). Checks: Webmail works, password changed yesterday. Next step: Check Outlook profile and send/receive settings.',
+    'Outlook broken. User cannot send. Fix it.',
+    'Hi Sarah, I\'ve confirmed the issue is with your Outlook desktop client. Since webmail works, this is likely a profile or connectivity issue. I\'ll escalate to our senior team with the details — they\'ll check your Outlook profile and send/receive settings. You should hear back within the hour.',
+    'User Sarah Thompson (Alder & Co) — Outlook desktop send error. Webmail works. Password changed yesterday. Hostname ALDER-LT-023. Single user. Presentation deadline 2pm. Escalating for Outlook profile check.',
+    'Escalating: Outlook send failure, single user (Alder & Co). Webmail works, suspect profile or OST issue. Recent password change. Deadline 2pm — urgent. Hostname ALDER-LT-023.'
+  );
+  console.log('[mvp:init-db] Seeded default manager standards');
+} else {
+  console.log('[mvp:init-db] Manager standards already exist, skipping');
+}
+
+const existingPack = db.prepare('SELECT id FROM assessment_packs WHERE id = ?').get(DEFAULT_PACK_ID);
+if (!existingPack) {
+  db.prepare(`INSERT INTO assessment_packs (id, title, scenario_type, role_level, difficulty, version, customer_persona, hidden_facts_json, expected_behaviours_json, required_ticket_fields_json, red_flags_json, rubric_json, caller_behaviour_prompt, initial_message, is_active, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`).run(
+    DEFAULT_PACK_ID,
+    'Outlook Not Sending — First-Line Apprentice',
+    'email_client',
+    'apprentice',
+    'first_line',
+    '1',
+    'Sarah Thompson, a stressed accountant at Alder & Co Accountants who needs to send documents before a client meeting',
+    JSON.stringify({
+      issue: 'Outlook desktop will not send email',
+      user: 'Sarah Thompson',
+      company: 'Alder & Co Accountants',
+      device: 'Windows laptop',
+      hostname: 'ALDER-LT-023',
+      scope: 'single user',
+      impact: 'needs to send client documents before a meeting',
+      deadline: '30 minutes',
+      started: 'this morning',
+      error_message: 'Send/Receive error',
+      workaround: 'Outlook web works',
+      recent_changes: 'password changed yesterday',
+    }),
+    JSON.stringify([
+      'confirm user identity', 'confirm company/client', 'clarify exact issue',
+      'ask when issue started', 'ask impact', 'ask urgency',
+      'ask whether webmail works', 'ask for error/status message',
+      'avoid inventing a fix without evidence', 'explain next step',
+      'write ticket with actionable details',
+    ]),
+    JSON.stringify(['user', 'company', 'device_or_application', 'issue_summary', 'impact', 'urgency', 'checks_attempted', 'next_step']),
+    JSON.stringify(['invented_fix', 'unsafe_advice', 'rude_or_blameful_tone', 'no_clear_next_step', 'critical_urgency_missed']),
+    JSON.stringify({
+      identity_check: { weight: 1 },
+      issue_clarification: { weight: 2 },
+      impact: { weight: 2 },
+      urgency: { weight: 2 },
+      technical_discovery: { weight: 2 },
+      customer_tone: { weight: 1 },
+      next_steps: { weight: 2 },
+      ticket_quality: { weight: 3 },
+      safety: { weight: 3 },
+    }),
+    `You are Sarah Thompson, an accountant at Alder & Co Accountants. You are frustrated because Outlook desktop won't send emails and you have a client meeting in 30 minutes.
+- Be vague at first: just say you "can't send email" or "Outlook is broken"
+- Do NOT reveal your hostname unless the candidate explicitly asks for it
+- Do NOT reveal the 30-minute deadline unless asked about urgency or deadline
+- Do NOT mention Outlook web works unless the candidate asks about web/browser/alternate access
+- You are frustrated but not abusive. Stay professional but push for urgency.
+- If the candidate asks "can you just fix it?", respond with mild frustration
+- Be realistic: you know your own name, company, what device you use, etc.
+- Keep responses reasonably short (1-3 sentences)
+- Stay in character as an accountant who needs to send documents before a meeting`,
+    'Hi, I\'m having trouble with my Outlook — it\'s not sending emails. I really need to get this sorted quickly.'
+  );
+  console.log('[mvp:init-db] Seeded default assessment pack');
+} else {
+  console.log('[mvp:init-db] Assessment pack already exists, skipping');
 }
 
 db.close();

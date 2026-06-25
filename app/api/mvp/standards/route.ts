@@ -20,6 +20,13 @@ export async function POST(request: NextRequest) {
     seedDefaults();
     const body = await request.json();
 
+    if (body.required_ticket_fields !== undefined && !Array.isArray(body.required_ticket_fields)) {
+      return NextResponse.json({ error: 'required_ticket_fields must be an array' }, { status: 400 });
+    }
+    if (body.tone_preferences !== undefined && (typeof body.tone_preferences !== 'object' || body.tone_preferences === null || Array.isArray(body.tone_preferences))) {
+      return NextResponse.json({ error: 'tone_preferences must be an object' }, { status: 400 });
+    }
+
     upsertManagerStandards({
       id: getDefaultStandardsId(),
       org_id: 'org-default',
