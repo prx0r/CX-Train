@@ -17,8 +17,9 @@ export async function GET() {
 
     const environment = {
       nodeEnv: process.env.NODE_ENV || 'development',
-      hasOpenRouterKey: !!process.env.OPENROUTER_API_KEY,
-      openRouterModel: process.env.AI_EVALUATOR_MODEL || 'openai/gpt-4o-mini',
+      aiProvider: process.env.AI_PROVIDER || 'opencode-go',
+      hasAiKey: !!process.env.AI_API_KEY,
+      evaluatorModel: process.env.AI_EVALUATOR_MODEL || 'deepseek-v4-flash',
       dbPath: dbStatus.path,
       defaultOrgId: DEFAULT_ORG_ID,
       defaultManagerId: DEFAULT_MANAGER_ID,

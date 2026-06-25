@@ -3,198 +3,31 @@
 // Tests every edge case the scoring engine might face.
 // Run: node scripts/test-50-transcripts.mjs
 
-// ====== Scoring Engine (inline, mirrors lib/mvp/analysis/scoring.ts) ======
-const STATUS_SCORES = { pass: 1, partial: 0.5, fail: 0, not_observed: 0, not_applicable: -1 };
+// Import production scorer from compiled TypeScript output
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+let scoring;
+try {
+  scoring = require('../.test-dist/lib/mvp/analysis/scoring.js');
+} catch {
+  console.error('ERROR: Production scorer not compiled. Run: npx tsc lib/mvp/analysis/scoring.ts --outDir .test-dist --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck');
+  process.exit(1);
+}
+const { scoreExtraction } = scoring;
 
-const W = {
-  professional_conduct: 4, customer_communication: 3,
-  identity_check: 1, company_check: 1, issue_clarification: 2, started_when: 1,
-  impact: 3, urgency: 3, scope: 2, technical_discovery: 2,
-  error_or_status_capture: 1, recent_changes: 1, next_steps: 3, customer_tone: 2,
-  ticket_user_company: 1, ticket_issue_summary: 2, ticket_impact: 2, ticket_urgency: 2,
-  ticket_checks_attempted: 2, ticket_next_step: 2, escalation_judgement: 2, safety: 4,
-};
+const W = Object.freeze({ ...scoring.DEFAULT_WEIGHTS });
 const TOTAL_WEIGHT = Object.values(W).reduce((a, b) => a + b, 0);
-
-const THRESHOLDS = { ready_min: 80, needs_supervision_min: 60 };
-
-const FAIL_GATES = [
-  { id: 'severe_customer_abuse', severity: 'critical', scoreCap: 10, overrideReadiness: 'not_ready', redFlagType: 'severe_customer_abuse' },
-  { id: 'unsafe_security_behaviour', severity: 'critical', scoreCap: 25, overrideReadiness: 'not_ready', redFlagType: 'unsafe_security_behaviour' },
-  { id: 'refusal_to_help', severity: 'critical', scoreCap: 20, overrideReadiness: 'not_ready', redFlagType: 'refusal_to_help' },
-  { id: 'hallucinated_fix', severity: 'major', scoreCap: 50, overrideReadiness: 'needs_supervision', redFlagType: 'hallucinated_fix' },
-  { id: 'no_troubleshooting', severity: 'major', scoreCap: 40, overrideReadiness: 'not_ready', redFlagType: 'no_troubleshooting' },
-  { id: 'invented_fix_without_evidence', severity: 'major', scoreCap: 50, overrideReadiness: 'needs_supervision', redFlagType: 'invented_fix_without_evidence' },
-  { id: 'unsupported_ticket_claims', severity: 'major', scoreCap: 70, overrideReadiness: 'needs_supervision', redFlagType: 'unsupported_ticket_claims' },
-  { id: 'critical_urgency_missed', severity: 'major', scoreCap: 70, overrideReadiness: 'needs_supervision', redFlagType: 'critical_urgency_missed' },
-];
-
-const DERIVED_GATES = [
-  {
-    id: 'poor_ticket_quality',
-    severity: 'major',
-    scoreCap: 60,
-    overrideReadiness: 'needs_supervision',
-    when: criteria => countFailed(criteria, [
-      'ticket_user_company',
-      'ticket_issue_summary',
-      'ticket_impact',
-      'ticket_urgency',
-      'ticket_checks_attempted',
-      'ticket_next_step',
-    ]) >= 5,
-  },
-  {
-    id: 'severe_data_gap',
-    severity: 'major',
-    scoreCap: 30,
-    overrideReadiness: 'not_ready',
-    when: criteria => countFailed(criteria, [
-      'company_check',
-      'issue_clarification',
-      'impact',
-      'urgency',
-      'scope',
-      'technical_discovery',
-      'error_or_status_capture',
-      'recent_changes',
-      'next_steps',
-      'ticket_impact',
-      'ticket_urgency',
-      'ticket_checks_attempted',
-      'ticket_next_step',
-      'escalation_judgement',
-    ]) >= 12,
-  },
-  {
-    id: 'missing_next_steps',
-    severity: 'major',
-    scoreCap: 80,
-    overrideReadiness: 'needs_supervision',
-    when: (criteria, raw) => raw >= 80 && isFail(criteria, 'next_steps'),
-  },
-  {
-    id: 'critical_discovery_gap',
-    severity: 'major',
-    scoreCap: 80,
-    overrideReadiness: 'needs_supervision',
-    when: (criteria, raw) => raw >= 80 && (
-      isFail(criteria, 'recent_changes') ||
-      isFail(criteria, 'error_or_status_capture') ||
-      isFail(criteria, 'technical_discovery') ||
-      (isFail(criteria, 'urgency') && isFail(criteria, 'ticket_urgency'))
-    ),
-  },
-  {
-    id: 'scope_missed',
-    severity: 'major',
-    scoreCap: 85,
-    overrideReadiness: 'needs_supervision',
-    when: (criteria, raw) => raw >= 80 && isFail(criteria, 'scope'),
-  },
-  {
-    id: 'ticket_priority_mismatch',
-    severity: 'major',
-    scoreCap: 80,
-    overrideReadiness: 'needs_supervision',
-    when: (criteria, raw) => raw >= 80 && isFail(criteria, 'ticket_urgency') && !isPartial(criteria, 'urgency'),
-  },
-  {
-    id: 'device_or_environment_gap',
-    severity: 'major',
-    scoreCap: 85,
-    overrideReadiness: 'needs_supervision',
-    when: (criteria, raw) => raw >= 90 && isPartial(criteria, 'technical_discovery'),
-  },
-  {
-    id: 'minor_tone_gap',
-    severity: 'warning',
-    scoreCap: 95,
-    when: (criteria, raw) => raw > 95 && isPartial(criteria, 'customer_tone'),
-  },
-  {
-    id: 'minor_closure_gap',
-    severity: 'warning',
-    scoreCap: 90,
-    when: (criteria, raw) => raw > 90 && (isPartial(criteria, 'next_steps') || isPartial(criteria, 'ticket_next_step')),
-  },
-  {
-    id: 'minor_urgency_documentation_gap',
-    severity: 'warning',
-    scoreCap: 90,
-    when: (criteria, raw) => raw > 90 && (isPartial(criteria, 'urgency') || isFail(criteria, 'ticket_urgency')),
-  },
-];
-
-function detectFailGates(redFlags) {
-  const hits = [], seen = new Set();
-  for (const flag of redFlags || []) {
-    if (!flag || !flag.type) continue;
-    const normalizedType = flag.type.toString().toLowerCase().trim();
-    const g = FAIL_GATES.find(x => x.redFlagType === normalizedType);
-    if (!g || seen.has(g.id)) continue;
-    seen.add(g.id);
-    hits.push({ id: g.id, severity: g.severity, scoreCap: g.scoreCap, overrideReadiness: g.overrideReadiness,
-      evidence: flag.evidence ? [{ quote: flag.evidence }] : [{ note: flag.type }] });
-  }
-  return hits;
-}
-
-function statusOf(criteria, key) {
-  return (criteria[key]?.status || 'not_observed').toString().toLowerCase().trim();
-}
-
-function isFail(criteria, key) {
-  const status = statusOf(criteria, key);
-  return status === 'fail' || status === 'not_observed';
-}
-
-function isPartial(criteria, key) {
-  return statusOf(criteria, key) === 'partial';
-}
-
-function countFailed(criteria, keys) {
-  return keys.filter(key => isFail(criteria, key)).length;
-}
-
-function detectDerivedGates(criteria, raw) {
-  return DERIVED_GATES
-    .filter(gate => gate.when(criteria, raw))
-    .map(gate => ({
-      id: gate.id,
-      severity: gate.severity,
-      scoreCap: gate.scoreCap,
-      overrideReadiness: gate.overrideReadiness,
-      evidence: [{ note: gate.id }],
-    }));
-}
+const { FAIL_GATES } = scoring;
 
 function scoreOne(criteria, redFlags) {
-  let earned = 0, maxP = 0, failed = [];
-  for (const [k, c] of Object.entries(criteria || {})) {
-    const w = W[k];
-    if (w === undefined || !c || typeof c !== 'object') continue;
-    const s = STATUS_SCORES[(c.status || '').toString().toLowerCase().trim()] ?? 0;
-    if (s === -1) continue;
-    earned += w * s; maxP += w;
-    if (s === 0) failed.push(k);
-  }
-  const raw = maxP > 0 ? Math.round((earned / maxP) * 100) : 0;
-  const gateHits = [
-    ...detectFailGates(redFlags || []),
-    ...detectDerivedGates(criteria || {}, raw),
-  ];
-  let cap = raw;
-  for (const g of gateHits) if (g.scoreCap < cap) cap = g.scoreCap;
-  const finalScore = Math.min(raw, cap);
-  let readiness;
-  if (gateHits.some(g => g.severity === 'critical')) readiness = 'not_ready';
-  else if (gateHits.some(g => g.severity === 'major')) {
-    const s = gateHits.filter(g => g.severity === 'major').reduce((a, b) => a.scoreCap < b.scoreCap ? a : b);
-    readiness = s.overrideReadiness || 'needs_supervision';
-    if (readiness === 'needs_supervision' && finalScore < THRESHOLDS.needs_supervision_min) readiness = 'not_ready';
-  } else readiness = finalScore >= THRESHOLDS.ready_min ? 'ready' : finalScore >= THRESHOLDS.needs_supervision_min ? 'needs_supervision' : 'not_ready';
-  return { score: finalScore, raw, readiness, gates: gateHits.map(g => g.id), failedChecks: failed };
+  const result = scoreExtraction({ criteria: criteria || {}, redFlags: redFlags || [] });
+  return {
+    score: result.score,
+    raw: result.rawScoreBeforeCaps,
+    readiness: result.rating,
+    gates: result.gateHits.map(g => g.id),
+    failedChecks: result.failedRequiredChecks,
+  };
 }
 
 function allPass() { const c = {}; for (const k of Object.keys(W)) c[k] = { status: 'pass' }; return c; }

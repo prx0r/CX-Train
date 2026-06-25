@@ -148,6 +148,32 @@ export const MVP_API_ROUTES: MvpApiRoute[] = [
     status: 'planned',
     description: 'People / Scorecards module — placeholder',
   },
+  {
+    module: 'assess',
+    method: 'POST',
+    path: '/api/mvp/assessment/[token]/end',
+    status: 'active',
+    description: 'End/completed assessment session',
+    expectedInputs: [],
+    expectedOutputs: ['status', 'sessionId'],
+  },
+  {
+    module: 'system',
+    method: 'GET',
+    path: '/api/mvp/manager-profiles',
+    status: 'active',
+    description: 'List manager profiles',
+    expectedOutputs: ['profiles[]'],
+  },
+  {
+    module: 'system',
+    method: 'POST',
+    path: '/api/mvp/manager-profiles',
+    status: 'active',
+    description: 'Create manager profile',
+    expectedInputs: ['displayName', 'companyName', 'role'],
+    expectedOutputs: ['profile', 'saved'],
+  },
 ];
 
 export function getActiveRoutes(): MvpApiRoute[] {
@@ -169,4 +195,7 @@ export const LEGACY_RESPONSE_FORMAT_ROUTES = [
   'POST /api/mvp/assessments/[id]/feedback',
   'GET /api/mvp/standards',
   'POST /api/mvp/standards',
+  'POST /api/mvp/assessment/[token]/end',
+  'GET /api/mvp/manager-profiles',
+  'POST /api/mvp/manager-profiles',
 ];

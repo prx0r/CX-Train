@@ -115,7 +115,7 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     ],
     responseFormat: 'json_object',
     temperature: 0,
-    maxTokens: 2048,
+    maxTokens: 8192,
   });
 
   if (!extractionResult.success) {
@@ -170,7 +170,7 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     ],
     responseFormat: 'json_object',
     temperature: 0.3,
-    maxTokens: 2048,
+    maxTokens: 4096,
   });
 
   let narrative: any;

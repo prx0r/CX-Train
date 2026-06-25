@@ -6,7 +6,7 @@ const MODEL_BY_TASK: Record<string, string | undefined> = {
 };
 
 const FALLBACK_CALLER = process.env.AI_FALLBACK_MODEL || '';
-const BASE_URL = process.env.AI_BASE_URL || 'https://openrouter.ai/api/v1';
+const BASE_URL = process.env.AI_BASE_URL || 'https://opencode.ai/zen/go/v1';
 const API_KEY = process.env.AI_API_KEY || '';
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 2000;
@@ -70,31 +70,35 @@ async function attemptRequest(
   });
 
   if (response.status === 401) {
-    return { success: false, content: '', model, error: 'OpenRouter returned 401 — check your API key', durationMs: Date.now() - start };
+    return { success: false, content: '', model, error: 'AI provider returned 401 — check your API key', durationMs: Date.now() - start };
   }
 
   if (response.status === 429) {
-    return { success: false, content: '', model, error: 'OpenRouter 429 — rate limited', durationMs: Date.now() - start, retryable: true };
+    return { success: false, content: '', model, error: 'AI provider 429 — rate limited', durationMs: Date.now() - start, retryable: true };
   }
 
   if (!response.ok) {
     const text = await response.text().catch(() => 'unknown');
-    return { success: false, content: '', model, error: `OpenRouter HTTP ${response.status}: ${text.slice(0, 500)}`, durationMs: Date.now() - start };
+    return { success: false, content: '', model, error: `AI provider HTTP ${response.status}: ${text.slice(0, 500)}`, durationMs: Date.now() - start };
   }
 
   const data = await response.json() as {
-    choices?: { message?: { content?: string | null; reasoning?: string; reasoning_details?: { type: string; text: string }[] } }[];
+    choices?: { message?: { content?: string | null; reasoning_content?: string; reasoning?: string; reasoning_details?: { type: string; text: string }[] } }[];
     error?: { message: string };
   };
 
   if (data.error) {
-    return { success: false, content: '', model, error: `OpenRouter error: ${data.error.message}`, durationMs: Date.now() - start };
+    return { success: false, content: '', model, error: `AI provider error: ${data.error.message}`, durationMs: Date.now() - start };
   }
 
   const msg = data.choices?.[0]?.message;
   let content = msg?.content || '';
+  const reasoningContent = msg?.reasoning_content || '';
 
-  // Some free models (e.g. DeepSeek R1) put the response in the reasoning field
+  // Some models (e.g. DeepSeek via OpenCode Go) put the response in reasoning fields
+  if (!content && reasoningContent && typeof reasoningContent === 'string') {
+    content = reasoningContent;
+  }
   if (!content && msg?.reasoning && typeof msg.reasoning === 'string') {
     content = msg.reasoning;
   }
@@ -103,8 +107,25 @@ async function attemptRequest(
     if (last?.text) content = last.text;
   }
 
+  // For json_object requests, try to extract JSON from within reasoning text
+  if (opts.responseFormat === 'json_object' && content) {
+    const jsonStart = content.indexOf('{');
+    const jsonEnd = content.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd > jsonStart) {
+      const jsonStr = content.slice(jsonStart, jsonEnd + 1);
+      if (jsonStr !== content) {
+        try {
+          JSON.parse(jsonStr);
+          content = jsonStr;
+        } catch {
+          // JSON extraction failed, keep original content
+        }
+      }
+    }
+  }
+
   if (!content) {
-    return { success: false, content: '', model, error: 'OpenRouter returned no choices', durationMs: Date.now() - start };
+    return { success: false, content: '', model, error: 'AI provider returned no choices', durationMs: Date.now() - start };
   }
 
   return { success: true, content: content.trim(), model, durationMs: Date.now() - start };

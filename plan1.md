@@ -314,4 +314,4 @@ Phase 6 is partially implemented:
 - Added `test:quality` to run the practical quality suite in one command.
 - `test:calibration` now passes 50/50 but remains separate from `npm test` until inline scorer drift is removed.
 
-Phase 3 remains open. The highest-risk inline scorer drift has been reduced, but `scripts/test-analysis-scoring.mjs`, `scripts/test-analysis-hardening.mjs`, `scripts/test-adversarial.mjs`, `scripts/test-50-transcripts.mjs`, and `tests/analysis-engine.test.ts` still contain local scorer copies or fixture simulators. Remove or quarantine those before treating the test suite as fully authoritative.
+Phase 3 is complete. All 5 files (`scripts/test-analysis-scoring.mjs`, `scripts/test-analysis-hardening.mjs`, `scripts/test-adversarial.mjs`, `scripts/test-50-transcripts.mjs`, and `tests/analysis-engine.test.ts`) now import from the production `scoring.ts` module instead of containing inline scorer copies. The only remaining duplicate is the compiled `.test-dist/lib/mvp/analysis/scoring.js` which is a build artifact, not source code.

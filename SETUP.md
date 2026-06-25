@@ -11,14 +11,11 @@
 
 2. **Configure environment**
    - Copy `.env.example` to `.env.local`
-   - Add your Supabase credentials:
-     - `NEXT_PUBLIC_SUPABASE_URL`
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-     - `SUPABASE_SERVICE_ROLE_KEY`
-   - Add your OpenRouter API key:
-     - `AI_API_KEY` from [openrouter.ai/keys](https://openrouter.ai/keys)
+   - Set your AI provider (default: OpenCode Go):
+     - `AI_API_KEY` from [opencode.ai](https://opencode.ai) (Go subscription)
+     - Or switch to OpenRouter: uncomment OpenRouter lines in `.env.example`
 
-3. **Test OpenRouter connection**
+3. **Test AI connection**
    ```bash
    node scripts/test-openrouter.mjs
    ```
@@ -57,6 +54,6 @@ If you have an existing database, run new migrations in the Supabase SQL Editor.
 
 ## Troubleshooting
 
-- **OpenRouter 401** -- Check `AI_API_KEY` is set and valid. Run `node scripts/test-openrouter.mjs`.
-- **OpenRouter 429** -- Rate limited. Wait and retry.
+- **AI 401** -- Check `AI_API_KEY` is set and valid. Run `node scripts/test-openrouter.mjs`.
+- **AI 429** -- Rate limited. Wait and retry.
 - **500 on dashboard** -- Check Supabase env vars in Vercel.

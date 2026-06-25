@@ -13,10 +13,11 @@
     "migrate:assessment": "node scripts/run-assessment-migration.mjs",
     "test:openrouter": "node scripts/test-openrouter.mjs",
     "test:mvp-flow": "node scripts/test-mvp-flow.mjs",
-    "test:analysis-scoring": "node scripts/test-analysis-scoring.mjs",
-    "test:analysis-hardening": "node scripts/test-analysis-hardening.mjs",
-    "test:adversarial": "node scripts/test-adversarial.mjs",
-    "test:calibration": "node scripts/test-50-transcripts.mjs",
+    "build:scoring": "npx tsc lib/mvp/analysis/scoring.ts --outDir .test-dist --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck",
+    "test:analysis-scoring": "npm run build:scoring && node scripts/test-analysis-scoring.mjs",
+    "test:analysis-hardening": "npm run build:scoring && node scripts/test-analysis-hardening.mjs",
+    "test:adversarial": "npm run build:scoring && node scripts/test-adversarial.mjs",
+    "test:calibration": "npm run build:scoring && node scripts/test-50-transcripts.mjs",
     "test:quality": "npm test && npm run test:analysis-scoring && npm run test:analysis-hardening && npm run test:mvp-flow && npm run test:adversarial && npm run test:calibration"
   },
   "dependencies": {
