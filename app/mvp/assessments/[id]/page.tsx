@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import ManagerShell from '@/components/mvp/ManagerShell';
 
 interface Message {
   role: string;
@@ -117,7 +118,8 @@ export default function ManagerDetailPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <ManagerShell>
+    <div className="max-w-4xl">
       <a href="/mvp" className="text-blue-400 text-sm hover:underline">&larr; Back to dashboard</a>
       <h1 className="text-2xl font-bold mt-2 mb-1">{assessment.candidate_name}</h1>
       <p className="text-sm text-gray-500 mb-4">
@@ -314,5 +316,6 @@ export default function ManagerDetailPage() {
         )}
       </div>
     </div>
+    </ManagerShell>
   );
 }
