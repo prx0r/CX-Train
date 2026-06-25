@@ -1,6 +1,10 @@
 export type AnalysisType = 'base_callum' | 'callum_for_you' | 'manager_profile_refresh';
 export type AnalysisStatus = 'pending' | 'running' | 'complete' | 'failed';
 export type CriterionStatus = 'pass' | 'partial' | 'fail' | 'not_applicable' | 'not_observed';
+export type ReadinessLabel = 'ready' | 'needs_supervision' | 'not_ready';
+export type GateSeverity = 'warning' | 'major' | 'critical';
+
+export const RUBRIC_VERSION = 'callcallum-base-v0.4-analysis-hardening';
 
 export interface AnalysisRunRecord {
   id: string;
@@ -51,6 +55,46 @@ export interface EvidenceExtraction {
   ticket_assessment: TicketAssessment;
 }
 
+export interface EvidenceItem {
+  source: 'transcript' | 'ticket' | 'analysis';
+  quote?: string;
+  messageId?: string;
+  note?: string;
+}
+
+export interface FailGateHit {
+  id: string;
+  label: string;
+  severity: GateSeverity;
+  scoreCap: number;
+  overrideReadiness?: ReadinessLabel;
+  evidence: EvidenceItem[];
+  rationale: string;
+}
+
+export interface RubricCheckResult {
+  id: string;
+  label: string;
+  status: CriterionStatus;
+  score: number;
+  maxScore: number;
+  evidence: EvidenceItem[];
+  rationale: string;
+}
+
+export interface DeterministicAnalysisResult {
+  score: number;
+  rawScoreBeforeCaps: number;
+  readiness: ReadinessLabel;
+  gateHits: FailGateHit[];
+  checks: RubricCheckResult[];
+  strengths: string[];
+  weaknesses: string[];
+  managerSummary: string;
+  rubricVersion: string;
+  promptVersion?: string;
+}
+
 export interface ManagerStandardFit {
   status: 'pass' | 'partial' | 'fail';
   notes: string[];
@@ -69,11 +113,13 @@ export interface NarrativeFeedback {
 
 export interface DeterministicScore {
   score: number;
-  rating: 'ready' | 'needs_supervision' | 'not_ready';
+  rawScoreBeforeCaps: number;
+  rating: ReadinessLabel;
   earnedScore: number;
   maxPossibleScore: number;
   failedRequiredChecks: string[];
   triggeredDealbreakers: string[];
+  gateHits: FailGateHit[];
   skillBreakdown: Record<string, { score: number; maxScore: number; percent: number }>;
 }
 

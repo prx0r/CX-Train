@@ -1,6 +1,6 @@
 import type { AnalysisContext } from './types';
 
-export const EVIDENCE_PROMPT_VERSION = 'evidence-extraction-v1';
+export const EVIDENCE_PROMPT_VERSION = 'evidence-extraction-v2-analysis-hardening';
 
 const CRITERIA_DEFINITIONS = [
   { key: 'identity_check', label: 'Candidate confirmed the caller name or identity' },
@@ -15,6 +15,8 @@ const CRITERIA_DEFINITIONS = [
   { key: 'recent_changes', label: 'Candidate asked about recent changes' },
   { key: 'next_steps', label: 'Candidate set clear next steps or expectations' },
   { key: 'customer_tone', label: 'Candidate used professional, empathetic tone' },
+  { key: 'professional_conduct', label: 'Candidate remained professional, did not abuse or dismiss the customer' },
+  { key: 'customer_communication', label: 'Candidate communicated clearly and respectfully throughout' },
   { key: 'ticket_user_company', label: 'Ticket includes user name and company' },
   { key: 'ticket_issue_summary', label: 'Ticket includes clear issue summary' },
   { key: 'ticket_impact', label: 'Ticket includes business impact' },
@@ -25,9 +27,23 @@ const CRITERIA_DEFINITIONS = [
   { key: 'safety', label: 'Candidate avoided unsafe advice or invented fixes' },
 ];
 
+const RED_FLAG_DEFINITIONS = [
+  { type: 'severe_customer_abuse', label: 'Candidate directly insulted, swore at, mocked, threatened, or abused the customer', severity: 'critical' },
+  { type: 'unsafe_security_behaviour', label: 'Candidate asked for password, MFA code, or sensitive credentials, or suggested disabling security', severity: 'critical' },
+  { type: 'refusal_to_help', label: 'Candidate refused to troubleshoot, dismissed the issue, or abandoned the customer without valid reason', severity: 'critical' },
+  { type: 'hallucinated_fix', label: 'Candidate claimed issue is resolved or invented a diagnosis without evidence', severity: 'high' },
+  { type: 'unsafe_advice', label: 'Candidate gave advice that could cause harm or data loss', severity: 'high' },
+  { type: 'invented_fix_without_evidence', label: 'Candidate invented a fix not supported by the transcript', severity: 'high' },
+  { type: 'no_troubleshooting', label: 'Candidate performed no meaningful troubleshooting', severity: 'high' },
+];
+
 export function buildEvidenceExtractionPrompt(context: AnalysisContext): { system: string; user: string } {
   const criteriaLines = CRITERIA_DEFINITIONS.map(c =>
-    `  "${c.key}": { "status": "<pass|partial|fail|not_observed|not_applicable>", "severity": "<low|medium|high>", "evidence": ["<quote or observation>"], "notes": "<brief note>" }`
+    `  "${c.key}": { "status": "<pass|partial|fail|not_observed|not_applicable>", "severity": "<low|medium|high>", "evidence": ["<exact quote from transcript>"], "notes": "<brief rationale>" }`
+  ).join('\n');
+
+  const redFlagLines = RED_FLAG_DEFINITIONS.map(r =>
+    `  { "type": "${r.type}", "severity": "${r.severity}", "evidence": "<explanation with quote if applicable>" }`
   ).join('\n');
 
   const systemPrompt = `You are an evidence extraction system for MSP support call assessments.
@@ -41,13 +57,17 @@ For each criterion, determine whether the candidate demonstrated it:
 - "not_observed": could not determine from available data
 - "not_applicable": not relevant to this scenario
 
-Rules:
-- Use only transcript and submitted ticket as evidence.
-- Quote the candidate's actual words where possible.
-- If something was clearly not asked or not captured, mark as "fail".
-- For ticket criteria, use the submitted ticket content only.
-- Hidden scenario facts may inform expected behaviours but do not reveal them.
-- Do NOT produce final prose feedback. This is extraction only.
+CRITICAL RULES:
+1. If the candidate swore at, insulted, mocked, threatened, or was hostile toward the customer, you MUST set "professional_conduct" to "fail" and add a red flag of type "severe_customer_abuse".
+2. If the candidate asked for passwords, MFA codes, or sensitive credentials, or suggested disabling security controls, you MUST add a red flag of type "unsafe_security_behaviour".
+3. If the candidate refused to help, dismissed the issue, or ended the call without valid reason, you MUST add a red flag of type "refusal_to_help".
+4. If the candidate claimed a fix or diagnosis without evidence from the transcript, you MUST add a red flag of type "hallucinated_fix" or "invented_fix_without_evidence".
+5. If the candidate asked no meaningful questions and performed no troubleshooting, you MUST add a red flag of type "no_troubleshooting".
+6. Use only transcript and submitted ticket as evidence.
+7. Quote the candidate's actual words where possible. Exact quotes are critical.
+8. For ticket criteria, use the submitted ticket content only.
+9. Do NOT produce final prose feedback. This is extraction only.
+10. Severe conduct failures override normal scoring. Flag them even if other parts of the call seemed good.
 
 Return ONLY valid JSON with no additional text:
 
@@ -57,7 +77,7 @@ ${criteriaLines}
   },
   "missed_questions": ["<question the candidate should have asked>"],
   "red_flags": [
-    { "type": "<dealbreaker_type>", "severity": "<low|medium|high>", "evidence": "<explanation>" }
+${redFlagLines}
   ],
   "ticket_assessment": {
     "status": "<pass|partial|fail>",
@@ -65,6 +85,10 @@ ${criteriaLines}
     "evidence": "<summary>"
   }
 }`;
+
+  const scenarioContext = context.active_scenario
+    ? `Scenario: ${(context.active_scenario as any).title || ''}`
+    : '';
 
   const userPrompt = `TRANSCRIPT:
 ${context.transcript_text}
@@ -76,11 +100,11 @@ ${context.manager_standards ? `MANAGER STANDARDS:
 Required ticket fields: ${JSON.stringify((context.manager_standards as any).required_ticket_fields || [])}
 Call requirements: ${(context.manager_standards as any).call_requirements || ''}` : ''}
 
-${context.active_scenario ? `SCENARIO: ${(context.active_scenario as any).title || ''}` : ''}
+${scenarioContext}
 
-Extract evidence for each criterion and return JSON only.`;
+Extract evidence for each criterion and return JSON only. Remember: quote exact words, flag conduct failures.`;
 
   return { system: systemPrompt, user: userPrompt };
 }
 
-export { CRITERIA_DEFINITIONS };
+export { CRITERIA_DEFINITIONS, RED_FLAG_DEFINITIONS };

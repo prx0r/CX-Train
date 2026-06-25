@@ -1,5 +1,4 @@
 export const PROMPT_VERSION = 'base-callum-v1';
-export const RUBRIC_VERSION = 'msp-first-line-v1';
 
 export const PROMPT_SUFFIX = `Return ONLY valid JSON with this exact structure:
 {

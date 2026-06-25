@@ -13,7 +13,8 @@
     "migrate:assessment": "node scripts/run-assessment-migration.mjs",
     "test:openrouter": "node scripts/test-openrouter.mjs",
     "test:mvp-flow": "node scripts/test-mvp-flow.mjs",
-    "test:analysis-scoring": "node scripts/test-analysis-scoring.mjs"
+    "test:analysis-scoring": "node scripts/test-analysis-scoring.mjs",
+    "test:analysis-hardening": "node scripts/test-analysis-hardening.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

@@ -99,13 +99,22 @@ export async function GET(
         created_at: r.created_at,
         updated_at: r.updated_at,
       })),
-      results: results.map((r: any) => ({
-        id: r.id,
-        overall_score: r.overall_score,
-        readiness_label: r.readiness_label,
-        summary: r.summary,
-        created_at: r.created_at,
-      })),
+      results: results.map((r: any) => {
+        let structured = null;
+        try {
+          if (r.raw_model_json) structured = JSON.parse(r.raw_model_json);
+        } catch {}
+        return {
+          id: r.id,
+          overall_score: r.overall_score,
+          readiness_label: r.readiness_label,
+          summary: r.summary,
+          raw_score_before_caps: structured?.deterministic_score?.rawScoreBeforeCaps ?? null,
+          gate_hits: structured?.deterministic_score?.gateHits ?? [],
+          rubric_version: structured?.deterministic_score?.rubricVersion ?? null,
+          created_at: r.created_at,
+        };
+      }),
       feedback: feedback ? {
         id: feedback.id,
         manager_label: feedback.manager_label,

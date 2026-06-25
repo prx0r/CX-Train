@@ -2,21 +2,23 @@ import { getDb } from '@/lib/mvp/db';
 import { makeId, getManagerStandards } from '@/lib/mvp/query';
 import { buildAssessmentContext } from './context';
 import { buildAnalysisInputHash, ANALYSIS_SCHEMA_VERSION } from './hash';
-import { PROMPT_VERSION, RUBRIC_VERSION, getDefaultModel } from './prompts';
+import { PROMPT_VERSION, getDefaultModel } from './prompts';
 import { EVIDENCE_PROMPT_VERSION, buildEvidenceExtractionPrompt } from './evidencePrompt';
 import { NARRATIVE_PROMPT_VERSION, buildNarrativePrompt } from './narrativePrompt';
-import { scoreExtraction, DEFAULT_WEIGHTS, DEFAULT_THRESHOLDS, DEFAULT_DEALBREAKERS } from './scoring';
+import { scoreExtraction, DEFAULT_WEIGHTS, DEFAULT_THRESHOLDS } from './scoring';
 import { parseExtractionJson, parseNarrativeJson, buildFallbackNarrative } from './validation';
 import { runAiTask, parseJsonResponse } from '@/lib/ai/provider';
-import type { EvidenceExtraction, StructuredOutput, DeterministicScore, NarrativeFeedback, RedFlag } from './types';
+import type { EvidenceExtraction, StructuredOutput, DeterministicScore, NarrativeFeedback, RedFlag, FailGateHit } from './types';
+import { RUBRIC_VERSION } from './types';
 
-export const MILESTONE_C_VERSION = 'base-callum-deterministic-v1';
+export const MILESTONE_C_VERSION = RUBRIC_VERSION;
 
 export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
   status: string;
   result_id?: string;
   analysis_run_id?: string;
   overall_score?: number;
+  raw_score_before_caps?: number;
   readiness_label?: string;
   summary?: string;
   strengths?: string[];
@@ -128,25 +130,30 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     return { status: 'analysis_failed', error_code: 'AI_INVALID_JSON', error: extractionParseError || 'Invalid extraction JSON', raw: extractionResult.content };
   }
 
-  // Step 2: Deterministic scoring (pure code, no AI)
-  const redFlags = (extraction.red_flags || []).map((f: RedFlag) => ({ type: f.type, severity: f.severity || 'medium' }));
+  // Step 2: Deterministic scoring (pure code, no AI) with fail gates
+  const redFlags = (extraction.red_flags || []).map((f: RedFlag) => ({
+    type: f.type,
+    severity: f.severity || 'medium',
+    evidence: f.evidence || '',
+  }));
 
   const scoringResult = scoreExtraction({
     criteria: extraction.criteria,
     redFlags,
     weights: DEFAULT_WEIGHTS,
     thresholds: DEFAULT_THRESHOLDS,
-    dealbreakers: DEFAULT_DEALBREAKERS,
   });
 
   // Step 3: Narrative feedback via AI
   const narrativePrompts = buildNarrativePrompt(context, {
     score: scoringResult.score,
+    rawScoreBeforeCaps: scoringResult.rawScoreBeforeCaps,
     rating: scoringResult.rating,
     earnedScore: scoringResult.earnedScore,
     maxPossibleScore: scoringResult.maxPossibleScore,
     failedRequiredChecks: scoringResult.failedRequiredChecks,
     triggeredDealbreakers: scoringResult.triggeredDealbreakers,
+    gateHits: scoringResult.gateHits,
     skillBreakdown: scoringResult.skillBreakdown,
   }, JSON.stringify(extraction, null, 2));
 
@@ -183,11 +190,13 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     },
     deterministic_score: {
       score: scoringResult.score,
+      rawScoreBeforeCaps: scoringResult.rawScoreBeforeCaps,
       rating: scoringResult.rating,
       earnedScore: scoringResult.earnedScore,
       maxPossibleScore: scoringResult.maxPossibleScore,
       failedRequiredChecks: scoringResult.failedRequiredChecks,
       triggeredDealbreakers: scoringResult.triggeredDealbreakers,
+      gateHits: scoringResult.gateHits,
       skillBreakdown: scoringResult.skillBreakdown,
     },
     narrative: {
@@ -228,6 +237,7 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     result_id: resultId,
     analysis_run_id: analysisRunId,
     overall_score: scoringResult.score,
+    raw_score_before_caps: scoringResult.rawScoreBeforeCaps,
     readiness_label: scoringResult.rating,
     summary: narrative.summary || `Candidate scored ${scoringResult.score}/100 (${scoringResult.rating}).`,
     strengths: narrative.strengths || [],
