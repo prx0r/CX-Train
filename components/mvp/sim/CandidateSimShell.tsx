@@ -1,8 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { WindowProvider, useWindowManager } from '@/lib/win11/windowState';
+import Desktop from '@/components/win11/Desktop';
+import Taskbar from '@/components/win11/Taskbar';
+import OutlookWindow from '@/components/win11/tools/OutlookWindow';
+import BrowserWindow from '@/components/win11/tools/BrowserWindow';
+import CommandPromptWindow from '@/components/win11/tools/CommandPromptWindow';
+import CustomerChatWindow from '@/components/win11/tools/CustomerChatWindow';
+import TicketWindow from '@/components/win11/tools/TicketWindow';
 import SimTimeline from './SimTimeline';
-import ToolDock from './ToolDock';
 
 interface Message {
   role: string;
@@ -30,17 +37,9 @@ interface SimData {
   timeline: TimelineEntry[];
 }
 
-interface CandidateSimShellProps {
-  token: string;
-  assessmentTitle: string;
-  scenarioTitle: string;
-  packTitle?: string;
-  initialMessages: Message[];
-}
-
-export default function CandidateSimShell({ token, assessmentTitle, packTitle, initialMessages }: CandidateSimShellProps) {
+function SimShellContent({ token, initialMessages }: { token: string; initialMessages: Message[] }) {
+  const { state, open } = useWindowManager();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [ticketText, setTicketText] = useState('');
   const [ticketSubmitted, setTicketSubmitted] = useState(false);
@@ -57,17 +56,16 @@ export default function CandidateSimShell({ token, assessmentTitle, packTitle, i
 
   useEffect(() => {
     loadSim();
+    // Auto-open Outlook and Chat on load
+    open('outlook', 'Microsoft Outlook', '📧', 'outlook');
+    open('chat', 'Customer Chat', '💬', 'chat');
+    open('ticket', 'Ticket', '🎫', 'ticket');
     const interval = setInterval(loadSim, 3000);
     return () => clearInterval(interval);
-  }, [loadSim]);
+  }, [loadSim, open]);
 
-  async function sendMessage() {
-    if (!input.trim() || sending) return;
-    const msg = input.trim();
-    setInput('');
+  async function sendMessage(msg: string) {
     setSending(true);
-    setError('');
-
     setMessages(prev => [...prev, { role: 'candidate', content: msg }]);
 
     const startedAt = Date.now();
@@ -127,133 +125,42 @@ export default function CandidateSimShell({ token, assessmentTitle, packTitle, i
     );
   }
 
+  const safeActions = simData?.safe_actions || [];
+  const visibleState = simData?.visible_state || {};
+
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
-      {/* Windows-like taskbar header */}
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center gap-3 select-none" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.4)' }}>
-        <div className="w-4 h-4 bg-blue-500 rounded-sm flex items-center justify-center">
-          <span className="text-[10px] text-white font-bold">C</span>
-        </div>
-        <span className="text-sm font-medium flex-1">{packTitle || assessmentTitle}</span>
-        <span className="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded">Simulator</span>
-      </header>
+    <div className="win-sim-shell" style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: '#0f172a' }}>
+      {/* Windows */}
+      <Desktop />
+      <OutlookWindow safeActions={safeActions} visibleState={visibleState} onAction={handleAction} disabled={ticketSubmitted} />
+      <BrowserWindow safeActions={safeActions} onAction={handleAction} disabled={ticketSubmitted} />
+      <CommandPromptWindow safeActions={safeActions} onAction={handleAction} disabled={ticketSubmitted} />
+      <CustomerChatWindow messages={messages} onSendMessage={sendMessage} sending={sending} disabled={ticketSubmitted} />
+      <TicketWindow ticketText={ticketText} onTicketChange={setTicketText} onSubmit={submitTicket} submitted={ticketSubmitted} />
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left: Customer Chat - Windows mail-style */}
-        <div className="lg:w-1/4 flex flex-col border-r border-gray-700 bg-gray-900">
-          <div className="bg-indigo-800 px-3 py-1.5 flex items-center gap-2 select-none">
-            <span className="text-sm">💬</span>
-            <span className="text-xs font-semibold">Customer Chat — Sarah Thompson</span>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-950">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === 'candidate' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
-                  m.role === 'candidate'
-                    ? 'bg-blue-700 text-white rounded-br-sm'
-                    : 'bg-gray-800 text-gray-200 rounded-bl-sm border border-gray-700'
-                }`}>
-                  {m.content}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="p-2 border-t border-gray-700 bg-gray-900">
-            <div className="flex gap-1.5">
-              <input
-                type="text"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                placeholder="Type a message..."
-                disabled={sending}
-                className="flex-1 px-2.5 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-100 placeholder-gray-500"
-              />
-              <button
-                onClick={sendMessage}
-                disabled={sending || !input.trim()}
-                className="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 disabled:bg-gray-700 rounded text-xs font-medium"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Taskbar */}
+      <Taskbar />
 
-        {/* Middle: Tool Windows */}
-        <div className="lg:w-2/4 flex flex-col overflow-y-auto bg-gray-950">
-          {simData && (
-            <ToolDock
-              tools={simData.tools}
-              safeActions={simData.safe_actions}
-              onAction={handleAction}
-              disabled={ticketSubmitted}
-            />
-          )}
-          {!simData && (
-            <div className="flex items-center justify-center flex-1 text-gray-500 text-sm">
-              Loading tools...
-            </div>
-          )}
-
-          {/* Windows-style visible state panel */}
-          {simData?.visible_state && Object.keys(simData.visible_state).length > 0 && (
-            <div className="mx-3 mb-3 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden">
-              <div className="bg-gray-800 px-3 py-1 border-b border-gray-700">
-                <span className="text-xs font-semibold text-gray-300">System Status</span>
-              </div>
-              <div className="p-3 grid grid-cols-2 gap-2 text-xs">
-                {Object.entries(simData.visible_state).map(([k, v]) => (
-                  <div key={k} className="flex gap-2">
-                    <span className="text-gray-500 capitalize">{k.replace(/_/g, ' ')}:</span>
-                    <span className={`font-mono ${v === true || v === 'Online' ? 'text-green-400' : v === false || v === 'Offline' || v === 'Working Offline' ? 'text-yellow-400' : 'text-gray-200'}`}>
-                      {String(v)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Timeline + Ticket */}
-        <div className="lg:w-1/4 flex flex-col border-l border-gray-700 bg-gray-900">
-          <div className="bg-gray-800 px-3 py-1.5 border-b border-gray-700 flex items-center gap-2">
-            <span className="text-sm">📋</span>
-            <span className="text-xs font-semibold">Action Log</span>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 bg-gray-950">
-            {simData && <SimTimeline timeline={simData.timeline} />}
-            {(!simData || simData.timeline.length === 0) && (
-              <div className="text-xs text-gray-500 italic">No actions yet. Use the tools in the middle panel.</div>
-            )}
-          </div>
-
-          <div className="border-t border-gray-700 p-3 bg-gray-900">
-            <button
-              onClick={submitTicket}
-              disabled={!ticketText.trim() || ticketSubmitted}
-              className="w-full px-3 py-2 bg-green-700 hover:bg-green-600 disabled:bg-gray-700 rounded text-xs font-medium mb-2"
-            >
-              Submit Ticket
-            </button>
-            <textarea
-              value={ticketText}
-              onChange={e => setTicketText(e.target.value)}
-              placeholder="Write your support ticket note here..."
-              rows={4}
-              className="w-full px-2.5 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs text-gray-100 placeholder-gray-500 resize-none"
-            />
-          </div>
-        </div>
-      </div>
-
+      {/* Floating error toast */}
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-800 text-red-200 px-4 py-2 rounded-lg text-xs shadow-lg z-50">
+        <div style={{
+          position: 'fixed', bottom: 60, right: 16,
+          background: '#b91c1c', color: '#fecaca',
+          padding: '8px 16px', borderRadius: 8, fontSize: 12,
+          zIndex: 10000, boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+        }}>
           {error}
-          <button onClick={() => setError('')} className="ml-2 text-red-300">✕</button>
+          <button onClick={() => setError('')} style={{ marginLeft: 8, color: '#fca5a5', border: 'none', background: 'transparent', cursor: 'pointer' }}>✕</button>
         </div>
       )}
     </div>
+  );
+}
+
+export default function CandidateSimShell(props: { token: string; assessmentTitle: string; scenarioTitle: string; packTitle?: string; initialMessages: Message[] }) {
+  return (
+    <WindowProvider>
+      <SimShellContent token={props.token} initialMessages={props.initialMessages} />
+    </WindowProvider>
   );
 }

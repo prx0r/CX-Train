@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import ManagerShell from '@/components/mvp/ManagerShell';
-import DashboardCard from '@/components/mvp/DashboardCard';
+import ItsmStatsCards from '@/components/mvp/itsm/ItsmStatsCards';
+import ItsmTicketTable from '@/components/mvp/itsm/ItsmTicketTable';
 
 interface Assessment {
   id: string;
   title: string;
   candidate_name: string;
-  candidate_email: string | null;
-  invite_token: string;
   status: string;
   created_at: string;
+  overall_score?: number;
 }
 
 export default function MvpDashboard() {
@@ -26,10 +26,8 @@ export default function MvpDashboard() {
     try {
       const res = await fetch('/api/mvp/assessments');
       const data = await res.json();
-      if (data.assessments) setAssessments(data.assessments);
-    } catch (e) {
-      console.error('Failed to load assessments', e);
-    }
+      setAssessments(data.assessments || []);
+    } catch { console.error('Failed to load assessments'); }
   }
 
   useEffect(() => { loadAssessments(); }, []);
@@ -46,160 +44,88 @@ export default function MvpDashboard() {
         body: JSON.stringify({ candidate_name: name, candidate_email: email || null }),
       });
       const data = await res.json();
-      if (data.invite_url) {
-        setInviteUrl(data.invite_url);
-        setName('');
-        setEmail('');
-        await loadAssessments();
-      } else {
-        setError(data.error || 'Failed to create');
-      }
-    } catch (e) {
-      setError('Failed to create assessment');
-    }
+      if (data.invite_url) setInviteUrl(data.invite_url);
+      else setError(data.error || 'Failed to create');
+      await loadAssessments();
+    } catch { setError('Failed to create assessment'); }
     setCreating(false);
+    setName('');
+    setEmail('');
   }
 
-  function copyLink(url: string) {
-    navigator.clipboard.writeText(url).then(() => alert('Link copied!')).catch(() => prompt('Copy this link:', url));
-  }
-
-  const statusColors: Record<string, string> = {
-    draft: 'text-yellow-400', invited: 'text-blue-400', in_progress: 'text-cyan-400',
-    completed: 'text-green-400', analysed: 'text-emerald-300', reviewed: 'text-purple-400',
+  const statusCounts = {
+    total: assessments.length,
+    invited: assessments.filter(a => a.status === 'invited').length,
+    completed: assessments.filter(a => a.status === 'completed' || a.status === 'analysed').length,
+    reviewed: assessments.filter(a => a.status === 'reviewed').length,
   };
 
-  const total = assessments.length;
-  const completed = assessments.filter(a => ['completed', 'analysed', 'reviewed'].includes(a.status)).length;
-  const awaiting = assessments.filter(a => a.status === 'completed').length;
+  const ticketRows = assessments.map(a => ({
+    id: a.id,
+    number: `INC${a.id.slice(-6).toUpperCase()}`,
+    priority: a.status === 'analysed' ? 'high' : a.status === 'invited' ? 'low' : 'medium',
+    status: a.status,
+    category: 'Assessment',
+    description: a.title,
+    assigned: a.candidate_name,
+    updated: a.created_at?.slice(0, 10) || '',
+    score: (a as any).overall_score ?? undefined,
+  }));
 
   return (
     <ManagerShell>
-      {/* Welcome header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Overview</h1>
-        <p className="text-sm text-gray-400">CallCallum Demo MSP &middot; Manager Dashboard</p>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#1b2f53', marginBottom: 4 }}>Service Desk Dashboard</div>
+        <div style={{ fontSize: 13, color: '#666' }}>Welcome back, Manager</div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        <DashboardCard label="Total Assessments" value={total} color="blue" />
-        <DashboardCard label="Completed" value={completed} color="green" />
-        <DashboardCard label="Awaiting Analysis" value={awaiting} color="yellow" />
-        <DashboardCard label="Assist (today)" value="—" color="gray" disabled />
-        <DashboardCard label="Knowledge Candidates" value="—" color="gray" disabled />
-        <DashboardCard label="People Needing Practice" value="—" color="gray" disabled />
-      </div>
+      <ItsmStatsCards cards={[
+        { label: 'Total Assessments', value: String(statusCounts.total), color: '#1b2f53', icon: '🎫' },
+        { label: 'Pending Review', value: String(statusCounts.invited), color: '#f0ad4e', icon: '⏳' },
+        { label: 'Completed', value: String(statusCounts.completed), color: '#27ae60', icon: '✓' },
+        { label: 'Reviewed', value: String(statusCounts.reviewed), color: '#3498db', icon: '📋' },
+      ]} />
 
-      {/* Create assessment form */}
-      <div className="bg-gray-900 border border-gray-800 rounded p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-3">Create Assessment</h2>
-        <div className="flex flex-wrap gap-3">
+      {/* Create Assessment */}
+      <div style={{ background: '#fff', borderRadius: 6, padding: 20, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: '#1b2f53', marginBottom: 12 }}>Create New Assessment</div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <input
-            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm flex-1 min-w-[200px]"
-            placeholder="Candidate name *"
+            type="text"
             value={name}
             onChange={e => setName(e.target.value)}
+            placeholder="Candidate name"
+            style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, flex: 1, minWidth: 200 }}
           />
           <input
-            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm flex-1 min-w-[200px]"
-            placeholder="Candidate email (optional)"
+            type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
+            placeholder="Email (optional)"
+            style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, flex: 1, minWidth: 200 }}
           />
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
             onClick={createAssessment}
             disabled={creating || !name.trim()}
+            style={{
+              padding: '8px 20px', background: '#82b814', color: '#fff', border: 'none',
+              borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              opacity: creating || !name.trim() ? 0.6 : 1,
+            }}
           >
-            {creating ? 'Creating...' : 'Create'}
+            {creating ? 'Creating...' : '+ New Assessment'}
           </button>
         </div>
-        {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
         {inviteUrl && (
-          <p className="text-green-400 text-sm mt-2">
-            Created! Invite link: <a href={inviteUrl} className="underline">{inviteUrl}</a>
-          </p>
+          <div style={{ marginTop: 12, padding: 12, background: '#f0f7e8', borderRadius: 4, border: '1px solid #d4edda' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#155724', marginBottom: 4 }}>Invite Link Created:</div>
+            <a href={inviteUrl} style={{ fontSize: 13, color: '#0070d2', wordBreak: 'break-all' }}>{inviteUrl}</a>
+          </div>
         )}
+        {error && <div style={{ marginTop: 8, fontSize: 12, color: '#e74c3c' }}>{error}</div>}
       </div>
 
-      {/* Recent assessments */}
-      <div className="bg-gray-900 border border-gray-800 rounded overflow-x-auto mb-6">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800">
-          <h2 className="text-sm font-semibold text-gray-300">Recent Assessments</h2>
-          <a href="/mvp/assessments" className="text-xs text-blue-400 hover:underline">View all</a>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-gray-400">
-              <th className="text-left p-3">Candidate</th>
-              <th className="text-left p-3">Status</th>
-              <th className="text-left p-3">Created</th>
-              <th className="text-left p-3">Link</th>
-              <th className="text-left p-3">Detail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assessments.length === 0 && (
-              <tr><td colSpan={5} className="p-3 text-gray-500 text-center">No assessments yet. Create one above!</td></tr>
-            )}
-            {assessments.slice(0, 10).map(a => (
-              <tr key={a.id} className="border-b border-gray-800">
-                <td className="p-3">
-                  <div className="font-medium">{a.candidate_name}</div>
-                  {a.candidate_email && <div className="text-gray-500 text-xs">{a.candidate_email}</div>}
-                </td>
-                <td className={`p-3 ${statusColors[a.status] || 'text-gray-400'}`}>{a.status}</td>
-                <td className="p-3 text-gray-400">{new Date(a.created_at).toLocaleDateString()}</td>
-                <td className="p-3">
-                  <button
-                    className="text-blue-400 hover:text-blue-300 text-xs underline"
-                    onClick={() => copyLink(`${window.location.origin}/mvp/assessment/${a.invite_token}`)}
-                  >
-                    Copy link
-                  </button>
-                </td>
-                <td className="p-3">
-                  <a href={`/mvp/assessments/${a.id}`} className="text-cyan-400 hover:text-cyan-300 text-xs underline">
-                    View
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Product map */}
-      <div className="bg-gray-900 border border-gray-800 rounded p-4">
-        <h2 className="text-sm font-semibold text-gray-300 mb-3">Product Map</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-          <div className="bg-blue-950/20 border border-blue-900/40 rounded p-3">
-            <span className="text-blue-300 font-medium">Assess</span>
-            <p className="text-gray-500 text-xs mt-1">Simulated calls with AI callers, scored against manager-defined standards.</p>
-          </div>
-          <div className="bg-yellow-950/20 border border-yellow-900/40 rounded p-3">
-            <span className="text-yellow-300 font-medium">Standards</span>
-            <p className="text-gray-500 text-xs mt-1">Manager-defined MSP requirements: checkpoints, rubrics, readiness thresholds.</p>
-          </div>
-          <div className="bg-green-950/20 border border-green-900/40 rounded p-3">
-            <span className="text-green-300 font-medium">Assist</span>
-            <p className="text-gray-500 text-xs mt-1">AI ticket/customer response assistant for live or simulated situations.</p>
-          </div>
-          <div className="bg-purple-950/20 border border-purple-900/40 rounded p-3">
-            <span className="text-purple-300 font-medium">Knowledge</span>
-            <p className="text-gray-500 text-xs mt-1">Capture resolved interactions into reusable procedures and KB articles.</p>
-          </div>
-          <div className="bg-pink-950/20 border border-pink-900/40 rounded p-3">
-            <span className="text-pink-300 font-medium">People</span>
-            <p className="text-gray-500 text-xs mt-1">Scorecards, readiness levels, and growth tracking for each technician.</p>
-          </div>
-          <div className="bg-gray-800 border border-gray-700/40 rounded p-3 opacity-60">
-            <span className="text-gray-400 font-medium">Clients</span>
-            <p className="text-gray-600 text-xs mt-1">Client profiles, environment details, and issue history.</p>
-          </div>
-        </div>
-      </div>
+      <ItsmTicketTable tickets={ticketRows} title="Assessment Queue" />
     </ManagerShell>
   );
 }
