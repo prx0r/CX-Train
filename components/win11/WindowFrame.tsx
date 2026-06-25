@@ -27,12 +27,6 @@ export default function WindowFrame({
   const resizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number; startT: number; startL: number; dir: string } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
 
-  if (!win) return null;
-
-  const dim = win.dim || { width: defaultWidth, height: defaultHeight, top: 80, left: 120 };
-  const zIndex = win.z;
-  const isTop = zIndex === state.zCounter;
-
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     focus(id);
     e.stopPropagation();
@@ -43,11 +37,12 @@ export default function WindowFrame({
     const el = frameRef.current;
     if (!el) return;
     if ((e.target as HTMLElement).closest('.win-btn')) return;
+    const currentDim = win?.dim || { top: 80, left: 120 };
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
-      startTop: win.dim?.top ?? dim.top,
-      startLeft: win.dim?.left ?? dim.left,
+      startTop: currentDim.top,
+      startLeft: currentDim.left,
     };
     const handleMouseMove = (ev: MouseEvent) => {
       if (!dragRef.current) return;
@@ -63,7 +58,7 @@ export default function WindowFrame({
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     e.preventDefault();
-  }, [id, focus, move, win?.dim, dim]);
+  }, [id, focus, move, win?.dim]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent, dir: string) => {
     e.preventDefault();
@@ -71,13 +66,14 @@ export default function WindowFrame({
     setIsResizing(true);
     const el = frameRef.current;
     if (!el) return;
+    const currentDim = win?.dim || { width: defaultWidth, height: defaultHeight, top: 80, left: 120 };
     resizeRef.current = {
       startX: e.clientX,
       startY: e.clientY,
-      startW: win.dim?.width ?? dim.width,
-      startH: win.dim?.height ?? dim.height,
-      startT: win.dim?.top ?? dim.top,
-      startL: win.dim?.left ?? dim.left,
+      startW: currentDim.width,
+      startH: currentDim.height,
+      startT: currentDim.top,
+      startL: currentDim.left,
       dir,
     };
     const handleMove = (ev: MouseEvent) => {
@@ -100,7 +96,13 @@ export default function WindowFrame({
     };
     document.addEventListener('mousemove', handleMove);
     document.addEventListener('mouseup', handleUp);
-  }, [id, resize, win?.dim, dim, minWidth, minHeight]);
+  }, [id, resize, win?.dim, defaultWidth, defaultHeight, minWidth, minHeight]);
+
+  if (!win) return null;
+
+  const dim = win.dim || { width: defaultWidth, height: defaultHeight, top: 80, left: 120 };
+  const zIndex = win.z;
+  const isTop = zIndex === state.zCounter;
 
   const dimStyle = win.dim ? { top: win.dim.top, left: win.dim.left, width: win.dim.width, height: win.dim.height } : {};
 
@@ -128,7 +130,6 @@ export default function WindowFrame({
       <div className="win-body">
         {children}
       </div>
-      {/* Resize handles */}
       <div className="win-resize-handle win-rh-n" onMouseDown={e => handleResizeStart(e, 'n')} />
       <div className="win-resize-handle win-rh-s" onMouseDown={e => handleResizeStart(e, 's')} />
       <div className="win-resize-handle win-rh-e" onMouseDown={e => handleResizeStart(e, 'e')} />
