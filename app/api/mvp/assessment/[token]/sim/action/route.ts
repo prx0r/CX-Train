@@ -5,6 +5,7 @@ import { applyAction } from '@/lib/mvp/sim/stateMachine';
 import { insertSimEvent, getSimEvents } from '@/lib/mvp/sim/eventLog';
 import { getSafeActions, getSafeVisibleState } from '@/lib/mvp/sim/packConfig';
 import { buildTimeline } from '@/lib/mvp/sim/timeline';
+import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
 
 export async function POST(
   request: NextRequest,
@@ -71,7 +72,7 @@ export async function POST(
       JSON.stringify(result.state_after), simSession.id
     );
 
-    // Insert action_performed event
+    // Insert action_performed event (both sim_events for backward compat + session_events for unified timeline)
     insertSimEvent({
       session_id: full.session.id,
       assessment_id: full.assessment.id,
@@ -85,6 +86,20 @@ export async function POST(
       state_before: result.state_before,
       state_after: result.state_after,
       timestamp_ms: timestampMs,
+    });
+
+    appendSessionEvent({
+      assessment_id: full.assessment.id,
+      session_id: full.session.id,
+      event_type: 'action_performed',
+      actor: 'candidate',
+      tool_id: toolId,
+      action_id: actionId,
+      label: action.label,
+      result_text: action.result,
+      state_before: result.state_before,
+      state_after: result.state_after,
+      started_at_ms: timestampMs,
     });
 
     // Insert observation_returned event
@@ -101,6 +116,18 @@ export async function POST(
       timestamp_ms: timestampMs + 100,
     });
 
+    appendSessionEvent({
+      assessment_id: full.assessment.id,
+      session_id: full.session.id,
+      event_type: 'observation_returned',
+      actor: 'system',
+      tool_id: toolId,
+      action_id: actionId,
+      label: `${action.label} result`,
+      result_text: action.result,
+      started_at_ms: timestampMs + 100,
+    });
+
     // Insert red_flag_triggered if applicable
     if (action.red_flag) {
       insertSimEvent({
@@ -115,6 +142,19 @@ export async function POST(
         result_text: action.red_flag,
         state_after: result.state_after,
         timestamp_ms: timestampMs + 200,
+      });
+
+      appendSessionEvent({
+        assessment_id: full.assessment.id,
+        session_id: full.session.id,
+        event_type: 'red_flag_triggered',
+        actor: 'system',
+        tool_id: toolId,
+        action_id: actionId,
+        label: action.label,
+        result_text: action.red_flag,
+        state_after: result.state_after,
+        started_at_ms: timestampMs + 200,
       });
     }
 
