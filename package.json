@@ -14,7 +14,9 @@
     "test:openrouter": "node scripts/test-openrouter.mjs",
     "test:mvp-flow": "node scripts/test-mvp-flow.mjs",
     "test:analysis-scoring": "node scripts/test-analysis-scoring.mjs",
-    "test:analysis-hardening": "node scripts/test-analysis-hardening.mjs"
+    "test:analysis-hardening": "node scripts/test-analysis-hardening.mjs",
+    "test:adversarial": "node scripts/test-adversarial.mjs",
+    "test:calibration": "node scripts/test-50-transcripts.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

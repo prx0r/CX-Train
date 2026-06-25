@@ -272,7 +272,7 @@ Recommended package scripts:
 }
 ```
 
-Do not include `test:calibration` in `test` until the calibration failures are fixed or the script supports an explicit expected-failure mode.
+`test:calibration` is now available as a named script and passes 50/50 after Phase 2. Keep it separate from `npm test` until the remaining inline scorer drift is removed.
 
 ## Final Completion Criteria
 
@@ -289,5 +289,12 @@ This plan is complete only when:
 
 Phase 1 is implemented.
 
-Phases 2 through 6 remain open.
+Phase 2 is implemented:
 
+- Added deterministic derived gates for poor ticket quality, severe data gaps, missing next steps, critical discovery gaps, missed scope, ticket priority mismatch, device/environment gaps, and minor polish/documentation caps.
+- Added `unsupported_ticket_claims` as an explicit fail gate for tickets that claim actions not supported by the transcript.
+- Updated `scripts/test-50-transcripts.mjs`; it now passes 50/50 with 50/50 deterministic repeat checks.
+- Added production scorer tests for the new gates in `tests/mvp-analysis-scoring.test.ts`.
+- Added `test:adversarial` and `test:calibration` package scripts.
+
+Phases 3 through 6 remain open.

@@ -65,6 +65,19 @@ export interface FailGateDefinition {
   overrideReadiness?: ReadinessLabel;
 }
 
+interface DerivedGateDefinition {
+  id: string;
+  label: string;
+  severity: GateSeverity;
+  scoreCap: number;
+  overrideReadiness?: ReadinessLabel;
+  rationale: string;
+  when: (criteria: NormalizedCriteria, rawScore: number) => boolean;
+}
+
+type NormalizedCriterion = { status: string; severity?: string; evidence?: string[]; notes?: string };
+type NormalizedCriteria = Record<string, NormalizedCriterion>;
+
 export const FAIL_GATES: FailGateDefinition[] = [
   {
     id: 'severe_customer_abuse',
@@ -115,12 +128,137 @@ export const FAIL_GATES: FailGateDefinition[] = [
     overrideReadiness: 'needs_supervision',
   },
   {
+    id: 'unsupported_ticket_claims',
+    label: 'Ticket contains unsupported claims',
+    severity: 'major',
+    scoreCap: 70,
+    redFlagType: 'unsupported_ticket_claims',
+    overrideReadiness: 'needs_supervision',
+  },
+  {
     id: 'critical_urgency_missed',
     label: 'Critical urgency not captured',
     severity: 'major',
     scoreCap: 70,
     redFlagType: 'critical_urgency_missed',
     overrideReadiness: 'needs_supervision',
+  },
+];
+
+const DERIVED_GATES: DerivedGateDefinition[] = [
+  {
+    id: 'poor_ticket_quality',
+    label: 'Poor ticket quality',
+    severity: 'major',
+    scoreCap: 60,
+    overrideReadiness: 'needs_supervision',
+    rationale: 'Ticket documentation missed most required fields.',
+    when: criteria => countFailed(criteria, [
+      'ticket_user_company',
+      'ticket_issue_summary',
+      'ticket_impact',
+      'ticket_urgency',
+      'ticket_checks_attempted',
+      'ticket_next_step',
+    ]) >= 5,
+  },
+  {
+    id: 'severe_data_gap',
+    label: 'Severe assessment data gap',
+    severity: 'major',
+    scoreCap: 30,
+    overrideReadiness: 'not_ready',
+    rationale: 'Candidate captured almost none of the required call or ticket information.',
+    when: criteria => countFailed(criteria, [
+      'company_check',
+      'issue_clarification',
+      'impact',
+      'urgency',
+      'scope',
+      'technical_discovery',
+      'error_or_status_capture',
+      'recent_changes',
+      'next_steps',
+      'ticket_impact',
+      'ticket_urgency',
+      'ticket_checks_attempted',
+      'ticket_next_step',
+      'escalation_judgement',
+    ]) >= 12,
+  },
+  {
+    id: 'missing_next_steps',
+    label: 'Missing next steps or closure',
+    severity: 'major',
+    scoreCap: 80,
+    overrideReadiness: 'needs_supervision',
+    rationale: 'Candidate did not set a clear next step or closure plan.',
+    when: (criteria, rawScore) => rawScore >= 80 && isFail(criteria, 'next_steps'),
+  },
+  {
+    id: 'critical_discovery_gap',
+    label: 'Critical discovery gap',
+    severity: 'major',
+    scoreCap: 80,
+    overrideReadiness: 'needs_supervision',
+    rationale: 'A manager-critical discovery item was missed in an otherwise strong call.',
+    when: (criteria, rawScore) => rawScore >= 80 && (
+      isFail(criteria, 'recent_changes') ||
+      isFail(criteria, 'error_or_status_capture') ||
+      isFail(criteria, 'technical_discovery') ||
+      (isFail(criteria, 'urgency') && isFail(criteria, 'ticket_urgency'))
+    ),
+  },
+  {
+    id: 'scope_missed',
+    label: 'Scope not established',
+    severity: 'major',
+    scoreCap: 85,
+    overrideReadiness: 'needs_supervision',
+    rationale: 'Candidate did not establish whether the issue affected one user or many.',
+    when: (criteria, rawScore) => rawScore >= 80 && isFail(criteria, 'scope'),
+  },
+  {
+    id: 'ticket_priority_mismatch',
+    label: 'Ticket priority mismatch',
+    severity: 'major',
+    scoreCap: 80,
+    overrideReadiness: 'needs_supervision',
+    rationale: 'Ticket urgency or priority did not match the customer impact.',
+    when: (criteria, rawScore) => rawScore >= 80 && isFail(criteria, 'ticket_urgency') && !isPartial(criteria, 'urgency'),
+  },
+  {
+    id: 'device_or_environment_gap',
+    label: 'Device or environment not captured',
+    severity: 'major',
+    scoreCap: 85,
+    overrideReadiness: 'needs_supervision',
+    rationale: 'Candidate did not capture enough device or environment detail for follow-up.',
+    when: (criteria, rawScore) => rawScore >= 90 && isPartial(criteria, 'technical_discovery'),
+  },
+  {
+    id: 'minor_tone_gap',
+    label: 'Minor communication polish gap',
+    severity: 'warning',
+    scoreCap: 95,
+    rationale: 'Call was strong but tone or empathy was only partially demonstrated.',
+    when: (criteria, rawScore) => rawScore > 95 && isPartial(criteria, 'customer_tone'),
+  },
+  {
+    id: 'minor_closure_gap',
+    label: 'Minor closure polish gap',
+    severity: 'warning',
+    scoreCap: 90,
+    rationale: 'Call was good but closure or documentation of next steps was incomplete.',
+    when: (criteria, rawScore) => rawScore > 90 && (isPartial(criteria, 'next_steps') || isPartial(criteria, 'ticket_next_step')),
+  },
+  {
+    id: 'minor_urgency_documentation_gap',
+    label: 'Minor urgency documentation gap',
+    severity: 'warning',
+    scoreCap: 90,
+    rationale: 'Call was strong but urgency was incomplete in the call or ticket.',
+    when: (criteria, rawScore) => rawScore > 90 && (isPartial(criteria, 'urgency') || isFail(criteria, 'ticket_urgency')),
   },
 ];
 
@@ -194,6 +332,39 @@ export function computeFinalScore(
   return { score: finalScore, readiness };
 }
 
+function detectDerivedGates(criteria: NormalizedCriteria, rawScore: number): FailGateHit[] {
+  const hits: FailGateHit[] = [];
+  for (const gate of DERIVED_GATES) {
+    if (!gate.when(criteria, rawScore)) continue;
+    hits.push({
+      id: gate.id,
+      label: gate.label,
+      severity: gate.severity,
+      scoreCap: gate.scoreCap,
+      overrideReadiness: gate.overrideReadiness,
+      evidence: [{ source: 'analysis', note: gate.rationale }],
+      rationale: gate.rationale,
+    });
+  }
+  return hits;
+}
+
+function statusOf(criteria: NormalizedCriteria, key: string): string {
+  return String(criteria[key]?.status || 'not_observed').toLowerCase().trim();
+}
+
+function isFail(criteria: NormalizedCriteria, key: string): boolean {
+  return statusOf(criteria, key) === 'fail' || statusOf(criteria, key) === 'not_observed';
+}
+
+function isPartial(criteria: NormalizedCriteria, key: string): boolean {
+  return statusOf(criteria, key) === 'partial';
+}
+
+function countFailed(criteria: NormalizedCriteria, keys: string[]): number {
+  return keys.filter(key => isFail(criteria, key)).length;
+}
+
 export function scoreExtraction(params: {
   criteria: Record<string, { status: string; severity?: string; evidence?: string[]; notes?: string }> | null | undefined;
   redFlags?: Array<{ type: string; severity?: string; evidence?: string }> | null;
@@ -201,7 +372,7 @@ export function scoreExtraction(params: {
   thresholds?: { ready_min: number; needs_supervision_min: number };
 }): ScoringResult {
   const weights = params.weights || DEFAULT_WEIGHTS;
-  const criteria = params.criteria && typeof params.criteria === 'object' ? params.criteria : {};
+  const criteria: NormalizedCriteria = params.criteria && typeof params.criteria === 'object' ? params.criteria : {};
   let earnedScore = 0;
   let maxPossibleScore = 0;
   const failedRequiredChecks: string[] = [];
@@ -238,7 +409,10 @@ export function scoreExtraction(params: {
     const flag = redFlags.find(f => f?.type?.toString().toLowerCase().trim() === flagType);
     return flag?.evidence ? [flag.evidence] : [];
   };
-  const gateHits = detectFailGates(redFlags, extractEvidence);
+  const gateHits = [
+    ...detectFailGates(redFlags, extractEvidence),
+    ...detectDerivedGates(criteria, rawScore),
+  ];
 
   const { score: finalScore, readiness } = computeFinalScore(rawScore, gateHits);
 
