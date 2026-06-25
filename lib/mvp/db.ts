@@ -844,7 +844,7 @@ export function seedDefaults(): void {
       JSON.stringify(pack.rubric),
       `You are ${pack.customer.name}, ${pack.customer.role} at ${pack.customer.company}. ${pack.customer.openingLine}`,
       pack.customer.openingLine,
-      JSON.stringify({ tools: pack.tools, actions: pack.actions.map((a: any) => ({ id: a.id, tool: a.tool, label: a.label, allowedPhases: a.allowedPhases, requiresState: a.requiresState, effects: a.effects, observation: a.observation, evidenceTags: a.evidenceTags, scoreImpact: a.scoreImpact })) }),
+      JSON.stringify({ tools: pack.tools, actions: pack.actions.map((a: any) => ({ id: a.id, tool: a.tool, label: a.label, allowedPhases: a.allowedPhases, requiresState: a.requiresState, effects: a.effects, observation: a.observation, taxonomyTags: a.taxonomyTags, scoreImpact: a.scoreImpact })) }),
       JSON.stringify(pack.initialState),
       JSON.stringify({ phase: 'submitted' })
     );

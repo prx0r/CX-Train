@@ -3,7 +3,7 @@ import { getDb, seedDefaults, initTables } from '@/lib/mvp/db';
 import { makeId, getActiveScenario, getActiveCriteria, getManagerStandards } from '@/lib/mvp/query';
 import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
-import { getOutlookWorkOfflinePack, OUTLOOK_WORK_OFFLINE_PACK_ID } from '@/lib/mvp/sim/packConfig';
+import { getPackById, getPackIdForMode } from '@/lib/mvp/sim/packRegistry';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const candidateEmail = body.candidate_email || null;
     const managerProfileId = body.manager_profile_id || 'manager-default-v1';
     const assessmentMode = body.assessment_mode || 'chat_call';
-    const assessmentPackId = body.assessment_pack_id || null;
+    const preferredPackId = body.assessment_pack_id || null;
 
     const scenario = getActiveScenario();
     const criteria = getActiveCriteria();
@@ -31,30 +31,19 @@ export async function POST(request: NextRequest) {
     const inviteToken = makeId();
 
     const db = getDb();
-
     const title = `Call Readiness: ${candidateName}`;
 
-    // Load pack if dashboard_sim
+    /* Resolve pack via registry for dashboard_sim */
     let packInitialState: Record<string, unknown> = {};
-    let packId = assessmentPackId;
+    let packId: string | null = null;
+
     if (assessmentMode === 'dashboard_sim') {
-      if (!packId || packId === OUTLOOK_WORK_OFFLINE_PACK_ID) {
-        packId = OUTLOOK_WORK_OFFLINE_PACK_ID;
-        const codePack = getOutlookWorkOfflinePack();
-        packInitialState = codePack.initialState as unknown as Record<string, unknown>;
-      } else {
-        const { getAssessmentPack } = await import('@/lib/mvp/query');
-        const dbPack = getAssessmentPack(packId);
-        if (!dbPack) {
-          return NextResponse.json({ error: 'assessment_pack_id not found' }, { status: 400 });
-        }
-        if (dbPack.sim_initial_state_json) {
-          packInitialState = JSON.parse(dbPack.sim_initial_state_json);
-        }
-      }
+      packId = getPackIdForMode(assessmentMode, preferredPackId);
+      const codePack = getPackById(packId);
+      packInitialState = codePack.initialState as unknown as Record<string, unknown>;
     }
 
-    // Snapshot current standards
+    /* Snapshot current standards */
     const standards = getManagerStandards();
     const standardsSnapshot = standards ? {
       id: standards.id,
@@ -69,7 +58,7 @@ export async function POST(request: NextRequest) {
       VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
       assessmentId, title, candidateName, candidateEmail, inviteToken, scenario.id, criteria?.id || null,
       managerProfileId, standardsSnapshot ? JSON.stringify(standardsSnapshot) : null,
-      assessmentPackId, assessmentMode
+      packId, assessmentMode
     );
 
     db.prepare(`INSERT INTO sessions (id, assessment_id, status, started_at)
@@ -78,8 +67,8 @@ export async function POST(request: NextRequest) {
     db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
       VALUES (?, ?, 'caller', ?, datetime('now'))`).run(makeId(), sessionId, scenario.initial_message);
 
-    // Create sim_session for dashboard_sim
-    if (assessmentMode === 'dashboard_sim') {
+    /* Create sim_session for dashboard_sim */
+    if (assessmentMode === 'dashboard_sim' && packId) {
       const simSessionId = makeId();
       db.prepare(`INSERT INTO sim_sessions (id, session_id, assessment_id, assessment_pack_id, current_state_json, started_at)
         VALUES (?, ?, ?, ?, ?, datetime('now'))`).run(simSessionId, sessionId, assessmentId, packId, JSON.stringify(packInitialState));
@@ -96,14 +85,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Write unified session_events
+    /* Write unified session_events */
     appendSessionEvent({
       assessment_id: assessmentId,
       session_id: sessionId,
       event_type: 'assessment_started',
       actor: 'system',
       label: 'Assessment created',
-      payload: { mode: assessmentMode, pack_id: assessmentPackId },
+      payload: { mode: assessmentMode, pack_id: packId },
       started_at_ms: Date.now(),
     });
 

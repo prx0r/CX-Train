@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initTables, getDb } from '@/lib/mvp/db';
 import { getFullAssessment, getAssessmentPack } from '@/lib/mvp/query';
 import { buildTimeline } from '@/lib/mvp/sim/timeline';
-import { getOutlookWorkOfflinePack } from '@/lib/mvp/sim/packConfig';
+import { getPackById } from '@/lib/mvp/sim/packRegistry';
 import { getSessionEvents } from '@/lib/mvp/events/eventLog';
 import { buildEvidenceTimeline, calculateTimingMetrics } from '@/lib/mvp/events/timeline';
 
@@ -20,6 +20,7 @@ export async function GET(
     const assessmentMode = (full.assessment as any).assessment_mode || 'chat_call';
     const result: any = { ...full, assessment_mode: assessmentMode };
 
+    /* Canonical event stream from session_events */
     if (full.session) {
       const sessionEvents = getSessionEvents(full.session.id);
       result.evidenceTimeline = buildEvidenceTimeline(sessionEvents);
@@ -29,9 +30,7 @@ export async function GET(
 
     if (assessmentMode === 'dashboard_sim' && full.session) {
       const db = getDb();
-      const rawEvents: any[] = db.prepare(
-        'SELECT * FROM sim_events WHERE session_id = ? ORDER BY sequence_index ASC'
-      ).all(full.session.id) as any[];
+      const packId = (full.assessment as any).assessment_pack_id || 'pack-outlook-sim-v2';
 
       const simSession = db.prepare('SELECT * FROM sim_sessions WHERE session_id = ?').get(full.session.id) as any;
 
@@ -41,18 +40,34 @@ export async function GET(
           current_state: simSession.current_state_json ? JSON.parse(simSession.current_state_json) : null,
           final_state: simSession.final_state_json ? JSON.parse(simSession.final_state_json) : null,
           completed_at: simSession.completed_at,
-          event_count: rawEvents.length,
         };
 
-        const packId = (full.assessment as any).assessment_pack_id;
-        const pack = packId ? getAssessmentPack(packId) : null;
-        if (pack && pack.sim_config_json) {
-          const config = JSON.parse(pack.sim_config_json);
-          result.simConfig = { tools: config.tools };
-          result.simRedFlagActions = (config.actions || []).filter((a: any) => a.red_flag).map((a: any) => ({ id: a.id, label: a.label, red_flag: a.red_flag }));
+        try {
+          const pack = getPackById(packId);
+          result.simConfig = { tools: pack.tools };
+          result.simRedFlagActions = pack.actions.filter(a => a.redFlag).map(a => ({
+            id: a.id,
+            label: a.label,
+            redFlag: a.redFlag,
+          }));
+        } catch {
+          /* Fall back to DB pack if code pack not found */
+          const pack = packId ? getAssessmentPack(packId) : null;
+          if (pack && pack.sim_config_json) {
+            const config = JSON.parse(pack.sim_config_json);
+            result.simConfig = { tools: config.tools };
+            result.simRedFlagActions = (config.actions || []).filter((a: any) => a.red_flag).map((a: any) => ({ id: a.id, label: a.label, red_flag: a.red_flag }));
+          }
         }
 
-        result.simTimeline = buildTimeline(rawEvents as any).map(t => ({
+        /* Timeline from canonical session_events */
+        const canonicalEvents = getSessionEvents(full.session.id);
+        const typedEvents = canonicalEvents.map((e: any) => ({
+          ...e,
+          sequence: e.sequence_index,
+          started_at_ms: e.started_at_ms,
+        }));
+        result.simTimeline = buildTimeline(typedEvents as any).map(t => ({
           sequence: t.sequence,
           actor: t.actor,
           label: t.label,

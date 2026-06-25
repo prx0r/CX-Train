@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, initTables } from '@/lib/mvp/db';
-import { getAssessmentByToken, getSessionByAssessment, makeId, getAssessmentPack } from '@/lib/mvp/query';
-import { insertSimEvent, getSimEvents } from '@/lib/mvp/sim/eventLog';
+import { getAssessmentByToken, getSessionByAssessment, makeId } from '@/lib/mvp/query';
+import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
 
 export async function POST(
@@ -32,7 +32,7 @@ export async function POST(
       VALUES (?, ?, ?, datetime('now'))`).run(makeId(), session.id, ticketText);
     db.prepare('UPDATE assessments SET status = ? WHERE id = ?').run('completed', assessment.id);
 
-    // Write unified session_events
+    /* Canonical event log */
     appendSessionEvent({
       assessment_id: assessment.id,
       session_id: session.id,
@@ -52,13 +52,13 @@ export async function POST(
       started_at_ms: Date.now() + 50,
     });
 
-    // Complete sim_session for dashboard_sim
+    /* Complete sim_session for dashboard_sim */
     const assessmentMode = (assessment as any).assessment_mode || 'chat_call';
     if (assessmentMode === 'dashboard_sim') {
       const simSession = db.prepare('SELECT id, current_state_json FROM sim_sessions WHERE session_id = ?').get(session.id) as any;
       if (simSession) {
         const currentState = JSON.parse(simSession.current_state_json);
-        currentState.ticket_note_submitted = true;
+        currentState.phase = 'submitted';
         db.prepare('UPDATE sim_sessions SET current_state_json = ?, completed_at = datetime(\'now\'), final_state_json = ? WHERE id = ?').run(
           JSON.stringify(currentState), JSON.stringify(currentState), simSession.id
         );

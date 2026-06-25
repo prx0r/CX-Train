@@ -1,50 +1,81 @@
-import { SimState, SimAction, VisibleSimState, VisibleAction, SimPack, SimPhase } from './types';
+import { SimState, SimAction, VisibleSimState, VisibleAction } from './types';
 
-const SAFE_STATE_KEYS: string[] = [
-  'phase',
-  'call.customerMood',
-  'call.startedAt',
-  'remote.connected',
-  'remote.currentApp',
-  'outlook.workOffline',
-  'outlook.outboxCount',
-  'outlook.sentTestEmail',
-  'network.internetReachable',
-  'connectwise.ticketId',
-  'connectwise.priority',
-  'connectwise.status',
-];
+/* ── Visibility rules ──────────────────────────────────
+ *
+ * Phase-based gating:
+ *   not_started / call_active → only call info
+ *   remote_active             → remote info + unlocked subsections
+ *   ticketing / submitted     → everything discovered so far
+ *
+ * Subsection visibility requires a key in state.discovered:
+ *   'tool.outlook.*'    → outlook block visible
+ *   'tool.cmd.ping'     → network block visible
+ *   'tool.connectwise.*'→ connectwise block visible
+ *   'fix.correct_root_cause' → sentTestEmail / verifiedFix visible
+ */
+
+function outlookVisible(state: SimState): boolean {
+  return state.discovered.some(t => t.startsWith('tool.outlook.'));
+}
+
+function networkVisible(state: SimState): boolean {
+  return state.discovered.some(t => t.startsWith('tool.cmd.') || t.startsWith('tool.browser.check_webmail'));
+}
+
+function connectwiseVisible(state: SimState): boolean {
+  return state.discovered.some(t => t.startsWith('tool.connectwise.'));
+}
+
+function fixVerifiedVisible(state: SimState): boolean {
+  return state.discovered.includes('fix.correct_root_cause') || state.outlook?.sentTestEmail === true;
+}
 
 function pickSafe(raw: SimState): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
   safe.phase = raw.phase;
+
+  /* Call info always visible */
   safe.call = {
     customerMood: raw.call.customerMood,
     startedAt: raw.call.startedAt,
   };
-  safe.remote = {
-    connected: raw.remote.connected,
-    currentApp: raw.remote.currentApp,
-  };
-  if (raw.outlook) {
-    safe.outlook = {
-      workOffline: raw.outlook.workOffline,
-      outboxCount: raw.outlook.outboxCount,
-      sentTestEmail: raw.outlook.sentTestEmail,
+
+  /* Remote info visible only in remote_active+ */
+  if (raw.phase === 'remote_active' || raw.phase === 'ticketing' || raw.phase === 'submitted') {
+    safe.remote = {
+      connected: raw.remote.connected,
+      currentApp: raw.remote.currentApp,
     };
   }
-  if (raw.network) {
+
+  /* Outlook state — only after discovery */
+  if (raw.outlook && outlookVisible(raw)) {
+    const o: Record<string, unknown> = {
+      workOffline: raw.outlook.workOffline,
+      outboxCount: raw.outlook.outboxCount,
+    };
+    if (fixVerifiedVisible(raw)) {
+      o.sentTestEmail = raw.outlook.sentTestEmail;
+    }
+    safe.outlook = o;
+  }
+
+  /* Network state — only after discovery */
+  if (raw.network && networkVisible(raw)) {
     safe.network = {
       internetReachable: raw.network.internetReachable,
     };
   }
-  if (raw.connectwise) {
+
+  /* ConnectWise state — only after discovery */
+  if (raw.connectwise && connectwiseVisible(raw)) {
     safe.connectwise = {
       ticketId: raw.connectwise.ticketId,
       priority: raw.connectwise.priority,
       status: raw.connectwise.status,
     };
   }
+
   return safe;
 }
 
@@ -72,16 +103,10 @@ export function getVisibleActions(state: SimState, actions: SimAction[]): Visibl
       }
       return true;
     })
-    .filter(a => !a.redFlag)
-    .map(a => ({ id: a.id, tool: a.tool, label: a.label }));
-}
-
-export function buildCandidatePack(pack: SimPack): { state: VisibleSimState; actions: VisibleAction[]; tools: string[]; customerName: string; customerOpeningLine: string } {
-  return {
-    state: getVisibleState(pack.initialState),
-    actions: getVisibleActions(pack.initialState, pack.actions),
-    tools: pack.tools,
-    customerName: pack.customer.name,
-    customerOpeningLine: pack.customer.openingLine,
-  };
+    .map(a => ({
+      id: a.id,
+      tool: a.tool,
+      label: a.label,
+      redFlag: !!a.redFlag,
+    }));
 }

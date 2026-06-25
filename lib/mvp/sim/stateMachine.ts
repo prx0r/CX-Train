@@ -1,4 +1,4 @@
-import { SimState, SimAction, SimActionResult, SimPhase } from './types';
+import { SimState, SimAction, SimActionResult, SimPhase, SimErrorCode } from './types';
 
 function setNested(obj: Record<string, unknown>, path: string[], value: unknown): void {
   let current = obj;
@@ -60,6 +60,13 @@ export function transitionPhase(state: SimState, targetPhase: SimPhase): SimStat
   return next;
 }
 
+/* ── Resolve dynamic effect values (e.g. "$now") ────── */
+
+function resolveEffectValue(val: unknown): unknown {
+  if (val === '$now') return Date.now();
+  return val;
+}
+
 /* ── Core action application ────────────────────────── */
 
 export function applyAction(
@@ -73,6 +80,7 @@ export function applyAction(
   if (!action.allowedPhases.includes(state.phase)) {
     return {
       result: {
+        ok: false,
         action_id: action.id,
         label: action.label,
         result_text: `Action "${action.id}" not allowed during phase "${state.phase}".`,
@@ -80,8 +88,9 @@ export function applyAction(
         state_after: state_before as unknown as Record<string, unknown>,
         phaseTransition: false,
         revealedFacts: [],
-        evidenceTags: [],
+        taxonomyTags: [],
         redFlag: null,
+        errorCode: 'INVALID_PHASE',
       },
       updatedState: state,
     };
@@ -94,6 +103,7 @@ export function applyAction(
       if (currentVal !== val) {
         return {
           result: {
+            ok: false,
             action_id: action.id,
             label: action.label,
             result_text: `Precondition not met: requires ${key}=${val} but current=${JSON.stringify(currentVal)}.`,
@@ -101,8 +111,9 @@ export function applyAction(
             state_after: state_before as unknown as Record<string, unknown>,
             phaseTransition: false,
             revealedFacts: [],
-            evidenceTags: [],
+            taxonomyTags: [],
             redFlag: null,
+            errorCode: 'PRECONDITION_FAILED',
           },
           updatedState: state,
         };
@@ -110,14 +121,14 @@ export function applyAction(
     }
   }
 
-  /* 3. Apply effects (nested dot-path) */
+  /* 3. Apply effects (nested dot-path, dynamic resolution) */
   if (action.effects) {
     for (const [key, val] of Object.entries(action.effects)) {
-      setNested(updated as unknown as Record<string, unknown>, parseDotPath(key), val);
+      setNested(updated as unknown as Record<string, unknown>, parseDotPath(key), resolveEffectValue(val));
     }
   }
 
-  /* 4. Track revealed facts */
+  /* 4. Track revealed facts and discovered state keys */
   const revealedFacts: string[] = [];
   if (action.revealsFacts) {
     for (const fact of action.revealsFacts) {
@@ -128,8 +139,16 @@ export function applyAction(
     }
   }
 
-  /* 5. Mark evidence */
-  const evidenceTags = action.evidenceTags ?? [];
+  /* 5. Track discovered taxonomy tags */
+  if (action.taxonomyTags) {
+    for (const tag of action.taxonomyTags) {
+      if (!updated.discovered.includes(tag)) {
+        updated.discovered.push(tag);
+      }
+    }
+  }
+
+  const taxonomyTags = action.taxonomyTags ?? [];
 
   /* 6. Determine phase transition */
   let phaseTransition = false;
@@ -151,6 +170,7 @@ export function applyAction(
 
   return {
     result: {
+      ok: true,
       action_id: action.id,
       label: action.label,
       result_text: action.observation,
@@ -158,8 +178,9 @@ export function applyAction(
       state_after: updated as unknown as Record<string, unknown>,
       phaseTransition,
       revealedFacts,
-      evidenceTags,
+      taxonomyTags,
       redFlag: action.redFlag ?? null,
+      errorCode: null,
     },
     updatedState: updated,
   };

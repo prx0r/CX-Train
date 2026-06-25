@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, initTables } from '@/lib/mvp/db';
-import { getAssessmentByToken, getSessionByAssessment, getMessages, makeId, getActiveScenario, getAssessmentPack } from '@/lib/mvp/query';
-import { getSessionEvents } from '@/lib/mvp/events/eventLog';
+import { getAssessmentByToken, getSessionByAssessment, getMessages, makeId, getActiveScenario } from '@/lib/mvp/query';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
-import { buildSimSummary } from '@/lib/mvp/sim/timeline';
 import { runAiTask } from '@/lib/ai/provider';
+import { getPackById } from '@/lib/mvp/sim/packRegistry';
+import { buildAiCustomerContext } from '@/lib/mvp/sim/aiCustomer';
+import { SimState } from '@/lib/mvp/sim/types';
 
 export async function POST(
   request: NextRequest,
@@ -35,11 +36,10 @@ export async function POST(
 
     const db = getDb();
 
-    // Store candidate message
+    /* Store candidate message */
     db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
       VALUES (?, ?, 'candidate', ?, datetime('now'))`).run(makeId(), session.id, candidateMessage);
 
-    // Write unified session event
     appendSessionEvent({
       assessment_id: assessment.id,
       session_id: session.id,
@@ -51,30 +51,38 @@ export async function POST(
       duration_ms: durationMs,
     });
 
-    // Load scenario hidden facts (server-side only)
-    const scenario = assessment.scenario_id
-      ? (db.prepare('SELECT * FROM scenarios WHERE id = ?').get(assessment.scenario_id) as any)
-      : null;
-
-    // Build conversation history for the AI
+    /* Build conversation history */
     const priorMessages = getMessages(session.id);
-    const hiddenFacts = scenario ? JSON.parse(scenario.hidden_facts_json) : {};
-    const callerPrompt = scenario?.caller_behaviour_prompt || 'You are an MSP client calling for help.';
 
-    // Add sim event context for dashboard_sim
+    /* Determine AI caller prompt — use sim AI context for dashboard_sim, fallback for chat_call */
     const assessmentMode = (assessment as any).assessment_mode || 'chat_call';
-    let simContext = '';
-    if (assessmentMode === 'dashboard_sim') {
-      const db = getDb();
-      const rawEvents: any[] = db.prepare('SELECT * FROM sim_events WHERE session_id = ? ORDER BY sequence_index ASC').all(session.id) as any[];
-      simContext = '\n\n' + buildSimSummary(rawEvents as any);
-    }
+    let systemMessage: string;
 
-    const systemMessage = `${callerPrompt}
+    if (assessmentMode === 'dashboard_sim') {
+      /* Load current sim state and build AI customer context */
+      const packId = (assessment as any).assessment_pack_id || 'pack-outlook-sim-v2';
+      const pack = getPackById(packId);
+
+      const simSession = db.prepare('SELECT current_state_json FROM sim_sessions WHERE session_id = ?').get(session.id) as any;
+      const currentState: SimState = simSession
+        ? JSON.parse(simSession.current_state_json)
+        : pack.initialState;
+
+      const ctx = buildAiCustomerContext(pack, currentState);
+      systemMessage = ctx.systemPrompt;
+    } else {
+      /* Legacy chat_call mode — use scenario-based prompt */
+      const scenario = assessment.scenario_id
+        ? (db.prepare('SELECT * FROM scenarios WHERE id = ?').get(assessment.scenario_id) as any)
+        : null;
+      const hiddenFacts = scenario ? JSON.parse(scenario.hidden_facts_json) : {};
+      const callerPrompt = scenario?.caller_behaviour_prompt || 'You are an MSP client calling for help.';
+
+      systemMessage = `${callerPrompt}
 
 HIDDEN FACTS (use these to answer truthfully, but do not volunteer them):
 ${JSON.stringify(hiddenFacts, null, 2)}
-${simContext}
+
 CRITICAL RULES:
 - Do NOT reveal hidden facts unless the candidate directly asks about them
 - If asked about hostname, reveal it
@@ -82,12 +90,11 @@ CRITICAL RULES:
 - If asked about web/browser access, mention Outlook web works
 - Stay in character: frustrated accountant Sarah Thompson from Alder & Co
 - Keep responses concise (1-3 sentences)
-- Never break character or mention that you are an AI
-- If the candidate performed a support action, acknowledge it naturally. Example: "Oh, I can see the email has gone now. Was it just set offline?"
-- Do NOT invent tool observations that are not in the recent support actions above.`;
+- Never break character or mention that you are an AI`;
+    }
 
     const conversation = [
-      { role: 'system', content: systemMessage } as const,
+      { role: 'system' as const, content: systemMessage },
       ...priorMessages.map(m => ({
         role: m.role === 'caller' ? 'assistant' as const : 'user' as const,
         content: m.content,
@@ -108,12 +115,10 @@ CRITICAL RULES:
       callerReply = 'Alright, let me know if you need anything else. I really need to get this sorted before my meeting though.';
     }
 
-    // Store caller reply
-    const callerMsgId = makeId();
+    /* Store caller reply */
     db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
-      VALUES (?, ?, 'caller', ?, datetime('now'))`).run(callerMsgId, session.id, callerReply);
+      VALUES (?, ?, 'caller', ?, datetime('now'))`).run(makeId(), session.id, callerReply);
 
-    // Write caller reply as session event
     appendSessionEvent({
       assessment_id: assessment.id,
       session_id: session.id,

@@ -1,8 +1,8 @@
-import { SimPackEvent, SimScoringResult, SimAction, SimState } from './types';
+import { SimScoringResult, SimAction, SimState, TaxonomyTag } from './types';
 
 export function scoreSimEvents(params: {
   pack: { actions: SimAction[]; rubric: Record<string, { weight: number }> };
-  events: SimPackEvent[];
+  events: Array<{ event_type: string; action_id?: string | null; text?: string | null; label?: string | null; result_text?: string | null; payload?: Record<string, unknown> | null }>;
   finalState: SimState;
 }): SimScoringResult {
   const { pack, events, finalState } = params;
@@ -14,33 +14,44 @@ export function scoreSimEvents(params: {
   const redFlagEvents = events.filter(e => e.event_type === 'red_flag_triggered');
   const redFlagActionIds = new Set(redFlagEvents.map(e => e.action_id).filter(Boolean));
 
+  /* Check taxonomy tags directly from events */
+  function hasTag(tag: TaxonomyTag): boolean {
+    return events.some(e => {
+      const payload = e.payload;
+      if (!payload || !Array.isArray(payload.taxonomy_tags)) return false;
+      return (payload.taxonomy_tags as string[]).includes(tag);
+    });
+  }
+
+  function hasTagInEvent(actionId: string, tag: TaxonomyTag): boolean {
+    return events.some(e => {
+      if (e.action_id !== actionId) return false;
+      const payload = e.payload;
+      if (!payload || !Array.isArray(payload.taxonomy_tags)) return false;
+      return (payload.taxonomy_tags as string[]).includes(tag);
+    });
+  }
+
   /* ── Criteria computation ─────────────────────────── */
 
   const actionCriteria: Record<string, 'pass' | 'partial' | 'fail'> = {};
 
-  const askedImpact = finalState.evidence.askedImpact || events.some(e =>
-    e.event_type === 'candidate_message' && e.text?.toLowerCase().includes('impact')
-  );
+  const askedImpact = finalState.evidence.askedImpact || hasTag('communication.impact_question');
   actionCriteria.asked_impact = askedImpact ? 'pass' : 'fail';
 
-  const askedScope = finalState.evidence.askedScope || events.some(e =>
-    e.event_type === 'candidate_message' &&
-    (e.text?.toLowerCase().includes('anyone else') || e.text?.toLowerCase().includes('only you'))
-  );
+  const askedScope = finalState.evidence.askedScope || hasTag('communication.scope_question');
   actionCriteria.asked_scope = askedScope ? 'pass' : 'fail';
 
-  const confirmedUser = finalState.evidence.confirmedUser || events.some(e =>
-    e.event_type === 'candidate_message' && e.text?.toLowerCase().includes('your name')
-  );
+  const confirmedUser = finalState.evidence.confirmedUser || hasTag('communication.user_confirmation');
   actionCriteria.confirmed_user = confirmedUser ? 'pass' : 'fail';
 
   const openedOutlook = performedActionIds.has('open_outlook');
   actionCriteria.opened_outlook = openedOutlook ? 'pass' : 'fail';
 
-  const checkedStatus = performedActionIds.has('check_outlook_status');
+  const checkedStatus = performedActionIds.has('check_outlook_status') || hasTagInEvent('check_outlook_status', 'tool.outlook.check_status');
   actionCriteria.checked_outlook_status = checkedStatus ? 'pass' : 'fail';
 
-  const checkedWebmail = performedActionIds.has('check_webmail');
+  const checkedWebmail = performedActionIds.has('check_webmail') || hasTagInEvent('check_webmail', 'tool.browser.check_webmail');
   actionCriteria.checked_webmail = checkedWebmail ? 'pass' : 'fail';
 
   const disabledWFO = performedActionIds.has('disable_work_offline');
@@ -82,7 +93,6 @@ export function scoreSimEvents(params: {
   if (escalateBefore) scoreDelta -= 15;
   if (guessedBefore) scoreDelta -= 20;
 
-  /* Phase bonus */
   if (finalState.phase === 'submitted') scoreDelta += 5;
   if (sentTestOrSendReceive && disabledWFO) scoreDelta += 5;
 

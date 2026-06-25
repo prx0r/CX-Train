@@ -1,6 +1,6 @@
 import { getDb } from '../db';
 import { appendSessionEvent, getSessionEvents } from '../events/eventLog';
-import { SimPackEvent, SimEventType, SimRedFlag } from './types';
+import { SimPackEvent, SimEventType, SimRedFlag, TaxonomyTag } from './types';
 
 export function insertSimEvent(params: {
   session_id: string;
@@ -15,7 +15,7 @@ export function insertSimEvent(params: {
   result_text?: string | null;
   state_before?: Record<string, unknown> | null;
   state_after?: Record<string, unknown> | null;
-  evidence_tags?: string[] | null;
+  taxonomy_tags?: TaxonomyTag[] | null;
   red_flag?: SimRedFlag | null;
   started_at_ms?: number | null;
   ended_at_ms?: number | null;
@@ -45,11 +45,11 @@ export function insertSimEvent(params: {
     params.result_text || null,
     params.state_before ? JSON.stringify(params.state_before) : null,
     params.state_after ? JSON.stringify(params.state_after) : null,
-    params.evidence_tags ? JSON.stringify(params.evidence_tags) : null,
+    params.taxonomy_tags ? JSON.stringify(params.taxonomy_tags) : null,
     params.started_at_ms || null,
   );
 
-  /* Also append to canonical session_events table */
+  /* Canonical event log — session_events is the source of truth for scoring/report */
   appendSessionEvent({
     assessment_id: params.assessment_id,
     session_id: params.session_id,
@@ -62,7 +62,7 @@ export function insertSimEvent(params: {
     result_text: params.result_text || null,
     state_before: params.state_before || null,
     state_after: params.state_after || null,
-    payload: params.evidence_tags ? { evidence_tags: params.evidence_tags, red_flag: params.red_flag } : params.red_flag ? { red_flag: params.red_flag } : null,
+    payload: params.taxonomy_tags ? { taxonomy_tags: params.taxonomy_tags, red_flag: params.red_flag } : params.red_flag ? { red_flag: params.red_flag } : null,
     started_at_ms: params.started_at_ms ?? null,
     ended_at_ms: params.ended_at_ms ?? null,
   });
@@ -70,7 +70,8 @@ export function insertSimEvent(params: {
   return id;
 }
 
-export { getSessionEvents as getSimEvents };
+/* session_events is canonical — use this for scoring/report/debug */
+export { getSessionEvents as getCanonicalEvents };
 
 export function getSimEventCount(sessionId: string): number {
   const db = getDb();

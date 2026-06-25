@@ -7,6 +7,44 @@ export type SimPhase =
   | 'ticketing'
   | 'submitted';
 
+export type TaxonomyTag =
+  | 'communication.scope_question'
+  | 'communication.impact_question'
+  | 'communication.user_confirmation'
+  | 'communication.empathy'
+  | 'diagnostic.application_state_checked'
+  | 'diagnostic.scope_isolation'
+  | 'diagnostic.connectivity_verified'
+  | 'diagnostic.kb_used'
+  | 'tool.outlook.open'
+  | 'tool.outlook.check_status'
+  | 'tool.outlook.check_outbox'
+  | 'tool.outlook.disable_work_offline'
+  | 'tool.outlook.send_receive'
+  | 'tool.outlook.send_test_email'
+  | 'tool.browser.open'
+  | 'tool.browser.check_webmail'
+  | 'tool.cmd.ping'
+  | 'tool.cmd.ipconfig'
+  | 'tool.connectwise.open_ticket'
+  | 'tool.connectwise.set_priority'
+  | 'tool.connectwise.add_note'
+  | 'tool.connectwise.search_kb'
+  | 'tool.connectwise.view_asset'
+  | 'tool.remote.connect'
+  | 'fix.correct_root_cause'
+  | 'fix.applied_incorrectly'
+  | 'verification.user_confirmed'
+  | 'verification.test_email_sent'
+  | 'ticket.root_cause_present'
+  | 'ticket.impact_noted'
+  | 'ticket.next_step_set'
+  | 'ticket.urgency_noted'
+  | 'red_flag.disruptive_fix_before_basic_checks'
+  | 'red_flag.destructive_action_without_evidence'
+  | 'red_flag.escalate_without_basic_checks'
+  | 'red_flag.guessed_root_cause_without_evidence';
+
 export type SimToolId =
   | 'customer_chat'
   | 'ticket'
@@ -52,6 +90,11 @@ export interface SimCustomer {
 }
 
 /* ── SimState — structured, nested ──────────────────── */
+
+export type SimErrorCode =
+  | 'INVALID_PHASE'
+  | 'PRECONDITION_FAILED'
+  | 'unknown';
 
 export interface SimState {
   phase: SimPhase;
@@ -105,6 +148,8 @@ export interface SimState {
     performedRiskyAction: boolean;
     ignoredUserEmotion: boolean;
   };
+
+  discovered: string[];
 }
 
 /* ── Red flag definition ────────────────────────────── */
@@ -126,7 +171,7 @@ export interface SimAction {
   effects?: Record<string, unknown>;
   observation: string;
   revealsFacts?: string[];
-  evidenceTags?: string[];
+  taxonomyTags?: TaxonomyTag[];
   redFlag?: SimRedFlag;
   scoreImpact?: {
     positive?: string[];
@@ -212,6 +257,7 @@ export interface SimPackEvent {
 /* ── ActionResult returned to state machine caller ──── */
 
 export interface SimActionResult {
+  ok: boolean;
   action_id: string;
   label: string;
   result_text: string;
@@ -219,8 +265,9 @@ export interface SimActionResult {
   state_after: Record<string, unknown>;
   phaseTransition: boolean;
   revealedFacts: string[];
-  evidenceTags: string[];
+  taxonomyTags: TaxonomyTag[];
   redFlag: SimRedFlag | null;
+  errorCode: SimErrorCode | null;
 }
 
 /* ── Visible (safe) state — never leaks hiddenTruth etc ── */
@@ -234,6 +281,7 @@ export interface VisibleAction {
   id: string;
   tool: SimToolId;
   label: string;
+  redFlag?: boolean;
 }
 
 /* ── Timeline entry for debug / manager view ────────── */

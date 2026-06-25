@@ -1,4 +1,4 @@
-import { SimPack, SimState, SimToolId } from './types';
+import { SimPack, SimState, SimToolId, TaxonomyTag } from './types';
 
 export const OUTLOOK_WORK_OFFLINE_PACK_ID = 'pack-outlook-sim-v2';
 
@@ -48,6 +48,7 @@ export function getInitialState(): SimState {
       performedRiskyAction: false,
       ignoredUserEmotion: false,
     },
+    discovered: [],
   };
 }
 
@@ -103,7 +104,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'customer_chat',
         label: 'End call',
         allowedPhases: ['call_active', 'remote_active'],
-        effects: { 'call.endedAt': Date.now() },
+        effects: { 'call.endedAt': '$now' as any },
         observation: 'Call ended. Proceed to write your ticket.',
         scoreImpact: { positive: ['call_control'] },
       },
@@ -119,7 +120,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
           'remote.currentApp': 'none',
         },
         observation: 'Remote session established with ALDER-LT-023. Windows desktop visible.',
-        evidenceTags: ['remote_access'],
+        taxonomyTags: ['tool.remote.connect'],
         scoreImpact: { positive: ['diagnosis'] },
       },
 
@@ -131,7 +132,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active'],
         effects: { 'remote.currentApp': 'outlook' },
         observation: 'Outlook opens. The status bar at the bottom shows "Work Offline" and the Outbox shows 3 unsent messages.',
-        evidenceTags: ['tool_accessed'],
+        taxonomyTags: ['tool.outlook.open'],
         scoreImpact: { positive: ['diagnosis'] },
       },
       {
@@ -141,7 +142,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active'],
         requiresState: { 'remote.currentApp': 'outlook' },
         observation: 'Outbox contains 3 unsent emails, all addressed to external recipients. They appear stuck.',
-        evidenceTags: ['technical_discovery'],
+        taxonomyTags: ['tool.outlook.check_outbox'],
         scoreImpact: { positive: ['diagnosis'] },
       },
       {
@@ -151,12 +152,11 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active'],
         requiresState: { 'remote.currentApp': 'outlook' },
         effects: {
-          'outlook.workOffline': true,
           'evidence.checkedObviousCause': true,
         },
         observation: 'Outlook connection status: "Work Offline" is enabled. The Send/Receive indicator shows disconnected.',
         revealsFacts: ['Outlook is in Work Offline mode'],
-        evidenceTags: ['error_or_status_capture', 'technical_discovery'],
+        taxonomyTags: ['tool.outlook.check_status', 'diagnostic.application_state_checked'],
         scoreImpact: { positive: ['diagnosis'] },
       },
       {
@@ -171,7 +171,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         },
         observation: 'Work Offline is now disabled. Outlook reconnects to Exchange. The status bar shows "Connected."',
         revealsFacts: ['Work Offline was the cause'],
-        evidenceTags: ['technical_resolution', 'found_root_cause', 'performed_correct_fix'],
+        taxonomyTags: ['tool.outlook.disable_work_offline', 'fix.correct_root_cause'],
         scoreImpact: { positive: ['fix'] },
       },
       {
@@ -185,7 +185,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
           'outlook.sentTestEmail': true,
         },
         observation: 'Send/Receive completes. Outbox is now empty — all 3 messages sent successfully.',
-        evidenceTags: ['verification'],
+        taxonomyTags: ['tool.outlook.send_receive', 'verification.test_email_sent'],
         scoreImpact: { positive: ['fix', 'verification'] },
       },
       {
@@ -199,7 +199,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
           'evidence.verifiedFix': true,
         },
         observation: 'Test email sent to the customer. Customer confirms "Yes, I received it!"',
-        evidenceTags: ['verification', 'first_call_resolution'],
+        taxonomyTags: ['tool.outlook.send_test_email', 'verification.test_email_sent', 'verification.user_confirmed'],
         scoreImpact: { positive: ['verification'] },
       },
 
@@ -211,6 +211,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active'],
         effects: { 'remote.currentApp': 'browser' },
         observation: 'Browser opens to the default homepage.',
+        taxonomyTags: ['tool.browser.open'],
       },
       {
         id: 'check_webmail',
@@ -220,7 +221,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         requiresState: { 'remote.currentApp': 'browser' },
         effects: { 'network.exchangeReachable': true },
         observation: 'Outlook Web App loads successfully and can send email. Issue is isolated to the desktop client.',
-        evidenceTags: ['scope_isolation', 'technical_discovery'],
+        taxonomyTags: ['tool.browser.check_webmail', 'diagnostic.scope_isolation'],
         scoreImpact: { positive: ['diagnosis'] },
       },
 
@@ -232,7 +233,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active'],
         effects: { 'remote.currentApp': 'cmd' },
         observation: 'Reply from 52.96.x.x: bytes=32 time=24ms TTL=114. Internet connectivity and DNS are working.',
-        evidenceTags: ['scope_isolation'],
+        taxonomyTags: ['tool.cmd.ping', 'diagnostic.connectivity_verified'],
         scoreImpact: { positive: ['diagnosis'] },
       },
       {
@@ -242,6 +243,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active'],
         effects: { 'remote.currentApp': 'cmd' },
         observation: 'IP config shows DHCP lease active, DNS servers: 8.8.8.8 / 8.8.4.4.',
+        taxonomyTags: ['tool.cmd.ipconfig'],
       },
 
       /* ── ConnectWise / ITSM actions ────────────────── */
@@ -255,7 +257,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
           'connectwise.status': 'In Progress',
         },
         observation: 'Ticket TKT-2847 opened for Sarah Thompson / Connexion Dental.',
-        evidenceTags: ['ticket_quality'],
+        taxonomyTags: ['tool.connectwise.open_ticket'],
       },
       {
         id: 'update_priority',
@@ -264,7 +266,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active', 'ticketing'],
         effects: { 'connectwise.priority': 'High' },
         observation: 'Priority set to High — invoices need to go out this morning.',
-        evidenceTags: ['ticket_quality'],
+        taxonomyTags: ['tool.connectwise.set_priority', 'ticket.urgency_noted'],
         scoreImpact: { positive: ['ticket'] },
       },
       {
@@ -273,7 +275,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         label: 'Add note to ticket',
         allowedPhases: ['remote_active', 'ticketing'],
         observation: 'Note added to ticket.',
-        evidenceTags: ['ticket_quality'],
+        taxonomyTags: ['tool.connectwise.add_note'],
       },
       {
         id: 'search_kb_outlook',
@@ -282,7 +284,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active'],
         effects: { 'connectwise.kbArticlesViewed': ['outlook-work-offline'] },
         observation: 'KB article "Outlook stuck in Work Offline" found at KB-4421. Suggests checking connection status and disabling Work Offline.',
-        evidenceTags: ['used_knowledge_base'],
+        taxonomyTags: ['tool.connectwise.search_kb', 'diagnostic.kb_used'],
         scoreImpact: { positive: ['diagnosis'] },
       },
       {
@@ -292,7 +294,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active'],
         effects: { 'connectwise.assetsViewed': ['ALDER-LT-023'] },
         observation: 'Asset ALDER-LT-023: Dell Latitude 5540, Windows 11, Outlook 365. Last patched 5 days ago.',
-        evidenceTags: ['used_knowledge_base'],
+        taxonomyTags: ['tool.connectwise.view_asset'],
         scoreImpact: { positive: ['diagnosis'] },
       },
 
@@ -308,6 +310,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
           severity: 'major',
           message: 'Candidate attempted a disruptive fix (reinstall) before checking obvious causes.',
         },
+        taxonomyTags: ['red_flag.disruptive_fix_before_basic_checks'],
         scoreImpact: { negative: ['fix'] },
       },
       {
@@ -321,6 +324,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
           severity: 'major',
           message: 'Candidate attempted a destructive profile deletion before checking basic connection status.',
         },
+        taxonomyTags: ['red_flag.destructive_action_without_evidence'],
         scoreImpact: { negative: ['fix'] },
       },
       {
@@ -334,6 +338,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
           severity: 'major',
           message: 'Candidate escalated to Tier 2 without performing basic diagnostic checks.',
         },
+        taxonomyTags: ['red_flag.escalate_without_basic_checks'],
         scoreImpact: { negative: ['diagnosis'] },
       },
       {
@@ -348,6 +353,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
           message: 'Candidate blamed a service outage without running any diagnostics.',
         },
         effects: { 'flags.guessedWithoutEvidence': true },
+        taxonomyTags: ['red_flag.guessed_root_cause_without_evidence'],
         scoreImpact: { negative: ['diagnosis'] },
       },
     ],

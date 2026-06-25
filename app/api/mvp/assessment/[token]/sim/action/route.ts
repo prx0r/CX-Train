@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initTables, getDb } from '@/lib/mvp/db';
-import { getAssessmentPack, getFullAssessment } from '@/lib/mvp/query';
+import { getFullAssessment } from '@/lib/mvp/query';
 import { applyAction } from '@/lib/mvp/sim/stateMachine';
 import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
 import { getVisibleActions, getVisibleState } from '@/lib/mvp/sim/safeProjection';
 import { buildTimeline } from '@/lib/mvp/sim/timeline';
-import { getOutlookWorkOfflinePack } from '@/lib/mvp/sim/packConfig';
+import { getPackById } from '@/lib/mvp/sim/packRegistry';
 import { SimState } from '@/lib/mvp/sim/types';
+import { getSessionEvents } from '@/lib/mvp/events/eventLog';
 
 export async function POST(
   request: NextRequest,
@@ -34,8 +35,7 @@ export async function POST(
     }
 
     const packId = (full.assessment as any).assessment_pack_id;
-    const pack = packId ? getOutlookWorkOfflinePack() : getOutlookWorkOfflinePack();
-
+    const pack = getPackById(packId || 'pack-outlook-sim-v2');
     const action = pack.actions.find(a => a.id === actionId);
     if (!action) {
       return NextResponse.json({ error: `Action ${actionId} not found` }, { status: 400 });
@@ -52,11 +52,12 @@ export async function POST(
     /* Apply action through state machine */
     const { result, updatedState } = applyAction(currentState, action);
 
-    if (result.redFlag && !result.phaseTransition && result.state_before === result.state_after) {
-      /* Action was rejected — return precondition error */
+    if (!result.ok) {
+      /* Rejected action — do NOT log as action_performed event */
       return NextResponse.json({
         ok: false,
         error: result.result_text,
+        errorCode: result.errorCode,
       }, { status: 400 });
     }
 
@@ -79,7 +80,7 @@ export async function POST(
       result_text: result.result_text,
       state_before: result.state_before,
       state_after: result.state_after,
-      evidence_tags: result.evidenceTags.length > 0 ? result.evidenceTags : null,
+      taxonomy_tags: result.taxonomyTags.length > 0 ? result.taxonomyTags : null,
       red_flag: result.redFlag,
       started_at_ms: startedAtMs,
     });
@@ -130,31 +131,14 @@ export async function POST(
       });
     }
 
-    /* Build safe response */
-    const allEvents = db.prepare(
-      'SELECT * FROM sim_events WHERE session_id = ? ORDER BY sequence_index ASC'
-    ).all(full.session.id) as any[];
-
-    const typedEvents = allEvents.map((e: any) => ({
-      id: e.id,
-      session_id: e.session_id,
-      assessment_id: e.assessment_id,
-      assessment_pack_id: e.assessment_pack_id,
+    /* Build safe response from canonical session_events */
+    const canonicalEvents = getSessionEvents(full.session.id);
+    const typedEvents = canonicalEvents.map((e: any) => ({
+      ...e,
       sequence: e.sequence_index,
-      event_type: e.event_type,
-      actor: e.actor,
-      tool_id: e.tool_id,
-      action_id: e.action_id,
-      label: e.label,
-      text: e.text,
-      result_text: e.result_text,
-      state_before_json: e.state_before_json ? JSON.parse(e.state_before_json) : null,
-      state_after_json: e.state_after_json ? JSON.parse(e.state_after_json) : null,
-      evidence_tags_json: e.evidence_tags_json ? JSON.parse(e.evidence_tags_json) : null,
-      red_flag_json: e.red_flag_json ? JSON.parse(e.red_flag_json) : null,
-      started_at_ms: e.timestamp_ms || e.started_at_ms,
-      ended_at_ms: e.ended_at_ms || null,
-      created_at: e.created_at,
+      state_before_json: e.state_before_json || null,
+      state_after_json: e.state_after_json || null,
+      started_at_ms: e.started_at_ms,
     }));
 
     const visibleState = getVisibleState(updatedState);
@@ -164,6 +148,7 @@ export async function POST(
       ok: true,
       data: {
         event: {
+          ok: result.ok,
           action_id: result.action_id,
           label: result.label,
           result_text: result.result_text,
@@ -172,7 +157,7 @@ export async function POST(
         visible_state: visibleState,
         safe_actions: safeActions,
         phase: updatedState.phase,
-        timeline: buildTimeline(typedEvents).map(t => ({
+        timeline: buildTimeline(typedEvents as any).map(t => ({
           sequence: t.sequence,
           event_type: t.event_type,
           actor: t.actor,
