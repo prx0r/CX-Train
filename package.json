@@ -12,7 +12,8 @@
     "mvp:reset-db": "node scripts/mvp-reset-db.mjs",
     "migrate:assessment": "node scripts/run-assessment-migration.mjs",
     "test:openrouter": "node scripts/test-openrouter.mjs",
-    "test:mvp-flow": "node scripts/test-mvp-flow.mjs"
+    "test:mvp-flow": "node scripts/test-mvp-flow.mjs",
+    "test:analysis-scoring": "node scripts/test-analysis-scoring.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
