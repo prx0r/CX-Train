@@ -37,7 +37,7 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [windowsOpened, setWindowsOpened] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { speak, setOnPlaying } = useCustomerAudio(token);
+  const { speak, setOnPlaying, autoplayBlocked } = useCustomerAudio(token);
 
   useEffect(() => { setOnPlaying(setTtsPlaying); }, [setOnPlaying]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -87,7 +87,14 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
       if (d.ok) {
         setSimData(d.data);
         setPhase(d.data.phase);
-        if (actionId === 'start_call') { setCallActive(true); setIncomingCall(false); }
+        if (actionId === 'start_call') {
+          setCallActive(true); setIncomingCall(false);
+          /* Speak the customer's opening line after brief delay */
+          const openingMsg = messages.find(m => m.role === 'caller');
+          if (openingMsg) {
+            setTimeout(() => speak(openingMsg.content).catch(() => {}), 500);
+          }
+        }
         if (actionId === 'end_call') { setShowTicketForm(true); }
       } else setError(d.error || 'Action failed');
     } catch { setError('Failed to perform action'); }
@@ -161,6 +168,12 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
         )}
         {showTicketForm && !ticketSubmitted && (
           <span style={{ fontSize: 12, color: C.warning, fontWeight: 600 }}>✏️ Write your closure ticket</span>
+        )}
+        {autoplayBlocked && (
+          <button onClick={() => { const last = [...messages].reverse().find(m => m.role === 'caller'); if (last) speak(last.content).catch(() => {}); }}
+            style={{ padding: '3px 10px', background: '#fff3cd', color: '#856404', border: '1px solid #ffc107', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
+            🔇 Click to hear customer
+          </button>
         )}
         {callActive && (simPhase === 'call_active' || isRemoted) && (
           <button onClick={() => handleAction('end_call', 'customer_chat')}

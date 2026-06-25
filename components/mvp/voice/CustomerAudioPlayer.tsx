@@ -1,27 +1,29 @@
 'use client';
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 
-type Props = {
-  token: string;
-  /** When true, incoming customer messages will be spoken */
-  enabled: boolean;
-  /** Set externally when TTS playback starts/stops so VoiceRecorder can gate */
-  onPlayingChange?: (playing: boolean) => void;
-};
+let audioContext: AudioContext | null = null;
 
-/**
- * Plays customer reply text as audio via TTS route.
- * Exposes a speak() method that can be called from parent.
- */
+/** Unlock AudioContext on first user gesture (required by browsers) */
+function ensureAudioContext() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+  return audioContext;
+}
+
 export function useCustomerAudio(token: string) {
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const onPlayingRef = useRef<((playing: boolean) => void) | null>(null);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   useEffect(() => {
     return () => {
       currentAudioRef.current?.pause();
-      URL.revokeObjectURL(currentAudioRef.current?.src || '');
+      if (currentAudioRef.current?.src) URL.revokeObjectURL(currentAudioRef.current.src);
     };
   }, []);
 
@@ -29,7 +31,7 @@ export function useCustomerAudio(token: string) {
     /* Stop any current playback */
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
-      URL.revokeObjectURL(currentAudioRef.current.src);
+      if (currentAudioRef.current.src) URL.revokeObjectURL(currentAudioRef.current.src);
       currentAudioRef.current = null;
     }
 
@@ -40,7 +42,10 @@ export function useCustomerAudio(token: string) {
         body: JSON.stringify({ text }),
       });
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.warn('[TTS] HTTP', res.status);
+        return;
+      }
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -48,21 +53,37 @@ export function useCustomerAudio(token: string) {
 
       currentAudioRef.current = audio;
       onPlayingRef.current?.(true);
+      setAutoplayBlocked(false);
 
       audio.onended = () => {
         URL.revokeObjectURL(url);
-        currentAudioRef.current = null;
+        if (currentAudioRef.current === audio) currentAudioRef.current = null;
         onPlayingRef.current?.(false);
       };
 
       audio.onerror = () => {
         URL.revokeObjectURL(url);
-        currentAudioRef.current = null;
+        if (currentAudioRef.current === audio) currentAudioRef.current = null;
         onPlayingRef.current?.(false);
       };
 
-      await audio.play();
-    } catch {
+      /* Try to play — handle autoplay blocking */
+      try {
+        /* Unlock audio context first (required by Chrome/Safari) */
+        ensureAudioContext();
+        await audio.play();
+      } catch (playErr: any) {
+        if (playErr.name === 'NotAllowedError' || playErr.message?.includes('play()')) {
+          console.warn('[TTS] Autoplay blocked — user must interact first');
+          setAutoplayBlocked(true);
+          /* The audio is still loaded; user can click to play */
+        } else {
+          console.warn('[TTS] Play error:', playErr.message);
+        }
+        onPlayingRef.current?.(false);
+      }
+    } catch (err: any) {
+      console.warn('[TTS] Fetch error:', err.message);
       onPlayingRef.current?.(false);
     }
   }, [token]);
@@ -70,21 +91,11 @@ export function useCustomerAudio(token: string) {
   const stop = useCallback(() => {
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
-      URL.revokeObjectURL(currentAudioRef.current.src);
+      if (currentAudioRef.current.src) URL.revokeObjectURL(currentAudioRef.current.src);
       currentAudioRef.current = null;
       onPlayingRef.current?.(false);
     }
   }, []);
 
-  return { speak, stop, setOnPlaying: (cb: (playing: boolean) => void) => { onPlayingRef.current = cb; } };
-}
-
-export function CustomerAudioPlayer({ token, enabled, onPlayingChange }: Props) {
-  const { speak, stop, setOnPlaying } = useCustomerAudio(token);
-
-  useEffect(() => {
-    if (onPlayingChange) setOnPlaying(onPlayingChange);
-  }, [onPlayingChange, setOnPlaying]);
-
-  return null; /* Immutable — logic is in the hook */
+  return { speak, stop, autoplayBlocked, setOnPlaying: (cb: (playing: boolean) => void) => { onPlayingRef.current = cb; } };
 }
