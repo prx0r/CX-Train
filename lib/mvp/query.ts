@@ -35,6 +35,9 @@ export interface AssessmentPackRow {
   is_active: number;
   created_at: string;
   updated_at: string;
+  sim_config_json?: string;
+  sim_initial_state_json?: string;
+  sim_success_conditions_json?: string;
 }
 
 export interface AssessmentRow {
@@ -48,6 +51,8 @@ export interface AssessmentRow {
   criteria_version_id: string | null;
   created_at: string;
   completed_at: string | null;
+  assessment_pack_id?: string;
+  assessment_mode?: string;
 }
 
 export interface SessionRow {

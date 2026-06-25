@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 
 interface Message {
@@ -23,6 +23,8 @@ export default function CandidatePage() {
   const [ticketText, setTicketText] = useState('');
   const [ticketSubmitted, setTicketSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [assessmentMode, setAssessmentMode] = useState<string>('chat_call');
+  const [packTitle, setPackTitle] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,6 +35,8 @@ export default function CandidatePage() {
         setScenarioTitle(data.scenario_title || '');
         setStatus(data.status);
         setMessages(data.messages || []);
+        setAssessmentMode(data.assessment_mode || 'chat_call');
+        setPackTitle(data.pack_title || '');
         setLoading(false);
       })
       .catch(() => {
@@ -98,6 +102,22 @@ export default function CandidatePage() {
     } catch (e) {
       setError('Failed to submit ticket');
     }
+  }
+
+  // Defer to DashboardSimShell for dashboard_sim mode
+  if (assessmentMode === 'dashboard_sim') {
+    const CandidateSimShell = React.lazy(() => import('@/components/mvp/sim/CandidateSimShell'));
+    return (
+      <React.Suspense fallback={<div className="p-8 text-center text-gray-500">Loading simulation...</div>}>
+        <CandidateSimShell
+          token={token}
+          assessmentTitle={title}
+          scenarioTitle={scenarioTitle}
+          packTitle={packTitle}
+          initialMessages={messages}
+        />
+      </React.Suspense>
+    );
   }
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;

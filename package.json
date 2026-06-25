@@ -23,7 +23,10 @@
     "datasets:build-bank": "npx tsx scripts/datasets/build-support-quality-bank.ts",
     "taxonomy:import": "node scripts/datasets/import-taxonomy.mjs",
     "test:taxonomy": "npx tsx tests/taxonomy.test.ts",
-    "test:analysis:gold": "npx tsx tests/analysis-gold.test.ts"
+    "test:analysis:gold": "npx tsx tests/analysis-gold.test.ts",
+    "test:dashboard-sim": "node scripts/test-dashboard-sim.mjs",
+    "test:events": "node scripts/test-session-events.mjs",
+    "test:dashboard-sim-foundation": "node scripts/test-dashboard-sim-foundation.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

@@ -158,6 +158,26 @@ export interface TaxonomyClassificationMatch {
   escalation_guidance_followed: 'yes' | 'partial' | 'no';
 }
 
+export interface EvidenceTimelineEntry {
+  sequence_index: number;
+  event_type: string;
+  actor: string;
+  formatted_time: string;
+  text: string | null;
+  label: string | null;
+  result_text: string | null;
+  is_red_flag: boolean;
+}
+
+export interface TimingMetrics {
+  total_duration_ms: number | null;
+  time_to_first_candidate_response_ms: number | null;
+  time_to_first_action_ms: number | null;
+  time_to_first_relevant_check_ms: number | null;
+  time_to_resolution_ms: number | null;
+  time_to_ticket_submit_ms: number | null;
+}
+
 export interface AnalysisContext {
   org_id: string;
   manager_id: string;
@@ -170,4 +190,7 @@ export interface AnalysisContext {
   manager_standards: Record<string, unknown> | null;
   active_criteria: Record<string, unknown> | null;
   active_scenario: Record<string, unknown> | null;
+  evidence_timeline?: EvidenceTimelineEntry[];
+  timing_metrics?: TimingMetrics;
+  timeline_summary?: string;
 }

@@ -2,6 +2,8 @@ import { getDb } from '@/lib/mvp/db';
 import { getFullAssessment } from '@/lib/mvp/query';
 import { getManagerStandards } from '@/lib/mvp/query';
 import { getActiveCriteria, getActiveScenario } from '@/lib/mvp/query';
+import { getSessionEvents } from '@/lib/mvp/events/eventLog';
+import { buildEvidenceTimeline, summariseTimelineForAnalysis, calculateTimingMetrics } from '@/lib/mvp/events/timeline';
 import type { AnalysisContext } from './types';
 
 export function buildAssessmentContext(assessmentId: string): AnalysisContext | null {
@@ -36,9 +38,18 @@ export function buildAssessmentContext(assessmentId: string): AnalysisContext | 
     }
   }
 
+  // Build evidence timeline from session_events + messages
+  const sessionEvents = full.session ? getSessionEvents(full.session.id) : [];
+  const evidenceTimeline = buildEvidenceTimeline(sessionEvents);
+  const timingMetrics = calculateTimingMetrics(sessionEvents);
+  const timelineSummary = summariseTimelineForAnalysis(sessionEvents);
+
   return {
     org_id: 'org-default',
     manager_id: 'manager-default',
+    evidence_timeline: evidenceTimeline,
+    timing_metrics: timingMetrics,
+    timeline_summary: timelineSummary,
     assessment_id: full.assessment.id,
     session_id: full.session?.id || '',
     assessment_pack_id: null,

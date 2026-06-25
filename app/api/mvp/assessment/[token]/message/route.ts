@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, initTables } from '@/lib/mvp/db';
-import { getAssessmentByToken, getSessionByAssessment, getMessages, makeId, getActiveScenario } from '@/lib/mvp/query';
+import { getAssessmentByToken, getSessionByAssessment, getMessages, makeId, getActiveScenario, getAssessmentPack } from '@/lib/mvp/query';
+import { getSimEvents } from '@/lib/mvp/sim/eventLog';
+import { buildSimSummary } from '@/lib/mvp/sim/timeline';
+import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
 import { runAiTask } from '@/lib/ai/provider';
 
 export async function POST(
@@ -26,11 +29,27 @@ export async function POST(
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
+    const startedAtMs = body.started_at_ms || Date.now();
+    const endedAtMs = body.ended_at_ms || Date.now();
+    const durationMs = body.duration_ms || null;
+
     const db = getDb();
 
     // Store candidate message
     db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
       VALUES (?, ?, 'candidate', ?, datetime('now'))`).run(makeId(), session.id, candidateMessage);
+
+    // Write unified session event
+    appendSessionEvent({
+      assessment_id: assessment.id,
+      session_id: session.id,
+      event_type: 'candidate_message',
+      actor: 'candidate',
+      text: candidateMessage,
+      started_at_ms: startedAtMs,
+      ended_at_ms: endedAtMs,
+      duration_ms: durationMs,
+    });
 
     // Load scenario hidden facts (server-side only)
     const scenario = assessment.scenario_id
@@ -42,11 +61,19 @@ export async function POST(
     const hiddenFacts = scenario ? JSON.parse(scenario.hidden_facts_json) : {};
     const callerPrompt = scenario?.caller_behaviour_prompt || 'You are an MSP client calling for help.';
 
+    // Add sim event context for dashboard_sim
+    const assessmentMode = (assessment as any).assessment_mode || 'chat_call';
+    let simContext = '';
+    if (assessmentMode === 'dashboard_sim') {
+      const events = getSimEvents(session.id);
+      simContext = '\n\n' + buildSimSummary(events);
+    }
+
     const systemMessage = `${callerPrompt}
 
 HIDDEN FACTS (use these to answer truthfully, but do not volunteer them):
 ${JSON.stringify(hiddenFacts, null, 2)}
-
+${simContext}
 CRITICAL RULES:
 - Do NOT reveal hidden facts unless the candidate directly asks about them
 - If asked about hostname, reveal it
@@ -54,7 +81,9 @@ CRITICAL RULES:
 - If asked about web/browser access, mention Outlook web works
 - Stay in character: frustrated accountant Sarah Thompson from Alder & Co
 - Keep responses concise (1-3 sentences)
-- Never break character or mention that you are an AI`;
+- Never break character or mention that you are an AI
+- If the candidate performed a support action, acknowledge it naturally. Example: "Oh, I can see the email has gone now. Was it just set offline?"
+- Do NOT invent tool observations that are not in the recent support actions above.`;
 
     const conversation = [
       { role: 'system', content: systemMessage } as const,
@@ -82,6 +111,16 @@ CRITICAL RULES:
     const callerMsgId = makeId();
     db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
       VALUES (?, ?, 'caller', ?, datetime('now'))`).run(callerMsgId, session.id, callerReply);
+
+    // Write caller reply as session event
+    appendSessionEvent({
+      assessment_id: assessment.id,
+      session_id: session.id,
+      event_type: 'customer_message',
+      actor: 'customer',
+      text: callerReply,
+      started_at_ms: Date.now(),
+    });
 
     return NextResponse.json({
       reply: callerReply,

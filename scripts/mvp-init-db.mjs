@@ -198,7 +198,79 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (feedback_id) REFERENCES manager_feedback(id)
   );
-`);
+`  );
+
+  // Sim tables + unified session_events
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sim_sessions (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL UNIQUE,
+      assessment_id TEXT NOT NULL,
+      assessment_pack_id TEXT,
+      current_state_json TEXT NOT NULL,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT,
+      final_state_json TEXT,
+      FOREIGN KEY (session_id) REFERENCES sessions(id),
+      FOREIGN KEY (assessment_id) REFERENCES assessments(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS sim_events (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      assessment_id TEXT NOT NULL,
+      assessment_pack_id TEXT,
+      sequence_index INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      actor TEXT NOT NULL,
+      tool_id TEXT,
+      action_id TEXT,
+      label TEXT,
+      result_text TEXT,
+      state_before_json TEXT,
+      state_after_json TEXT,
+      payload_json TEXT,
+      timestamp_ms INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (session_id) REFERENCES sessions(id),
+      FOREIGN KEY (assessment_id) REFERENCES assessments(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sim_events_session
+    ON sim_events(session_id, sequence_index);
+
+    CREATE INDEX IF NOT EXISTS idx_sim_events_assessment
+    ON sim_events(assessment_id, sequence_index);
+
+    CREATE TABLE IF NOT EXISTS session_events (
+      id TEXT PRIMARY KEY,
+      assessment_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      sequence_index INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      actor TEXT NOT NULL,
+      text TEXT,
+      tool_id TEXT,
+      action_id TEXT,
+      label TEXT,
+      result_text TEXT,
+      state_before_json TEXT,
+      state_after_json TEXT,
+      payload_json TEXT,
+      started_at_ms INTEGER,
+      ended_at_ms INTEGER,
+      duration_ms INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (assessment_id) REFERENCES assessments(id),
+      FOREIGN KEY (session_id) REFERENCES sessions(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_session_events_session
+    ON session_events(session_id, sequence_index);
+
+    CREATE INDEX IF NOT EXISTS idx_session_events_assessment
+    ON session_events(assessment_id, sequence_index);
+  `);
 
   // Migration: add columns to existing tables (safe to run multiple times)
   const migrations = [
@@ -209,6 +281,12 @@ db.exec(`
     `ALTER TABLE manager_standards ADD COLUMN manager_profile_id TEXT`,
     `ALTER TABLE manager_standards ADD COLUMN version INTEGER NOT NULL DEFAULT 1`,
     `ALTER TABLE manager_standards ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`,
+
+    `ALTER TABLE assessments ADD COLUMN assessment_pack_id TEXT`,
+    `ALTER TABLE assessments ADD COLUMN assessment_mode TEXT NOT NULL DEFAULT 'chat_call'`,
+    `ALTER TABLE assessment_packs ADD COLUMN sim_config_json TEXT`,
+    `ALTER TABLE assessment_packs ADD COLUMN sim_initial_state_json TEXT`,
+    `ALTER TABLE assessment_packs ADD COLUMN sim_success_conditions_json TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }
@@ -615,6 +693,74 @@ if (!existingPrinterPack) {
   console.log('[mvp:init-db] Seeded printer pack');
 } else {
   console.log('[mvp:init-db] Printer pack already exists, skipping');
+}
+
+// Outlook Dashboard Sim pack
+const OUTLOOK_SIM_PACK = 'pack-outlook-sim-v1';
+const existingOutlookSimPack = db.prepare('SELECT id FROM assessment_packs WHERE id = ?').get(OUTLOOK_SIM_PACK);
+if (!existingOutlookSimPack) {
+  const outlookSimConfig = {
+    tools: ['customer_chat', 'ticket', 'outlook', 'browser', 'cmd', 'notes'],
+    actions: [
+      { id: 'open_outlook', tool: 'outlook', label: 'Open Outlook', result: 'Outlook is open. Outbox shows 3 unsent messages.', state_patch: { outlook_open: true }, visible_state_patch: { outlook_open: true, outbox_count: 3 }, score_tags: ['tool_accessed'] },
+      { id: 'check_outlook_status', tool: 'outlook', label: 'Check Outlook status', result: 'Outlook is showing Working Offline.', requires_state: { outlook_open: true }, visible_state_patch: { outlook_status: 'Working Offline' }, score_tags: ['technical_discovery', 'error_or_status_capture'] },
+      { id: 'toggle_work_offline', tool: 'outlook', label: 'Turn off Work Offline', result: 'Work Offline is now disabled.', requires_state: { outlook_open: true }, state_patch: { outlook_mode: 'online' }, visible_state_patch: { outlook_status: 'Online' }, score_tags: ['technical_resolution'] },
+      { id: 'send_test_email', tool: 'outlook', label: 'Send test email', result: 'The test email sends successfully and the Outbox clears.', requires_state: { outlook_mode: 'online' }, state_patch: { test_email_sent: true, outbox_count: 0, issue_resolved: true }, visible_state_patch: { outbox_count: 0, test_email_sent: true }, score_tags: ['verification', 'first_call_resolution'] },
+      { id: 'check_outbox', tool: 'outlook', label: 'Check Outbox', result: 'The Outbox contains 3 unsent messages.', requires_state: { outlook_open: true }, visible_state_patch: { outbox_count: 3 }, score_tags: ['technical_discovery'] },
+      { id: 'open_browser', tool: 'browser', label: 'Open browser', result: 'Browser is open.', state_patch: { browser_open: true }, visible_state_patch: { browser_open: true } },
+      { id: 'check_webmail', tool: 'browser', label: 'Check webmail', result: 'Webmail opens and can send email successfully.', requires_state: { browser_open: true }, visible_state_patch: { webmail_can_send: true }, score_tags: ['scope_isolation', 'technical_discovery'] },
+      { id: 'run_ping', tool: 'cmd', label: 'Run basic connectivity check', result: 'Ping succeeds. Internet connectivity is working.', score_tags: ['scope_isolation'] },
+      { id: 'reinstall_outlook', tool: 'outlook', label: 'Reinstall Outlook', result: 'This is excessive before basic checks and would waste time.', red_flag: 'over_fixing_without_evidence' },
+      { id: 'delete_mail_profile', tool: 'outlook', label: 'Delete mail profile', result: 'This is a risky/destructive step before basic checks.', red_flag: 'destructive_action_without_evidence' },
+      { id: 'escalate_without_basic_checks', tool: 'ticket', label: 'Escalate without basic checks', result: 'Escalation is premature because basic checks have not been completed.', red_flag: 'escalate_without_basic_checks' },
+    ],
+  };
+  const simInitialState = { outlook_open: false, outlook_mode: 'offline', outbox_count: 3, webmail_can_send: true, test_email_sent: false, issue_resolved: false, ticket_note_submitted: false, browser_open: false };
+  const simSuccessConditions = { outlook_mode: 'online', outbox_count: 0, test_email_sent: true, ticket_note_submitted: true };
+
+  db.prepare(`INSERT INTO assessment_packs (id, title, scenario_type, role_level, difficulty, version, customer_persona, hidden_facts_json, expected_behaviours_json, required_ticket_fields_json, red_flags_json, rubric_json, caller_behaviour_prompt, initial_message, is_active, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`).run(
+    OUTLOOK_SIM_PACK,
+    'Outlook Not Sending — Dashboard Sim v1',
+    'email_client', 'apprentice', 'first_line', '1',
+    'Sarah Thompson, an accountant at Alder & Co Accountants whose Outlook is stuck in Work Offline mode',
+    JSON.stringify({
+      issue: 'Outlook desktop stuck in Work Offline mode',
+      user: 'Sarah Thompson', company: 'Alder & Co Accountants',
+      device: 'Windows laptop (ALDER-LT-023)', scope: 'single user',
+      impact: 'needs to send client documents before a meeting',
+      deadline: '30 minutes', started: 'this morning',
+      error_message: 'Send/Receive error, shows Working Offline',
+      workaround: 'Outlook web works', recent_changes: 'none reported',
+    }),
+    JSON.stringify(['clarify impact', 'check internet/webmail', 'open Outlook', 'check status', 'disable Work Offline', 'send test email', 'confirm Outbox cleared', 'write closure note']),
+    JSON.stringify(['user', 'company', 'device_or_application', 'issue_summary', 'impact', 'urgency', 'checks_attempted', 'next_step']),
+    JSON.stringify(['reinstall_without_checks', 'delete_profile_without_checks', 'escalate_without_basic_checks']),
+    JSON.stringify({
+      identity_check: { weight: 1 }, company_check: { weight: 1 }, issue_clarification: { weight: 2 },
+      started_when: { weight: 1 }, impact: { weight: 3 }, urgency: { weight: 3 }, scope: { weight: 2 },
+      technical_discovery: { weight: 2 }, error_or_status_capture: { weight: 2 }, recent_changes: { weight: 1 },
+      next_steps: { weight: 3 }, customer_tone: { weight: 1 }, ticket_user_company: { weight: 1 },
+      ticket_issue_summary: { weight: 2 }, ticket_impact: { weight: 2 }, ticket_urgency: { weight: 2 },
+      ticket_checks_attempted: { weight: 2 }, ticket_next_step: { weight: 2 }, escalation_judgement: { weight: 2 },
+      safety: { weight: 4 },
+    }),
+    'You are Sarah Thompson, an accountant at Alder & Co Accountants. You are frustrated because Outlook won\'t send emails and you have a client meeting in 30 minutes.',
+    'Hi, I\'m having trouble with my Outlook — it\'s not sending emails. I really need to get this sorted quickly.',
+  );
+
+  // Update the pack with sim config (separate UPDATE since the insert didn't include these columns)
+  try {
+    db.prepare('UPDATE assessment_packs SET sim_config_json = ?, sim_initial_state_json = ?, sim_success_conditions_json = ? WHERE id = ?').run(
+      JSON.stringify(outlookSimConfig), JSON.stringify(simInitialState), JSON.stringify(simSuccessConditions), OUTLOOK_SIM_PACK
+    );
+  } catch (e) {
+    // Columns might not exist yet if migration ran after this point
+  }
+
+  console.log('[mvp:init-db] Seeded Outlook dashboard sim pack');
+} else {
+  console.log('[mvp:init-db] Outlook sim pack already exists, skipping');
 }
 
 db.close();

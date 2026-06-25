@@ -189,6 +189,39 @@ export default function ManagerDetailPage() {
         </div>
       )}
 
+      {/* Timing Summary (all modes) */}
+      {data.timingMetrics && data.sessionEventCount > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded p-4 mb-4">
+          <h2 className="text-lg font-semibold mb-3">Session Timing</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-gray-500 text-xs">Total duration</span>
+              <div className="text-lg font-mono">{data.timingMetrics.total_duration_ms ? `${(data.timingMetrics.total_duration_ms / 1000).toFixed(1)}s` : '—'}</div>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">First response</span>
+              <div className="text-lg font-mono">{data.timingMetrics.time_to_first_candidate_response_ms ? `${(data.timingMetrics.time_to_first_candidate_response_ms / 1000).toFixed(1)}s` : '—'}</div>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">First action</span>
+              <div className="text-lg font-mono">{data.timingMetrics.time_to_first_action_ms ? `${(data.timingMetrics.time_to_first_action_ms / 1000).toFixed(1)}s` : '—'}</div>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">Resolution</span>
+              <div className="text-lg font-mono">{data.timingMetrics.time_to_resolution_ms ? `${(data.timingMetrics.time_to_resolution_ms / 1000).toFixed(1)}s` : '—'}</div>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">Ticket submission</span>
+              <div className="text-lg font-mono">{data.timingMetrics.time_to_ticket_submit_ms ? `${(data.timingMetrics.time_to_ticket_submit_ms / 1000).toFixed(1)}s` : '—'}</div>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">Events logged</span>
+              <div className="text-lg font-mono">{data.sessionEventCount || 0}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Transcript */}
       <div className="bg-gray-900 border border-gray-800 rounded p-4 mb-4">
         <h2 className="text-lg font-semibold mb-3">Transcript ({messages?.length || 0} messages)</h2>
@@ -206,6 +239,57 @@ export default function ManagerDetailPage() {
           </div>
         ))}
       </div>
+
+      {/* Evidence Timeline (unified — chat_call + dashboard_sim) */}
+      {data.evidenceTimeline && data.evidenceTimeline.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Evidence Timeline</h2>
+            {data.timingMetrics && (
+              <div className="flex gap-4 text-xs text-gray-400">
+                {data.timingMetrics.total_duration_ms != null && (
+                  <span>Duration: {(data.timingMetrics.total_duration_ms / 1000).toFixed(1)}s</span>
+                )}
+                {data.timingMetrics.time_to_first_action_ms != null && (
+                  <span>First action: {(data.timingMetrics.time_to_first_action_ms / 1000).toFixed(1)}s</span>
+                )}
+                {data.timingMetrics.time_to_resolution_ms != null && (
+                  <span>Resolution: {(data.timingMetrics.time_to_resolution_ms / 1000).toFixed(1)}s</span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1 font-mono text-xs">
+            <div className="text-gray-500 grid grid-cols-[4rem_5rem_1fr] gap-2 px-2 pb-1 border-b border-gray-800 mb-1">
+              <span>Time</span><span>Actor</span><span>Event</span>
+            </div>
+            {data.evidenceTimeline.map((t: any, i: number) => (
+              <div key={i} className={`grid grid-cols-[4rem_5rem_1fr] gap-2 px-2 py-0.5 rounded ${
+                t.is_red_flag ? 'text-red-400 bg-red-900/10' : 'text-gray-300 hover:bg-gray-800'
+              }`}>
+                <span className="text-gray-500">{t.formatted_time}</span>
+                <span className="text-gray-500 text-[10px] uppercase">{t.actor}</span>
+                <span>
+                  {t.is_red_flag && <span className="text-red-400 mr-1">⚠</span>}
+                  {t.label || t.event_type}
+                  {t.text && <span className="text-gray-500">: &ldquo;{t.text.length > 80 ? t.text.slice(0, 80) + '…' : t.text}&rdquo;</span>}
+                  {t.result_text && <span className="text-gray-500"> → {t.result_text}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+          {data.simRedFlagActions && data.simRedFlagActions.length > 0 && (
+            <div className="mt-3 p-2 bg-red-900/20 border border-red-800 rounded">
+              <span className="text-xs text-red-400 font-medium">Red Flags Triggered:</span>
+              <ul className="list-disc list-inside text-xs text-red-300 mt-1">
+                {data.simRedFlagActions.map((rf: any) => (
+                  <li key={rf.id}>{rf.label}: {rf.red_flag}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Ticket */}
       {ticket && (
