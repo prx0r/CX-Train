@@ -38,6 +38,7 @@ function isCallerPrompt(system: string): boolean {
 
 function mockEvidenceExtraction(userPrompt: string): string {
   const transcriptLower = userPrompt.toLowerCase();
+  const fallbackQuote = firstCandidateQuote(userPrompt) || firstMeaningfulQuote(userPrompt) || 'No grounded quote available';
   const hasIdentity = transcriptLower.includes('name') || transcriptLower.includes('sarah');
   const hasCompany = transcriptLower.includes('company') || transcriptLower.includes('alder') || transcriptLower.includes('mercer');
   const hasIssue = transcriptLower.includes('issue') || transcriptLower.includes('problem') || transcriptLower.includes('outlook') || transcriptLower.includes('password') || transcriptLower.includes('printer');
@@ -90,7 +91,7 @@ function mockEvidenceExtraction(userPrompt: string): string {
     criteria[key] = {
       status: statusMap[key] ? 'pass' : (key.startsWith('ticket_') && !ticket ? 'not_observed' : 'fail'),
       severity: statusMap[key] ? 'low' : 'medium',
-      evidence: statusMap[key] ? [`Candidate addressed ${key.replace(/_/g, ' ')}`] : [`Candidate did not address ${key.replace(/_/g, ' ')}`],
+      evidence: statusMap[key] ? [fallbackQuote] : [],
       notes: statusMap[key] ? 'Adequate' : 'Missing',
     };
   }
@@ -122,6 +123,19 @@ function mockEvidenceExtraction(userPrompt: string): string {
       evidence: ticket || 'No ticket submitted',
     },
   });
+}
+
+function firstCandidateQuote(text: string): string | null {
+  const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('CANDIDATE:'));
+  return line ? line.replace(/^CANDIDATE:\s*/i, '').trim() : null;
+}
+
+function firstMeaningfulQuote(text: string): string | null {
+  const line = text.split('\n').find(l => {
+    const trimmed = l.trim();
+    return trimmed.length > 20 && !trimmed.includes('Return JSON') && !trimmed.includes('TRANSCRIPT:') && !trimmed.includes('TICKET:');
+  });
+  return line ? line.replace(/^[A-Z_]+:\s*/i, '').trim() : null;
 }
 
 function mockNarrativeFeedback(score: number, rating: string, userPrompt: string): string {

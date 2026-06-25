@@ -128,6 +128,17 @@ export interface StructuredOutput {
   evidence_validation?: {
     grounded: boolean;
     warnings: string[];
+    details?: Array<{
+      severity: 'info' | 'warning' | 'critical';
+      source: 'transcript' | 'ticket' | 'analysis';
+      code: string;
+      criterion?: string;
+      message: string;
+    }>;
+  };
+  narrative_validation?: {
+    passed: boolean;
+    warnings: string[];
   };
   evidence_extraction: EvidenceExtraction;
   deterministic_score: DeterministicScore;

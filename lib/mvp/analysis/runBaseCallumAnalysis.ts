@@ -6,7 +6,7 @@ import { PROMPT_VERSION, getDefaultModel } from './prompts';
 import { EVIDENCE_PROMPT_VERSION, buildEvidenceExtractionPrompt } from './evidencePrompt';
 import { NARRATIVE_PROMPT_VERSION, buildNarrativePrompt } from './narrativePrompt';
 import { scoreExtraction, DEFAULT_WEIGHTS, DEFAULT_THRESHOLDS } from './scoring';
-import { parseExtractionJson, parseNarrativeJson, buildFallbackNarrative, validateEvidenceGrounding } from './validation';
+import { parseExtractionJson, parseNarrativeJson, buildFallbackNarrative, validateEvidenceGrounding, validateNarrativeQuality } from './validation';
 import { runAiTask, parseJsonResponse } from '@/lib/ai/provider';
 import type { EvidenceExtraction, StructuredOutput, DeterministicScore, NarrativeFeedback, RedFlag, FailGateHit } from './types';
 import { RUBRIC_VERSION } from './types';
@@ -184,6 +184,8 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
       narrative = parsed.data;
     }
   }
+  const narrativeValidation = validateNarrativeQuality(narrative, scoringResult.score, scoringResult.rating);
+  narrative = narrativeValidation.data;
 
   // Build structured output
   const structured: StructuredOutput = {
@@ -191,6 +193,11 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     evidence_validation: {
       grounded: grounding.warnings.length === 0,
       warnings: [...extractionWarnings, ...grounding.warnings],
+      details: grounding.details,
+    },
+    narrative_validation: {
+      passed: narrativeValidation.warnings.length === 0,
+      warnings: narrativeValidation.warnings,
     },
     evidence_extraction: {
       criteria: groundedExtraction.criteria,

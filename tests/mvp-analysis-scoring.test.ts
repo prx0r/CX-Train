@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { runAiTask } from '../lib/ai/provider';
 import { scoreExtraction } from '../lib/mvp/analysis/scoring';
-import { validateEvidenceGrounding } from '../lib/mvp/analysis/validation';
+import { validateEvidenceGrounding, validateNarrativeQuality } from '../lib/mvp/analysis/validation';
 
 function allPassCriteria(): Record<string, { status: string; evidence: string[] }> {
   const keys = [
@@ -71,6 +72,80 @@ test('evidence grounding removes unsupported quotes and downgrades unsupported p
   assert.equal(data.ticket_assessment.evidence, '');
   assert.ok(warnings.some(w => w.includes('identity_check')));
   assert.ok(warnings.some(w => w.includes('impact')));
+});
+
+test('evidence grounding returns structured warning details for manager audit', () => {
+  const extraction = {
+    criteria: {
+      next_steps: {
+        status: 'pass',
+        severity: 'low',
+        evidence: ['I rebuilt the profile and fixed it'],
+        notes: '',
+      },
+    },
+    red_flags: [{ type: 'unsupported_ticket_claims', severity: 'high', evidence: 'Registry fix completed' }],
+    missed_questions: [],
+    ticket_assessment: { status: 'pass', missing_fields: [], evidence: 'Registry fix completed' },
+  };
+
+  const { data, details } = validateEvidenceGrounding(extraction, {
+    transcriptText: 'CANDIDATE: I will check the driver and call you back.',
+    ticketText: 'Bluetooth issue. Driver update attempted.',
+  });
+
+  assert.equal(data.criteria.next_steps.status, 'not_observed');
+  assert.ok(details.some(d => d.code === 'removed_quote' && d.criterion === 'next_steps'));
+  assert.ok(details.some(d => d.code === 'downgraded_status' && d.severity === 'critical'));
+  assert.ok(details.some(d => d.code === 'ticket_evidence_removed'));
+  assert.ok(details.some(d => d.code === 'ungrounded_red_flag'));
+});
+
+test('narrative quality guard repairs thin manager-facing output', () => {
+  const { data, warnings } = validateNarrativeQuality({
+    summary: 'Thin.',
+    strengths: 'not-array',
+    improvements: [],
+    ticket_feedback: '',
+    manager_standard_fit: { status: 'partial', notes: 'not-array' },
+  }, 72, 'needs_supervision');
+
+  assert.ok(data.summary.length >= 20);
+  assert.ok(Array.isArray(data.strengths));
+  assert.ok(data.improvements.length > 0);
+  assert.ok(data.ticket_feedback.length >= 20);
+  assert.ok(Array.isArray(data.manager_standard_fit.notes));
+  assert.ok(warnings.length >= 4);
+});
+
+test('AI provider supports deterministic mock mode without API credentials', async () => {
+  const previousProvider = process.env.AI_PROVIDER;
+  const previousKey = process.env.AI_API_KEY;
+  process.env.AI_PROVIDER = 'mock';
+  delete process.env.AI_API_KEY;
+
+  try {
+    const request = {
+      messages: [
+        { role: 'system' as const, content: 'You are an evidence extraction system.' },
+        { role: 'user' as const, content: 'TRANSCRIPT:\nCANDIDATE: Can I take your name?\nTICKET: User Sarah has Outlook issue.' },
+      ],
+      responseFormat: 'json_object' as const,
+      temperature: 0,
+    };
+    const first = await runAiTask('evaluator', request);
+    const second = await runAiTask('evaluator', request);
+
+    assert.equal(first.success, true);
+    assert.equal(second.success, true);
+    assert.equal(first.content, second.content);
+    assert.equal(first.model, 'mock-evidence');
+  } finally {
+    if (previousProvider === undefined) delete process.env.AI_PROVIDER;
+    else process.env.AI_PROVIDER = previousProvider;
+    if (previousKey === undefined) delete process.env.AI_API_KEY;
+    else process.env.AI_API_KEY = previousKey;
+  }
 });
 
 test('poor ticket quality caps an otherwise strong call to supervision', () => {

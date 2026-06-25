@@ -116,6 +116,11 @@ export async function runAiTask(
 ): Promise<RunAiTaskResult> {
   const start = Date.now();
 
+  if (process.env.AI_PROVIDER === 'mock') {
+    const { runMockAiTask } = await import('./mock-provider');
+    return runMockAiTask(task, opts);
+  }
+
   if (!API_KEY) {
     return { success: false, content: '', model: 'none', error: 'AI_API_KEY is not configured', durationMs: Date.now() - start };
   }

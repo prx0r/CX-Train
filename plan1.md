@@ -297,4 +297,21 @@ Phase 2 is implemented:
 - Added production scorer tests for the new gates in `tests/mvp-analysis-scoring.test.ts`.
 - Added `test:adversarial` and `test:calibration` package scripts.
 
-Phases 3 through 6 remain open.
+Phase 4 is partially implemented:
+
+- Added explicit `AI_PROVIDER=mock` support in `lib/ai/provider.ts`.
+- Added a deterministic mock-provider test that does not require external API credentials.
+- Full `runBaseCallumAnalysis()` replay through temporary SQLite remains open because the current CommonJS test harness does not resolve the app's `@/` aliases at runtime.
+
+Phase 5 is partially implemented:
+
+- Evidence grounding now returns structured warning details with severity, source, code, and criterion fields.
+- Added manager-facing narrative quality validation before storing output. Thin summaries, missing ticket feedback, malformed arrays, missing manager-standard notes, and absent coaching focus are repaired with auditable warnings.
+- Added tests for structured grounding warnings and narrative repair.
+
+Phase 6 is partially implemented:
+
+- Added `test:quality` to run the practical quality suite in one command.
+- `test:calibration` now passes 50/50 but remains separate from `npm test` until inline scorer drift is removed.
+
+Phase 3 remains open. The highest-risk inline scorer drift has been reduced, but `scripts/test-analysis-scoring.mjs`, `scripts/test-analysis-hardening.mjs`, `scripts/test-adversarial.mjs`, `scripts/test-50-transcripts.mjs`, and `tests/analysis-engine.test.ts` still contain local scorer copies or fixture simulators. Remove or quarantine those before treating the test suite as fully authoritative.
