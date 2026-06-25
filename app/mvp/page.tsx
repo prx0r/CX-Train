@@ -12,12 +12,19 @@ interface Assessment {
   status: string;
   created_at: string;
   overall_score?: number;
+  assessment_mode?: string;
 }
+
+const PACKS = [
+  { id: 'pack-outlook-sim-v2', title: 'Outlook Not Sending — Work Offline v2' },
+];
 
 export default function MvpDashboard() {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [mode, setMode] = useState<'chat_call' | 'dashboard_sim'>('dashboard_sim');
+  const [packId, setPackId] = useState(PACKS[0].id);
   const [creating, setCreating] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
   const [error, setError] = useState('');
@@ -41,7 +48,12 @@ export default function MvpDashboard() {
       const res = await fetch('/api/mvp/assessments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidate_name: name, candidate_email: email || null }),
+        body: JSON.stringify({
+          candidate_name: name,
+          candidate_email: email || null,
+          assessment_mode: mode,
+          assessment_pack_id: mode === 'dashboard_sim' ? packId : null,
+        }),
       });
       const data = await res.json();
       if (data.invite_url) setInviteUrl(data.invite_url);
@@ -64,8 +76,8 @@ export default function MvpDashboard() {
     id: a.id,
     number: `INC${a.id.slice(-6).toUpperCase()}`,
     priority: a.status === 'analysed' ? 'high' : a.status === 'invited' ? 'low' : 'medium',
-    status: a.status,
-    category: 'Assessment',
+    status: a.status + (a.assessment_mode === 'dashboard_sim' ? ' 🖥️' : ''),
+    category: a.assessment_mode === 'dashboard_sim' ? 'Dashboard Sim' : 'Chat Call',
     description: a.title,
     assigned: a.candidate_name,
     updated: a.created_at?.slice(0, 10) || '',
@@ -89,7 +101,7 @@ export default function MvpDashboard() {
       {/* Create Assessment */}
       <div style={{ background: '#fff', borderRadius: 6, padding: 20, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: '#1b2f53', marginBottom: 12 }}>Create New Assessment</div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
           <input
             type="text"
             value={name}
@@ -104,6 +116,27 @@ export default function MvpDashboard() {
             placeholder="Email (optional)"
             style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, flex: 1, minWidth: 200 }}
           />
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+          <select
+            value={mode}
+            onChange={e => setMode(e.target.value as any)}
+            style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, background: '#fff' }}
+          >
+            <option value="chat_call">Chat Call (text only)</option>
+            <option value="dashboard_sim">Dashboard Sim (Win11 + Voice)</option>
+          </select>
+          {mode === 'dashboard_sim' && (
+            <select
+              value={packId}
+              onChange={e => setPackId(e.target.value)}
+              style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, background: '#fff' }}
+            >
+              {PACKS.map(p => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+          )}
           <button
             onClick={createAssessment}
             disabled={creating || !name.trim()}
