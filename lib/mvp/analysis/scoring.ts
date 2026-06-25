@@ -125,13 +125,13 @@ export const FAIL_GATES: FailGateDefinition[] = [
 ];
 
 export function detectFailGates(
-  redFlags: Array<{ type: string; severity?: string; evidence?: string }>,
+  redFlags: Array<{ type: string; severity?: string; evidence?: string }> | null | undefined,
   extractEvidence: (flagType: string) => string[],
 ): FailGateHit[] {
   const hits: FailGateHit[] = [];
   const seen = new Set<string>();
 
-  for (const flag of redFlags) {
+  for (const flag of redFlags || []) {
     if (!flag || !flag.type) continue;
     const normalizedType = flag.type.toString().toLowerCase().trim();
     const gate = FAIL_GATES.find(g => g.redFlagType === normalizedType);
@@ -139,7 +139,7 @@ export function detectFailGates(
     if (seen.has(gate.id)) continue;
     seen.add(gate.id);
 
-    const evidenceQuotes = extractEvidence(flag.type);
+    const evidenceQuotes = extractEvidence(normalizedType);
     hits.push({
       id: gate.id,
       label: gate.label,
@@ -195,20 +195,23 @@ export function computeFinalScore(
 }
 
 export function scoreExtraction(params: {
-  criteria: Record<string, { status: string; severity?: string; evidence?: string[]; notes?: string }>;
-  redFlags?: Array<{ type: string; severity?: string; evidence?: string }>;
+  criteria: Record<string, { status: string; severity?: string; evidence?: string[]; notes?: string }> | null | undefined;
+  redFlags?: Array<{ type: string; severity?: string; evidence?: string }> | null;
   weights?: CriterionWeight;
   thresholds?: { ready_min: number; needs_supervision_min: number };
 }): ScoringResult {
   const weights = params.weights || DEFAULT_WEIGHTS;
+  const criteria = params.criteria && typeof params.criteria === 'object' ? params.criteria : {};
   let earnedScore = 0;
   let maxPossibleScore = 0;
   const failedRequiredChecks: string[] = [];
   const skillBreakdown: Record<string, { score: number; maxScore: number; percent: number }> = {};
 
-  for (const [key, criterion] of Object.entries(params.criteria)) {
-    const weight = weights[key] || 1;
-    const status = (criterion.status || 'not_observed').toLowerCase();
+  for (const [key, criterion] of Object.entries(criteria)) {
+    const weight = weights[key];
+    if (weight === undefined) continue;
+    if (!criterion || typeof criterion !== 'object') continue;
+    const status = String(criterion.status || 'not_observed').toLowerCase().trim();
     const statusScore = STATUS_SCORES[status] ?? 0;
 
     if (statusScore === -1) continue;
@@ -232,7 +235,7 @@ export function scoreExtraction(params: {
 
   const redFlags = params.redFlags || [];
   const extractEvidence = (flagType: string): string[] => {
-    const flag = redFlags.find(f => f.type === flagType);
+    const flag = redFlags.find(f => f?.type?.toString().toLowerCase().trim() === flagType);
     return flag?.evidence ? [flag.evidence] : [];
   };
   const gateHits = detectFailGates(redFlags, extractEvidence);

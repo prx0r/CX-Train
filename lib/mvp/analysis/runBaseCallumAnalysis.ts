@@ -6,7 +6,7 @@ import { PROMPT_VERSION, getDefaultModel } from './prompts';
 import { EVIDENCE_PROMPT_VERSION, buildEvidenceExtractionPrompt } from './evidencePrompt';
 import { NARRATIVE_PROMPT_VERSION, buildNarrativePrompt } from './narrativePrompt';
 import { scoreExtraction, DEFAULT_WEIGHTS, DEFAULT_THRESHOLDS } from './scoring';
-import { parseExtractionJson, parseNarrativeJson, buildFallbackNarrative } from './validation';
+import { parseExtractionJson, parseNarrativeJson, buildFallbackNarrative, validateEvidenceGrounding } from './validation';
 import { runAiTask, parseJsonResponse } from '@/lib/ai/provider';
 import type { EvidenceExtraction, StructuredOutput, DeterministicScore, NarrativeFeedback, RedFlag, FailGateHit } from './types';
 import { RUBRIC_VERSION } from './types';
@@ -130,15 +130,21 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     return { status: 'analysis_failed', error_code: 'AI_INVALID_JSON', error: extractionParseError || 'Invalid extraction JSON', raw: extractionResult.content };
   }
 
+  const grounding = validateEvidenceGrounding(extraction, {
+    transcriptText: context.transcript_text,
+    ticketText: context.submitted_ticket,
+  });
+  const groundedExtraction = grounding.data;
+
   // Step 2: Deterministic scoring (pure code, no AI) with fail gates
-  const redFlags = (extraction.red_flags || []).map((f: RedFlag) => ({
+  const redFlags = (groundedExtraction.red_flags || []).map((f: RedFlag) => ({
     type: f.type,
     severity: f.severity || 'medium',
     evidence: f.evidence || '',
   }));
 
   const scoringResult = scoreExtraction({
-    criteria: extraction.criteria,
+    criteria: groundedExtraction.criteria,
     redFlags,
     weights: DEFAULT_WEIGHTS,
     thresholds: DEFAULT_THRESHOLDS,
@@ -155,7 +161,7 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     triggeredDealbreakers: scoringResult.triggeredDealbreakers,
     gateHits: scoringResult.gateHits,
     skillBreakdown: scoringResult.skillBreakdown,
-  }, JSON.stringify(extraction, null, 2));
+  }, JSON.stringify(groundedExtraction, null, 2));
 
   const narrativeResult = await runAiTask('evaluator', {
     messages: [
@@ -169,11 +175,11 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
 
   let narrative: any;
   if (!narrativeResult.success) {
-    narrative = buildFallbackNarrative(extraction, scoringResult.score, scoringResult.rating);
+    narrative = buildFallbackNarrative(groundedExtraction, scoringResult.score, scoringResult.rating);
   } else {
     const parsed = parseNarrativeJson(narrativeResult.content);
     if (parsed.error || !parsed.data) {
-      narrative = buildFallbackNarrative(extraction, scoringResult.score, scoringResult.rating);
+      narrative = buildFallbackNarrative(groundedExtraction, scoringResult.score, scoringResult.rating);
     } else {
       narrative = parsed.data;
     }
@@ -182,11 +188,15 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
   // Build structured output
   const structured: StructuredOutput = {
     schema_version: MILESTONE_C_VERSION,
+    evidence_validation: {
+      grounded: grounding.warnings.length === 0,
+      warnings: [...extractionWarnings, ...grounding.warnings],
+    },
     evidence_extraction: {
-      criteria: extraction.criteria,
-      missed_questions: extraction.missed_questions || [],
-      red_flags: extraction.red_flags || [],
-      ticket_assessment: extraction.ticket_assessment || { status: 'not_observed', missing_fields: [], evidence: '' },
+      criteria: groundedExtraction.criteria,
+      missed_questions: groundedExtraction.missed_questions || [],
+      red_flags: groundedExtraction.red_flags || [],
+      ticket_assessment: groundedExtraction.ticket_assessment || { status: 'not_observed', missing_fields: [], evidence: '' },
     },
     deterministic_score: {
       score: scoringResult.score,
@@ -212,9 +222,9 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
   };
 
   // Map to old assessment_results columns for backward compat
-  const checklistForDb = buildChecklistFromExtraction(extraction, scoringResult);
+  const checklistForDb = buildChecklistFromExtraction(groundedExtraction, scoringResult);
 
-  const evidenceQuotes = collectEvidenceQuotes(extraction);
+  const evidenceQuotes = collectEvidenceQuotes(groundedExtraction);
 
   const resultId = makeId();
   db.prepare(`INSERT INTO assessment_results

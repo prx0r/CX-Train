@@ -31,7 +31,8 @@ function detectFailGates(redFlags) {
   const hits = [], seen = new Set();
   for (const flag of (redFlags || [])) {
     if (!flag || !flag.type) continue;
-    const g = FAIL_GATES.find(x => x.redFlagType === flag.type);
+    const normalizedType = flag.type.toString().toLowerCase().trim();
+    const g = FAIL_GATES.find(x => x.redFlagType === normalizedType);
     if (!g || seen.has(g.id)) continue;
     seen.add(g.id);
     hits.push({ id: g.id, severity: g.severity, scoreCap: g.scoreCap,
@@ -48,7 +49,8 @@ function scoreOne(criteria, redFlags) {
   let earned = 0, maxP = 0, failed = [];
   for (const [k, c] of Object.entries(criteria)) {
     if (!c || typeof c !== 'object') continue;
-    const w = W[k] || 1;
+    const w = W[k];
+    if (w === undefined) continue;
     const status = (c.status || 'not_observed').toString().toLowerCase().trim();
     const s = STATUS_SCORES[status] !== undefined ? STATUS_SCORES[status] : 0;
     if (s === -1) continue;
@@ -89,7 +91,7 @@ TESTS.push({ name: 'status with leading/trailing whitespace', criteria: allPass(
 
 // ── NOT_A_NUMBER / INFINITY ──
 TESTS.push({ name: 'NaN score propagation (weight * NaN)', criteria: allPass(), criteriaOverride: { impact: { status: 'pass' } }, redFlags: [], expect: { scoreMax: 100 }, reason: 'NaN should not appear in scores' });
-TESTS.push({ name: 'unknown key with default weight 1', criteria: { unknown_key: { status: 'pass' } }, redFlags: [], expect: { score: 100 }, reason: 'Unknown key gets default weight 1, earned=1, maxP=1, score=100' });
+TESTS.push({ name: 'unknown key is ignored', criteria: { unknown_key: { status: 'pass' } }, redFlags: [], expect: { score: 0, readiness: 'not_ready' }, reason: 'Unknown criteria should not inflate the score' });
 TESTS.push({ name: 'all not_applicable (maxPossibleScore=0)', criteria: (() => { const c = {}; for (const k of Object.keys(W)) c[k] = { status: 'not_applicable' }; return c; })(), redFlags: [], expect: { score: 0, readiness: 'not_ready' }, reason: 'All NA = 0 max possible score, division edge case' });
 
 // ── GATE EDGE CASES ──
@@ -176,8 +178,8 @@ TESTS.push({ name: 'score exactly 60 threshold', criteria: (() => {
 // ── CASE SENSITIVITY ──
 TESTS.push({ name: 'status uppercase PASS', criteria: allPass(), criteriaOverride: { impact: { status: 'PASS' } }, redFlags: [], expect: { scoreMax: 100 }, reason: 'UPPERCASE status should match pass' });
 TESTS.push({ name: 'status mixed case ParTiAl', criteria: allPass(), criteriaOverride: { urgency: { status: 'ParTiAl' } }, redFlags: [], expect: { scoreMin: 95 }, reason: 'Mixed case should still match partial' });
-TESTS.push({ name: 'red flag type uppercase', criteria: allPass(), redFlags: [{ type: 'SEVERE_CUSTOMER_ABUSE', evidence: 'test' }], expect: { score: 100, readiness: 'ready' }, reason: 'Uppercase red flag type should NOT match (case sensitive lookup) — this may be a bug' });
-TESTS.push({ name: 'red flag type with whitespace', criteria: allPass(), redFlags: [{ type: '  severe_customer_abuse  ', evidence: 'test' }], expect: { score: 100, readiness: 'ready' }, reason: 'Whitespace in red flag type should NOT match — this may be a bug' });
+TESTS.push({ name: 'red flag type uppercase', criteria: allPass(), redFlags: [{ type: 'SEVERE_CUSTOMER_ABUSE', evidence: 'test' }], expect: { score: 10, readiness: 'not_ready' }, reason: 'Uppercase red flag type should normalize and trigger the gate' });
+TESTS.push({ name: 'red flag type with whitespace', criteria: allPass(), redFlags: [{ type: '  severe_customer_abuse  ', evidence: 'test' }], expect: { score: 10, readiness: 'not_ready' }, reason: 'Whitespace-padded red flag type should normalize and trigger the gate' });
 
 // ── WEIRD CRITERIA VALUES ──
 TESTS.push({ name: 'criterion value is null', criteria: allPass(), criteriaOverride: { impact: null }, redFlags: [], expect: { scoreMax: 100 }, reason: 'Null criterion value should be skipped without crash' });
@@ -233,7 +235,7 @@ TESTS.push({ name: 'mix of valid, null, and missing criteria', criteria: {
   impact: { status: 'fail' },
   urgency: { status: 'partial' },
   not_a_real_key: { status: 'pass' },
-}, redFlags: [], expect: { score: 44, readiness: 'not_ready' }, reason: 'Null/undefined keys skipped. Unknown pass key uses weight 1. earned=3.5, maxP=8, score=44' });
+}, redFlags: [], expect: { score: 36, readiness: 'not_ready' }, reason: 'Null/undefined and unknown keys are skipped. earned=2.5, maxP=7, score=36' });
 
 // ── DUPLICATE GATE HANDLING ──
 TESTS.push({ name: '30 identical red flags (stress dedup)', criteria: allPass(), redFlags: Array(30).fill({ type: 'severe_customer_abuse', evidence: 'spam' }), expect: { scoreMax: 10, readiness: 'not_ready' }, reason: '30 identical red flags should produce exactly 1 gate hit' });
@@ -310,18 +312,9 @@ console.log(`${'='.repeat(72)}`);
 
 if (fail > 0) {
   console.log('\nADVERSARIAL WEAKNESSES FOUND:\n');
-  // Highlight case sensitivity issues
-  console.log('  Potential case sensitivity bugs:');
-  console.log('  - Red flag type lookup is case-sensitive (SEVERE != severe)');
-  console.log('  - Status values use toLowerCase() so case is handled');
-  console.log('  - Red flags with whitespace in type name will silently fail to match');
-  console.log('\n  Recommendation: normalize red flag types (toLowerCase().trim())');
-  console.log('  in detectFailGates() to prevent silent gate bypass.\n');
+  console.log('  Review failed cases above; this script should not be treated as passing.');
+  process.exitCode = 1;
 }
 
-// Print specific warnings for silent failures
-console.log('\nFIX APPLIED:');
-console.log('  detectFailGates() in lib/mvp/analysis/scoring.ts now normalizes');
-console.log('  red flag types with toLowerCase().trim() before matching.');
-console.log('  Uppercase, mixed case, and whitespace-padded types all trigger gates correctly.');
-console.log('  (Test script uses inline copy without the fix for isolation.)\n');
+console.log('\nNORMALIZATION CHECK:');
+console.log('  Uppercase and whitespace-padded red flag types must trigger gates.\n');

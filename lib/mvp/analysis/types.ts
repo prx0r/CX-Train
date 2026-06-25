@@ -125,6 +125,10 @@ export interface DeterministicScore {
 
 export interface StructuredOutput {
   schema_version: string;
+  evidence_validation?: {
+    grounded: boolean;
+    warnings: string[];
+  };
   evidence_extraction: EvidenceExtraction;
   deterministic_score: DeterministicScore;
   narrative: NarrativeFeedback;

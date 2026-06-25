@@ -56,6 +56,94 @@ export function parseExtractionJson(raw: string): { data: any | null; error: str
   return { data: parsed, error: null, warnings };
 }
 
+export function validateEvidenceGrounding(
+  extraction: any,
+  sources: { transcriptText?: string | null; ticketText?: string | null },
+): { data: any; warnings: string[] } {
+  const warnings: string[] = [];
+  const sourceText = normalizeForGrounding([
+    sources.transcriptText || '',
+    sources.ticketText || '',
+  ].join('\n'));
+
+  if (!extraction || typeof extraction !== 'object') {
+    return { data: extraction, warnings: ['Evidence grounding skipped: extraction is not an object'] };
+  }
+
+  if (!sourceText) {
+    return { data: extraction, warnings: ['Evidence grounding skipped: no transcript or ticket text available'] };
+  }
+
+  if (extraction.criteria && typeof extraction.criteria === 'object') {
+    for (const [key, criterion] of Object.entries(extraction.criteria)) {
+      const c = criterion as any;
+      if (!c || typeof c !== 'object') continue;
+
+      const evidence = Array.isArray(c.evidence) ? c.evidence : [];
+      const groundedEvidence = evidence.filter((quote: unknown) => {
+        if (typeof quote !== 'string' || quote.trim().length === 0) return false;
+        return isGroundedQuote(quote, sourceText);
+      });
+
+      if (groundedEvidence.length !== evidence.length) {
+        warnings.push(`Criterion "${key}" had ${evidence.length - groundedEvidence.length} ungrounded evidence quote(s) removed`);
+      }
+
+      c.evidence = groundedEvidence;
+
+      const status = typeof c.status === 'string' ? c.status.toLowerCase().trim() : 'not_observed';
+      if ((status === 'pass' || status === 'partial') && groundedEvidence.length === 0) {
+        warnings.push(`Criterion "${key}" downgraded from "${c.status}" to "not_observed" because no evidence quote was grounded`);
+        c.status = 'not_observed';
+      }
+    }
+  }
+
+  if (extraction.ticket_assessment && typeof extraction.ticket_assessment === 'object') {
+    const evidence = extraction.ticket_assessment.evidence;
+    if (typeof evidence === 'string' && evidence.trim() && !isGroundedQuote(evidence, sourceText)) {
+      warnings.push('Ticket assessment evidence was ungrounded and removed');
+      extraction.ticket_assessment.evidence = '';
+    }
+  }
+
+  if (Array.isArray(extraction.red_flags)) {
+    for (const flag of extraction.red_flags) {
+      if (!flag || typeof flag !== 'object') continue;
+      if (typeof flag.evidence === 'string' && flag.evidence.trim() && !isGroundedQuote(flag.evidence, sourceText)) {
+        warnings.push(`Red flag "${flag.type || 'unknown'}" has ungrounded evidence`);
+      }
+    }
+  }
+
+  return { data: extraction, warnings };
+}
+
+function normalizeForGrounding(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isGroundedQuote(quote: string, normalizedSourceText: string): boolean {
+  const normalizedQuote = normalizeForGrounding(quote)
+    .replace(/^candidate:\s*/, '')
+    .replace(/^caller:\s*/, '')
+    .trim();
+
+  if (!normalizedQuote) return false;
+  if (normalizedSourceText.includes(normalizedQuote)) return true;
+
+  const words = normalizedQuote.split(/\s+/).filter(Boolean);
+  if (words.length < 6) return false;
+
+  const overlap = words.filter(word => normalizedSourceText.includes(word)).length;
+  return overlap / words.length >= 0.85;
+}
+
 export function parseNarrativeJson(raw: string): { data: any | null; error: string | null } {
   const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
   try {

@@ -14,7 +14,7 @@ const W = {
   ticket_user_company: 1, ticket_issue_summary: 2, ticket_impact: 2, ticket_urgency: 2,
   ticket_checks_attempted: 2, ticket_next_step: 2, escalation_judgement: 2, safety: 4,
 };
-const TOTAL_WEIGHT = Object.values(W).reduce((a, b) => a + b, 0); // 44
+const TOTAL_WEIGHT = Object.values(W).reduce((a, b) => a + b, 0);
 
 const THRESHOLDS = { ready_min: 80, needs_supervision_min: 60 };
 
@@ -30,8 +30,10 @@ const FAIL_GATES = [
 
 function detectFailGates(redFlags) {
   const hits = [], seen = new Set();
-  for (const flag of redFlags) {
-    const g = FAIL_GATES.find(x => x.redFlagType === flag.type);
+  for (const flag of redFlags || []) {
+    if (!flag || !flag.type) continue;
+    const normalizedType = flag.type.toString().toLowerCase().trim();
+    const g = FAIL_GATES.find(x => x.redFlagType === normalizedType);
     if (!g || seen.has(g.id)) continue;
     seen.add(g.id);
     hits.push({ id: g.id, severity: g.severity, scoreCap: g.scoreCap, overrideReadiness: g.overrideReadiness,
@@ -42,8 +44,10 @@ function detectFailGates(redFlags) {
 
 function scoreOne(criteria, redFlags) {
   let earned = 0, maxP = 0, failed = [];
-  for (const [k, c] of Object.entries(criteria)) {
-    const w = W[k] || 1, s = STATUS_SCORES[(c.status || '').toLowerCase()] ?? 0;
+  for (const [k, c] of Object.entries(criteria || {})) {
+    const w = W[k];
+    if (w === undefined || !c || typeof c !== 'object') continue;
+    const s = STATUS_SCORES[(c.status || '').toString().toLowerCase().trim()] ?? 0;
     if (s === -1) continue;
     earned += w * s; maxP += w;
     if (s === 0) failed.push(k);
@@ -1006,3 +1010,7 @@ if (detFail.length === 0) {
 console.log('');
 console.log('─'.repeat(72));
 console.log('END OF REPORT');
+
+if (fail > 0 || determinismPass !== SCENARIOS.length) {
+  process.exitCode = 1;
+}
