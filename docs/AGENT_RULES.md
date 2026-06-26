@@ -9,7 +9,7 @@ Do not build new MVP features into the legacy Supabase/training-hub architecture
 1. **AI scores are not authoritative.** AI extracts evidence only. Code computes the final score.
 2. **No hidden facts to candidates.** Candidate-facing APIs must strip `hidden_facts`, `rubric`, `checkpoints`, `red_flags`, `ideal_ticket` from scenario/assessment responses.
 3. **No placeholder polish.** Do not spend time making `/mvp/assist`, `/mvp/knowledge`, `/mvp/clients`, `/mvp/people`, `/mvp/analytics` pages look good. They are placeholders.
-4. **No voice yet.** The voice module (`lib/voice/`) is frozen. Do not build on it.
+4. **Voice is optional thin I/O layer only.** Voice is allowed only as a thin input/output layer over the active `/mvp` text transcript flow: browser audio → transcription → candidate_message text → existing message route → customer text reply → optional TTS playback. Do not use the frozen legacy voice module (`lib/voice/`). Do not score from raw audio. Do not store raw candidate audio for MVP. Keep text fallback. Voice requires HTTPS or localhost (secure context).
 5. **No analytics yet.** Aggregate dashboards and cross-candidate analytics come after the core assessment loop is proven.
 6. **No Callum For You yet.** Manager-calibrated re-scoring comes after sufficient feedback data exists.
 7. **No Supabase in active MVP.** The MVP runs on SQLite. Supabase code is legacy/frozen.

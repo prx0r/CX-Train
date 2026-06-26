@@ -53,6 +53,7 @@ export interface AssessmentRow {
   completed_at: string | null;
   assessment_pack_id?: string;
   assessment_mode?: string;
+  assignment_type?: string;
 }
 
 export interface SessionRow {

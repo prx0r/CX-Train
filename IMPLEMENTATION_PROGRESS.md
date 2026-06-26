@@ -46,8 +46,35 @@ The Supabase production path is paused for this pass. The goal is local product 
 - Keep checking hidden facts do not appear in candidate network responses.
 - Tune caller/evaluator prompts if OpenRouter free model quality is inconsistent.
 
+## Assignment Type Selector v0 (2026-06-26)
+
+Added the one-platform/three-assignment-type model:
+
+### What was built
+- `lib/mvp/assignment-types.ts` — shared type constants: `hiring_exam`, `training_drill`, `training_shift`
+- DB migration: `assessments.assignment_type` column with default `hiring_exam`
+- Create assessment API now accepts `assignmentType` and maps to internal `assessment_mode`
+- Manager dashboard: "Create Assignment" shows three cards (Hiring Exam, Training Drill, Training Shift)
+- Hiring Exam: default path, uses existing chat_call flow
+- Training Drill: creates service-desk sim with pack-outlook-sim-v2
+- Training Shift: visible but disabled/coming soon, returns `TRAINING_SHIFT_NOT_AVAILABLE` error
+- Candidate page routes by `assignment_type` (shell for training_drill, chat for hiring_exam)
+- Detail page shows assignment type label
+- `docs/AGENT_RULES.md` updated: voice now allowed as thin I/O layer over /mvp text transcript
+- `docs/ACTIVE_ARCHITECTURE.md` updated: documents assignment types
+- `scripts/test-assignment-types.mjs` — 21 tests for registry, DB, creation, rejection, safety
+- `npm run test:assignment-types` script added
+- `npx tsc --noEmit` passes clean
+
+### Not built
+- Training Shift engine / scheduling / queues / random calls
+- Multi-case session simulation
+- ConnectWise integration
+- Voice scoring or raw audio storage
+- Separate scoring system for drills (same spine underneath)
+
 ## Known issues
 
-- `npx tsc --noEmit` fails with pre-existing stale `.next/types/` errors (not a regression).
+- `npx tsc --noEmit` now passes clean.
 - Supabase production flow is intentionally paused for this pass.
 - SQLite MVP mode has no production auth, no tenancy, and no durable production deployment model.

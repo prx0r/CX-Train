@@ -24,7 +24,7 @@ const C = {
 };
 
 function SimContent({ token, initialMessages }: { token: string; initialMessages: Message[] }) {
-  const { state, open } = useWindowManager();
+  const { state, open, isOpen } = useWindowManager();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState('');
@@ -39,6 +39,7 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
   const [showTicketForm, setShowTicketForm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { speak, setOnPlaying, autoplayBlocked } = useCustomerAudio(token);
+  const prevPhaseRef = useRef(phase);
 
   useEffect(() => { setOnPlaying(setTtsPlaying); }, [setOnPlaying]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -53,7 +54,9 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
 
   useEffect(() => {
     loadSim();
-    const interval = setInterval(loadSim, 3000);
+    const interval = setInterval(() => {
+      if (!document.hidden) loadSim();
+    }, 10000);
     return () => clearInterval(interval);
   }, [loadSim]);
 
@@ -64,6 +67,16 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
       return () => clearTimeout(t);
     }
   }, [phase, incomingCall]);
+
+  /* Open chat window when phase changes to call_active (from remote_connect back, or start_call) */
+  useEffect(() => {
+    if (prevPhaseRef.current === 'not_started' && phase === 'call_active') {
+      open('chat', 'Customer Chat', '💬', 'chat');
+      const openingMsg = messages.find(m => m.role === 'caller');
+      if (openingMsg) setTimeout(() => speak(openingMsg.content).catch(() => {}), 500);
+    }
+    prevPhaseRef.current = phase;
+  }, [phase, open, messages, speak]);
 
   const isRemoted = phase === 'remote_active';
 
@@ -81,14 +94,8 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
         if (actionId === 'start_call') {
           setCallActive(true); setIncomingCall(false);
           open('chat', 'Customer Chat', '💬', 'chat');
-          open('ticket', 'Ticket', '🎫', 'ticket');
           const openingMsg = messages.find(m => m.role === 'caller');
           if (openingMsg) setTimeout(() => speak(openingMsg.content).catch(() => {}), 500);
-        }
-        if (actionId === 'remote_connect') {
-          open('outlook', 'Microsoft Outlook', '📧', 'outlook');
-          open('browser', 'Browser', '🌐', 'browser');
-          open('cmd', 'Command Prompt', '💻', 'cmd');
         }
         if (actionId === 'end_call') setShowTicketForm(true);
       } else setError(d.error || 'Action failed');
@@ -168,7 +175,7 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
             🖥️ Remote into ALDER-LT-023
           </button>
         )}
-        {callActive && (phase === 'call_active' || isRemoted) && (
+        {callActive && !isRemoted && (
           <button onClick={() => handleAction('end_call', 'customer_chat')}
             style={{ padding: '5px 14px', background: C.danger, color: '#fff', border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             📞 End Call
@@ -203,38 +210,28 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
       {/* ── Main layout ── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {/* LEFT SIDEBAR */}
-        <div style={{ width: 200, background: C.sidebar, color: '#c8d6e5', display: 'flex', flexDirection: 'column', flexShrink: 0, zIndex: 500 }}>
-          <div style={{ padding: '12px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#6b8eb5' }}>Navigation</div>
-          {[{ icon: '🏠', label: 'Home' }, { icon: '🎫', label: 'Incidents', active: true }, { icon: '🖥️', label: 'Assets' }, { icon: '📚', label: 'Knowledge Base' }].map(item => (
-            <div key={item.label} style={{
-              padding: '7px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
-              background: item.active ? C.sidebarActive : 'transparent',
-              borderLeft: item.active ? `3px solid ${C.primary}` : '3px solid transparent',
-              color: item.active ? '#fff' : '#8ba4c4', cursor: 'default',
-            }}>
-              <span>{item.icon}</span><span>{item.label}</span>
-            </div>
-          ))}
-          <div style={{ flex: 1 }} />
-          {callActive && (
-            <div style={{ padding: '10px', borderTop: `1px solid ${C.sidebarHover}` }}>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#6b8eb5', marginBottom: 6 }}>Current Ticket</div>
-              <div style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>INC-002847</div>
-              <div style={{ fontSize: 10, color: '#8ba4c4', marginTop: 1 }}>Outlook — Work Offline</div>
-              <div style={{ fontSize: 10, color: '#8ba4c4' }}>Connexion Dental</div>
-              <div style={{ marginTop: 6, height: 3, background: C.sidebarHover, borderRadius: 2 }}>
-                <div style={{ width: safeOutlook?.workOffline === false ? '100%' : '30%', height: '100%', background: safeOutlook?.workOffline === false ? C.success : C.warning, borderRadius: 2, transition: 'width 0.3s' }} />
+        {/* LEFT SIDEBAR — only visible pre-call */}
+        {!callActive && !isRemoted && (
+          <div style={{ width: 200, background: C.sidebar, color: '#c8d6e5', display: 'flex', flexDirection: 'column', flexShrink: 0, zIndex: 500 }}>
+            <div style={{ padding: '12px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#6b8eb5' }}>Navigation</div>
+            {[{ icon: '🏠', label: 'Home' }, { icon: '🎫', label: 'Incidents', active: true }, { icon: '🖥️', label: 'Assets' }, { icon: '📚', label: 'Knowledge Base' }].map(item => (
+              <div key={item.label} style={{
+                padding: '7px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
+                background: item.active ? C.sidebarActive : 'transparent',
+                borderLeft: item.active ? `3px solid ${C.primary}` : '3px solid transparent',
+                color: item.active ? '#fff' : '#8ba4c4', cursor: 'default',
+              }}>
+                <span>{item.icon}</span><span>{item.label}</span>
               </div>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* ── CENTER PANEL ── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
 
-          {/* Timeline chips */}
-          {simData?.timeline?.length > 0 && !isRemoted && (
+          {/* Timeline chips — call phase only */}
+          {simData?.timeline?.length > 0 && callActive && !isRemoted && (
             <div style={{ display: 'flex', gap: 3, padding: '4px 12px', background: C.card, borderBottom: `1px solid ${C.border}`, overflowX: 'auto', fontSize: 10, color: C.textMuted, flexShrink: 0 }}>
               {simData.timeline.slice(-10).map((t: any, i: number) => (
                 <span key={i} style={{
@@ -248,10 +245,9 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
             </div>
           )}
 
-          {/* ── CALL ACTIVE: ITSM chat view ── */}
+          {/* ── CALL PHASE: chat view ── */}
           {!isRemoted && (
             <>
-              {/* Messages */}
               <div style={{ flex: 1, overflow: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {!callActive && phase === 'not_started' && !incomingCall && (
                   <div style={{ textAlign: 'center', padding: 40, color: C.textMuted }}>
@@ -261,10 +257,10 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
                   </div>
                 )}
                 {messages.map((m, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: m.role === 'candidate' ? 'flex-end' : 'flex-start' }}>
+                  <div key={i} style={{ display: 'flex', justifyContent: m.role === 'candidate' ? 'flex-end' : 'flex-start', borderRadius: 8 }}>
                     <div style={{
                       maxWidth: '75%', padding: '8px 12px', borderRadius: m.role === 'candidate' ? '10px 10px 3px 10px' : '10px 10px 10px 3px',
-                      fontSize: 12, lineHeight: 1.5,
+                      fontSize: 13, lineHeight: 1.5,
                       background: m.role === 'candidate' ? C.primary : C.card,
                       color: m.role === 'candidate' ? '#fff' : C.text,
                       border: m.role === 'candidate' ? 'none' : `1px solid ${C.border}`,
@@ -288,7 +284,7 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
                     <input type="text" value={input} onChange={e => setInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { sendMessage(input); setInput(''); } }}
                       placeholder="Type a message..."
-                      style={{ flex: 1, padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, outline: 'none', background: C.bg }} />
+                      style={{ flex: 1, padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, outline: 'none', background: C.bg }} />
                     <button onClick={() => { sendMessage(input); setInput(''); }}
                       disabled={sending || !input.trim()}
                       style={{ padding: '8px 16px', background: C.primary, color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: sending || !input.trim() ? 0.6 : 1 }}>
@@ -315,100 +311,105 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
             </>
           )}
 
-          {/* ── REMOTE ACTIVE: Win11 desktop overlay ── */}
+          {/* ── REMOTE ACTIVE: clean Windows desktop ── */}
           {isRemoted && (
             <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: C.darkBg, overflow: 'hidden' }}>
               <Desktop />
-              <CustomerChatWindow
-                messages={messages}
-                onSendMessage={(msg: string) => sendMessage(msg, 'text')}
-                sending={sending}
-                disabled={false}
-                voiceButton={
-                  <VoiceRecorderButton token={token} onTranscript={handleVoiceTranscript} disabled={ttsPlaying} clickToToggle />
-                }
-              />
-              <OutlookWindow
-                safeActions={safeActions}
-                visibleState={safeState}
-                onAction={(id: string, tool: string) => handleAction(id, tool)}
-                disabled={false}
-              />
-              <BrowserWindow
-                safeActions={safeActions}
-                onAction={(id: string, tool: string) => handleAction(id, tool)}
-                disabled={false}
-              />
-              <CommandPromptWindow
-                safeActions={safeActions}
-                onAction={(id: string, tool: string) => handleAction(id, tool)}
-                disabled={false}
-              />
-              <TicketWindow
-                ticketText={ticketText}
-                onTicketChange={setTicketText}
-                onSubmit={submitTicket}
-                submitted={ticketSubmitted}
-              />
+              {/* Tool windows opened by user via desktop icons */}
+              {isOpen('chat') && (
+                <CustomerChatWindow
+                  messages={messages}
+                  onSendMessage={(msg: string) => sendMessage(msg, 'text')}
+                  sending={sending}
+                  disabled={false}
+                  voiceButton={
+                    <VoiceRecorderButton token={token} onTranscript={handleVoiceTranscript} disabled={ttsPlaying} clickToToggle />
+                  }
+                />
+              )}
+              {isOpen('outlook') && (
+                <OutlookWindow
+                  safeActions={safeActions}
+                  visibleState={safeState}
+                  onAction={(id: string, tool: string) => handleAction(id, tool)}
+                  disabled={false}
+                />
+              )}
+              {isOpen('browser') && (
+                <BrowserWindow
+                  safeActions={safeActions}
+                  onAction={(id: string, tool: string) => handleAction(id, tool)}
+                  disabled={false}
+                />
+              )}
+              {isOpen('cmd') && (
+                <CommandPromptWindow
+                  safeActions={safeActions}
+                  onAction={(id: string, tool: string) => handleAction(id, tool)}
+                  disabled={false}
+                />
+              )}
+              {isOpen('ticket') && (
+                <TicketWindow
+                  ticketText={ticketText}
+                  onTicketChange={setTicketText}
+                  onSubmit={submitTicket}
+                  submitted={ticketSubmitted}
+                />
+              )}
               <Taskbar />
             </div>
           )}
         </div>
 
-        {/* RIGHT: Actions Panel */}
-        <div style={{ width: 240, background: C.card, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, zIndex: 500 }}>
-          <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, fontWeight: 600, fontSize: 12, color: C.text }}>
-            {callActive ? (isRemoted ? '🖥️ Remote Tools' : '📋 Actions') : 'Getting Started'}
-          </div>
-          {!callActive && phase === 'not_started' && (
-            <div style={{ padding: 14, fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
-              <p style={{ margin: 0 }}>You are about to receive a simulated IT support call.</p>
-              <ul style={{ paddingLeft: 14, margin: '8px 0', fontSize: 11 }}>
-                <li>Answer the call when it appears</li>
-                <li>Ask questions to diagnose</li>
-                <li>Remote in and use tools to find the cause</li>
-                <li>Apply the fix and verify</li>
-                <li>Write a closure ticket</li>
-              </ul>
+        {/* RIGHT: Actions Panel — call phase only */}
+        {callActive && !isRemoted && (
+          <div style={{ width: 240, background: C.card, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, zIndex: 500 }}>
+            <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, fontWeight: 600, fontSize: 12, color: C.text }}>
+              📋 Actions
             </div>
-          )}
-          {callActive && (
-            <div style={{ overflow: 'auto', flex: 1, padding: 6 }}>
-              {['outlook', 'browser', 'cmd', 'connectwise', 'control_panel', 'customer_chat'].map(tool => {
-                const toolActions = safeActions.filter((a: SafeAction) => a.tool === tool);
-                if (toolActions.length === 0) return null;
-                const icons: Record<string, string> = { outlook: '📧', browser: '🌐', cmd: '💻', connectwise: '🔧', control_panel: '⚙️', customer_chat: '💬' };
-                const labels: Record<string, string> = { outlook: 'Outlook', browser: 'Browser', cmd: 'Terminal', connectwise: 'ConnectWise', control_panel: 'Control Panel', customer_chat: 'Communication' };
-                return (
-                  <div key={tool} style={{ marginBottom: 4 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: C.textMuted, padding: '2px 6px' }}>
-                      {icons[tool]} {labels[tool]}
+            {!callActive && phase === 'not_started' && (
+              <div style={{ padding: 14, fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
+                <p style={{ margin: 0 }}>You are about to receive a simulated IT support call.</p>
+                <ul style={{ paddingLeft: 14, margin: '8px 0', fontSize: 11 }}>
+                  <li>Answer the call when it appears</li>
+                  <li>Ask questions to diagnose</li>
+                  <li>Remote in and use tools to find the cause</li>
+                  <li>Apply the fix and verify</li>
+                  <li>Write a closure ticket</li>
+                </ul>
+              </div>
+            )}
+            {callActive && (
+              <div style={{ overflow: 'auto', flex: 1, padding: 6 }}>
+                {['outlook', 'browser', 'cmd', 'connectwise', 'control_panel', 'customer_chat'].map(tool => {
+                  const toolActions = safeActions.filter((a: SafeAction) => a.tool === tool);
+                  if (toolActions.length === 0) return null;
+                  const icons: Record<string, string> = { outlook: '📧', browser: '🌐', cmd: '💻', connectwise: '🔧', control_panel: '⚙️', customer_chat: '💬' };
+                  const labels: Record<string, string> = { outlook: 'Outlook', browser: 'Browser', cmd: 'Terminal', connectwise: 'ConnectWise', control_panel: 'Control Panel', customer_chat: 'Communication' };
+                  return (
+                    <div key={tool} style={{ marginBottom: 4 }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: C.textMuted, padding: '2px 6px' }}>
+                        {icons[tool]} {labels[tool]}
+                      </div>
+                      {toolActions.map((a: SafeAction) => (
+                        <button key={a.id} onClick={() => handleAction(a.id, a.tool)} style={{
+                          width: '100%', textAlign: 'left', padding: '5px 8px', marginBottom: 1,
+                          background: a.redFlag ? '#fff5f5' : '#f8f9fa',
+                          border: `1px solid ${a.redFlag ? '#fdd' : C.border}`, borderRadius: 3, fontSize: 11,
+                          cursor: 'pointer', color: a.redFlag ? C.danger : C.text,
+                          display: 'flex', alignItems: 'center', gap: 4,
+                        }}>
+                          {a.redFlag ? '⚠ ' : '▶ '}{a.label}
+                        </button>
+                      ))}
                     </div>
-                    {toolActions.map((a: SafeAction) => (
-                      <button key={a.id} onClick={() => handleAction(a.id, a.tool)} style={{
-                        width: '100%', textAlign: 'left', padding: '5px 8px', marginBottom: 1,
-                        background: a.redFlag ? '#fff5f5' : '#f8f9fa',
-                        border: `1px solid ${a.redFlag ? '#fdd' : C.border}`, borderRadius: 3, fontSize: 11,
-                        cursor: 'pointer', color: a.redFlag ? C.danger : C.text,
-                        display: 'flex', alignItems: 'center', gap: 4,
-                      }}>
-                        {a.redFlag ? '⚠ ' : '▶ '}{a.label}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {callActive && (
-            <div style={{ padding: '8px 12px', borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.textMuted }}>
-              <div style={{ fontWeight: 600, color: C.text, marginBottom: 2 }}>ALDER-LT-023</div>
-              <div>Status: {safeOutlook?.workOffline === false ? '✅ Online' : '🔴 Work Offline'}</div>
-              <div>Outbox: {safeOutlook?.outboxCount ?? '—'} msgs</div>
-              {safeOutlook?.sentTestEmail && <div style={{ color: C.success }}>✓ Test email sent</div>}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

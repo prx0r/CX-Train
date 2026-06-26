@@ -206,6 +206,8 @@ export function initTables(): void {
 
     `ALTER TABLE session_events ADD COLUMN input_source TEXT NOT NULL DEFAULT 'text'`,
     `ALTER TABLE session_events ADD COLUMN audio_metadata_json TEXT`,
+
+    `ALTER TABLE assessments ADD COLUMN assignment_type TEXT NOT NULL DEFAULT 'hiring_exam'`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }

@@ -18,23 +18,33 @@ This is the **only** actively developed architecture. All new features must buil
 ### Core Flow
 1. Manager opens `/mvp`
 2. Manager creates or selects a profile
-3. Manager creates assessment
-4. App generates candidate invite link
-5. Candidate opens invite link
-6. Candidate chats with simulated caller
-7. Candidate submits ticket
-8. System runs evidence extraction (AI/mock)
-9. Code computes deterministic score
-10. System creates report
-11. Manager views transcript, ticket, evidence checks, score, readiness label
-12. Manager can agree/disagree and override criterion-level judgments
-13. Feedback stored for future calibration
+3. Manager chooses **assignment type** (Hiring Exam, Training Drill, or Training Shift — coming soon)
+4. Manager creates assessment (type maps to internal mode)
+5. App generates candidate invite link
+6. Candidate opens invite link
+7. Candidate completes the assignment (chat call for Hiring Exam, service-desk shell for Training Drill)
+8. Candidate submits ticket
+9. System runs evidence extraction (AI/mock)
+10. Code computes deterministic score
+11. System creates report
+12. Manager views transcript, ticket, evidence checks, score, readiness label
+13. Manager can agree/disagree and override criterion-level judgments
+14. Feedback stored for future calibration
+
+### Assignment Types
+CallCallum is one platform with three assignment types:
+- **Hiring Exam** (`hiring_exam`) — assesses new starters on basic call handling. Maps to `chat_call` mode.
+- **Training Drill** (`training_drill`) — practises one ticket type with service-desk simulator. Maps to `dashboard_sim` mode.
+- **Training Shift** (`training_shift`) — coming soon. Simulated queue across a time block.
+
+The `assignment_type` field on `assessments` is the product-level switch. Internal `assessment_mode` is derived from it. See `lib/mvp/assignment-types.ts`.
 
 ### Key Modules
 
 | Module | Status | Path |
 |---|---|---|
 | assess | active | `app/mvp/`, `app/api/mvp/` |
+| assignment-types | active | `lib/mvp/assignment-types.ts` |
 | standards | active | `app/api/mvp/standards`, `lib/mvp/db.ts` |
 | analysis | active | `lib/mvp/analysis/`, `app/api/mvp/assessments/[id]/analyse` |
 | feedback | active | `app/api/mvp/assessments/[id]/feedback` |

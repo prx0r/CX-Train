@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import { VoiceRecorderButton, type VoiceTranscriptResult } from '@/components/mvp/voice/VoiceRecorderButton';
+import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
 
 interface Message {
   role: string;
@@ -23,9 +25,15 @@ export default function CandidatePage() {
   const [ticketText, setTicketText] = useState('');
   const [ticketSubmitted, setTicketSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [assignmentType, setAssignmentType] = useState<string>('hiring_exam');
   const [assessmentMode, setAssessmentMode] = useState<string>('chat_call');
   const [packTitle, setPackTitle] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { speak, setOnPlaying, autoplayBlocked } = useCustomerAudio(token);
+  const [ttsPlaying, setTtsPlaying] = useState(false);
+  const firstLoadRef = useRef(true);
+
+  useEffect(() => { setOnPlaying(setTtsPlaying); }, [setOnPlaying]);
 
   useEffect(() => {
     fetch(`/api/mvp/assessment/${token}`)
@@ -35,6 +43,7 @@ export default function CandidatePage() {
         setScenarioTitle(data.scenario_title || '');
         setStatus(data.status);
         setMessages(data.messages || []);
+        setAssignmentType(data.assignment_type || 'hiring_exam');
         setAssessmentMode(data.assessment_mode || 'chat_call');
         setPackTitle(data.pack_title || '');
         setLoading(false);
@@ -45,28 +54,41 @@ export default function CandidatePage() {
       });
   }, [token]);
 
+  /* Auto-play initial customer message */
+  useEffect(() => {
+    if (!loading && messages.length > 0 && firstLoadRef.current) {
+      firstLoadRef.current = false;
+      const firstCaller = messages.find(m => m.role === 'caller');
+      if (firstCaller) {
+        setTimeout(() => speak(firstCaller.content).catch(() => {}), 500);
+      }
+    }
+  }, [loading, messages, speak]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  async function sendMessage() {
-    if (!input.trim() || sending) return;
-    const msg = input.trim();
+  async function sendMessage(msg?: string, source?: string) {
+    const text = (msg || input).trim();
+    if (!text || sending) return;
     setInput('');
     setSending(true);
     setError('');
 
-    setMessages(prev => [...prev, { role: 'candidate', content: msg }]);
+    setMessages(prev => [...prev, { role: 'candidate', content: text }]);
 
     try {
       const res = await fetch(`/api/mvp/assessment/${token}/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ message: text, input_source: source || 'text' }),
       });
       const data = await res.json();
       if (data.reply) {
         setMessages(prev => [...prev, { role: 'caller', content: data.reply }]);
+        /* Auto-play customer reply */
+        speak(data.reply).catch(() => {});
       } else {
         setError(data.error || 'No response');
       }
@@ -74,6 +96,10 @@ export default function CandidatePage() {
       setError('Failed to send message');
     }
     setSending(false);
+  }
+
+  async function handleVoiceTranscript(result: VoiceTranscriptResult) {
+    await sendMessage(result.text, 'voice');
   }
 
   async function endCall() {
@@ -104,8 +130,8 @@ export default function CandidatePage() {
     }
   }
 
-  // Defer to ItsmCandidateShell for dashboard_sim mode
-  if (assessmentMode === 'dashboard_sim') {
+  // Defer to ItsmCandidateShell for training_drill mode
+  if (assignmentType === 'training_drill' || assessmentMode === 'dashboard_sim') {
     const ItsmShell = React.lazy(() => import('@/components/mvp/sim/ItsmCandidateShell'));
     return (
       <React.Suspense fallback={<div className="p-8 text-center text-gray-500">Loading Service Desk...</div>}>
@@ -119,6 +145,8 @@ export default function CandidatePage() {
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
   if (error && !messages.length) return <div className="p-8 text-center text-red-400">{error}</div>;
+
+  const canUseVoice = typeof window !== 'undefined' && window.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
 
   return (
     <div className="max-w-3xl mx-auto p-4 flex flex-col min-h-screen">
@@ -153,28 +181,46 @@ export default function CandidatePage() {
       </div>
 
       {!callEnded && !ticketSubmitted && (
-        <div className="flex gap-2 mb-4">
-          <input
-            className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
-            placeholder="Type your response..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            disabled={sending}
-          />
-          <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
-            onClick={sendMessage}
-            disabled={sending || !input.trim()}
-          >
-            Send
-          </button>
-          <button
-            className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded text-sm"
-            onClick={endCall}
-          >
-            End Call
-          </button>
+        <div className="flex flex-col gap-2 mb-4">
+          <div className="flex gap-2">
+            <input
+              className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
+              placeholder="Type your response..."
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+              disabled={sending}
+            />
+            <button
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
+              onClick={() => sendMessage()}
+              disabled={sending || !input.trim()}
+            >
+              Send
+            </button>
+            <button
+              className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded text-sm"
+              onClick={endCall}
+            >
+              End Call
+            </button>
+          </div>
+          {autoplayBlocked && (
+            <div className="flex items-center gap-2 text-xs text-amber-400">
+              <span>Audio playback blocked by browser.</span>
+              <button
+                onClick={() => { const last = [...messages].reverse().find(m => m.role === 'caller'); if (last) speak(last.content).catch(() => {}); }}
+                className="text-amber-300 underline cursor-pointer bg-transparent border-none"
+              >
+                Play last message
+              </button>
+            </div>
+          )}
+          {canUseVoice ? (
+            <VoiceRecorderButton token={token} onTranscript={handleVoiceTranscript} disabled={sending || ttsPlaying} clickToToggle />
+          ) : (
+            <p className="text-xs text-gray-500">Voice mode requires HTTPS or localhost. Continue with text mode.</p>
+          )}
         </div>
       )}
 

@@ -15,6 +15,16 @@ interface WindowFrameProps {
   minHeight?: number;
 }
 
+function rafThrottle(fn: () => void): (() => void) {
+  let ticking = false;
+  return () => {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(() => { ticking = false; fn(); });
+    }
+  };
+}
+
 export default function WindowFrame({
   id, name, icon, children,
   defaultWidth = 720, defaultHeight = 480,
@@ -37,26 +47,28 @@ export default function WindowFrame({
     const el = frameRef.current;
     if (!el) return;
     if ((e.target as HTMLElement).closest('.win-btn')) return;
-    const currentDim = win?.dim || { top: 80, left: 120 };
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startTop: currentDim.top,
-      startLeft: currentDim.left,
-    };
-    const handleMouseMove = (ev: MouseEvent) => {
+    const dim = win?.dim || { top: 80, left: 120 };
+    const ref = { startX: e.clientX, startY: e.clientY, startTop: dim.top, startLeft: dim.left };
+    dragRef.current = ref;
+    const throttledMove = rafThrottle(() => {
       if (!dragRef.current) return;
-      const dy = ev.clientY - dragRef.current.startY;
-      const dx = ev.clientX - dragRef.current.startX;
-      move(id, dragRef.current.startTop + dy, dragRef.current.startLeft + dx);
+      move(id, dragRef.current.startTop, dragRef.current.startLeft);
+    });
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const dy = ev.clientY - ref.startY;
+      const dx = ev.clientX - ref.startX;
+      dragRef.current.startTop = ref.startTop + dy;
+      dragRef.current.startLeft = ref.startLeft + dx;
+      throttledMove();
     };
-    const handleMouseUp = () => {
+    const onUp = () => {
       dragRef.current = null;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
     };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
     e.preventDefault();
   }, [id, focus, move, win?.dim]);
 
@@ -66,36 +78,42 @@ export default function WindowFrame({
     setIsResizing(true);
     const el = frameRef.current;
     if (!el) return;
-    const currentDim = win?.dim || { width: defaultWidth, height: defaultHeight, top: 80, left: 120 };
-    resizeRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startW: currentDim.width,
-      startH: currentDim.height,
-      startT: currentDim.top,
-      startL: currentDim.left,
-      dir,
-    };
-    const handleMove = (ev: MouseEvent) => {
+    const dim = win?.dim || { width: defaultWidth, height: defaultHeight, top: 80, left: 120 };
+    const ref = { startX: e.clientX, startY: e.clientY, startW: dim.width, startH: dim.height, startT: dim.top, startL: dim.left, dir };
+    resizeRef.current = ref;
+    const throttledResize = rafThrottle(() => {
       if (!resizeRef.current) return;
-      const { startX, startY, startW, startH, startT, startL, dir: d } = resizeRef.current;
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-      let w = startW, h = startH, t = startT, l = startL;
-      if (d.includes('e')) w = Math.max(minWidth, startW + dx);
-      if (d.includes('w')) { w = Math.max(minWidth, startW - dx); l = startL + (startW - w); }
-      if (d.includes('s')) h = Math.max(minHeight, startH + dy);
-      if (d.includes('n')) { h = Math.max(minHeight, startH - dy); t = startT + (startH - h); }
+      const dx = 0;
+      const dy = 0;
+      let w = ref.startW, h = ref.startH, t = ref.startT, l = ref.startL;
+      if (ref.dir.includes('e')) w = Math.max(minWidth, ref.startW + dx);
+      if (ref.dir.includes('w')) { w = Math.max(minWidth, ref.startW - dx); l = ref.startL + (ref.startW - w); }
+      if (ref.dir.includes('s')) h = Math.max(minHeight, ref.startH + dy);
+      if (ref.dir.includes('n')) { h = Math.max(minHeight, ref.startH - dy); t = ref.startT + (ref.startH - h); }
       resize(id, w, h, t, l);
+    });
+    const onMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const dx = ev.clientX - ref.startX;
+      const dy = ev.clientY - ref.startY;
+      ref.startX = ev.clientX;
+      ref.startY = ev.clientY;
+      let w = ref.startW, h = ref.startH, t = ref.startT, l = ref.startL;
+      if (ref.dir.includes('e')) w = Math.max(minWidth, ref.startW + dx);
+      if (ref.dir.includes('w')) { w = Math.max(minWidth, ref.startW - dx); l = ref.startL + (ref.startW - w); }
+      if (ref.dir.includes('s')) h = Math.max(minHeight, ref.startH + dy);
+      if (ref.dir.includes('n')) { h = Math.max(minHeight, ref.startH - dy); t = ref.startT + (ref.startH - h); }
+      ref.startW = w; ref.startH = h; ref.startT = t; ref.startL = l;
+      throttledResize();
     };
-    const handleUp = () => {
+    const onUp = () => {
       resizeRef.current = null;
       setIsResizing(false);
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleUp);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
     };
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleUp);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   }, [id, resize, win?.dim, defaultWidth, defaultHeight, minWidth, minHeight]);
 
   if (!win) return null;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { WindowState, WindowAction, WinWindow } from './types';
 
 export const initialWindowState: WindowState = {
@@ -176,12 +176,16 @@ export function WindowProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.windows]);
 
+  const ctxValue = useMemo(() => ({
+    state, open, close, minimize, restore, focus, move, resize,
+    toggleStartMenu, closeStartMenu, showContextMenu, hideContextMenu,
+    isOpen, isVisible, getHighestZ, cycleFocus,
+  }), [state, open, close, minimize, restore, focus, move, resize,
+    toggleStartMenu, closeStartMenu, showContextMenu, hideContextMenu,
+    isOpen, isVisible, getHighestZ, cycleFocus]);
+
   return (
-    <WindowContext.Provider value={{
-      state, open, close, minimize, restore, focus, move, resize,
-      toggleStartMenu, closeStartMenu, showContextMenu, hideContextMenu,
-      isOpen, isVisible, getHighestZ, cycleFocus,
-    }}>
+    <WindowContext.Provider value={ctxValue}>
       {children}
     </WindowContext.Provider>
   );

@@ -29,7 +29,8 @@
     "test:dashboard-sim": "node scripts/test-dashboard-sim.mjs",
     "test:events": "node scripts/test-session-events.mjs",
     "test:dashboard-sim-foundation": "node scripts/test-dashboard-sim-foundation.mjs",
-    "test:win11-state": "npx tsx tests/win11-window-state.test.ts"
+    "test:win11-state": "npx tsx tests/win11-window-state.test.ts",
+    "test:assignment-types": "node scripts/test-assignment-types.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

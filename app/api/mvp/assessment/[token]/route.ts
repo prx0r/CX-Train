@@ -18,6 +18,7 @@ export async function GET(
     }
 
     const assessmentMode = (full.assessment as any).assessment_mode || 'chat_call';
+    const assignmentType = (full.assessment as any).assignment_type || 'hiring_exam';
 
     const baseResponse: any = {
       id: full.assessment.id,
@@ -29,9 +30,10 @@ export async function GET(
       has_ticket: !!full.ticket,
       scenario_title: full.scenario?.title || null,
       assessment_mode: assessmentMode,
+      assignment_type: assignmentType,
     };
 
-    if (assessmentMode === 'dashboard_sim') {
+    if (assignmentType === 'training_drill') {
       const packId = (full.assessment as any).assessment_pack_id || 'pack-outlook-sim-v2';
       const pack = getPackById(packId);
 

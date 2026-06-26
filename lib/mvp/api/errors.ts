@@ -69,6 +69,11 @@ export const ERROR_CODES = {
     message: 'This feature is not yet implemented.',
     status: 501,
   },
+  TRAINING_SHIFT_NOT_AVAILABLE: {
+    code: 'TRAINING_SHIFT_NOT_AVAILABLE',
+    message: 'Training Shift assignments are not yet available. Coming soon.',
+    status: 400,
+  },
   UNKNOWN_ERROR: {
     code: 'UNKNOWN_ERROR',
     message: 'An unexpected error occurred.',

@@ -162,6 +162,10 @@ export default function ManagerDetailPage() {
 
   const { assessment, messages, ticket, result, scenario, criteria } = data;
 
+  const assignmentType = assessment?.assignment_type || (assessment?.assessment_mode === 'dashboard_sim' ? 'training_drill' : 'hiring_exam');
+  const assignmentLabels: Record<string, string> = { hiring_exam: 'Hiring Exam', training_drill: 'Training Drill', training_shift: 'Training Shift' };
+  const assignmentLabel = assignmentLabels[assignmentType] || assignmentType;
+
   const statusColors: Record<string, string> = {
     draft: 'text-yellow-400', invited: 'text-blue-400', in_progress: 'text-cyan-400',
     completed: 'text-green-400', analysed: 'text-emerald-300', reviewed: 'text-purple-400',
@@ -178,6 +182,7 @@ export default function ManagerDetailPage() {
       <p className="text-sm text-gray-500 mb-4">
         {assessment.title} &middot;{' '}
         <span className={statusColors[assessment.status] || ''}>{assessment.status}</span>
+        <span className="text-gray-500"> &middot; {assignmentLabel}</span>
         {scenario && <span> &middot; Scenario: {scenario.title}</span>}
       </p>
 
