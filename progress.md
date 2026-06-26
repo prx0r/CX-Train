@@ -633,3 +633,166 @@ components/mvp/simulator/
 - Only scoring-relevant actions call `POST /sim/action`. Everything else is `POST /event` with `ui_interaction`.
 - New app components must be added to both `packConfig.ts` tools array and `sim/types.ts` SimToolId.
 ```
+
+---
+
+## Session 2026-06-26 — SimPack Foundation & Taxonomy Upload
+
+### Foundation: Extensible SimState (toolStates)
+
+`SimState` converted from Outlook-specific named fields to a generic `toolStates` map supporting any tool:
+
+```ts
+// Before:
+interface SimState {
+  outlook?: { workOffline: boolean; outboxCount: number; ... };
+  network?: { internetReachable: boolean; ... };
+  connectwise?: { ticketId: string | null; ... };
+}
+
+// After:
+type SimToolStateKey = 'outlook' | 'network' | 'connectwise' | 'printer' | 'vpn';
+interface SimState {
+  toolStates: Partial<Record<SimToolStateKey, Record<string, unknown>>>;
+}
+```
+
+Migration impact:
+- `stateMachine.ts` — all effect paths changed from `outlook.workOffline` to `toolStates.outlook.workOffline`
+- `safeProjection.ts` — reads from `toolStates` with per-tool visibility guards (printer/vpn added)
+- `OutlookApp.tsx` / `PrinterApp.tsx` / `VpnApp.tsx` — read from `state.outlook|printer|vpn` (safeProjection surfaces these as top-level keys)
+- `aiCustomer.ts` — reads `state.toolStates.outlook` and `state.toolStates.network`
+- `packConfig.ts` — all effect paths updated to `toolStates.*` prefix
+
+### Foundation: Open TaxonomyTag + Runtime Validation
+
+`TaxonomyTag` converted from closed union of 39 literals to open `string` with structural validation:
+
+```ts
+export type TaxonomyTag = string;
+
+export function isValidTaxonomyTag(tag: string): boolean {
+  return /^[a-z_]+\.[a-z_]+\.[a-z_]+$/.test(tag);
+}
+```
+
+`REGISTERED_TAXONOMY_TAGS` registry added for documentation/discovery. New packs define their own tags by following the `domain.category.item` convention.
+
+### Foundation: Pack-Driven Scoring
+
+`SimPack` extended with two new fields:
+
+```ts
+interface SimPackScoringCriterion {
+  id: string; label: string; weight: number;
+  check: 'action_performed' | 'tag_present' | 'tag_in_event' | 'state_value';
+  target: string; value?: unknown; positive?: boolean;
+}
+
+interface SimPackDiagnosticStep {
+  id: string; label: string; criteria: string;
+}
+```
+
+`scoring.ts` completely rewritten — reads `pack.scoringCriteria` and `pack.diagnosticChecklist`, evaluates each criterion generically, no hardcoded action IDs or tag comparisons. The old Outlook scoring logic moved into `packConfig.ts` as data arrays.
+
+### Foundation: State Machine Generic Preconditions
+
+`SimAction` extended with:
+- `strictPreconditions?: boolean` — when true, effects are NOT applied if preconditions fail
+- `failureObservation?: string` — shown when preconditions fail
+
+State machine replaced hardcoded `['send_receive', 'send_test_email']` action ID list with these fields. Phase transitions (`start_call`, `remote_connect`, `end_call`) remain generic trigger-based.
+
+### Foundation: DesktopSurface Bug Fix
+
+`DesktopSurface.tsx` had zero height — `flex: 1` on a non-flex parent + only absolute children + `overflow: hidden` clipped all desktop icons to 0px. Changed to `position: absolute; inset: 0` to fill parent. This is why the remote desktop showed no apps.
+
+### Foundation: CmdApp New Commands
+
+Added 5 commands to `CmdApp.tsx` for multi-pack support:
+
+| Command | Purpose | Backend action |
+|---|---|---|
+| `sc query spooler` | Check Print Spooler service status | — |
+| `net start spooler` | Start Print Spooler | `restart_spooler` |
+| `net stop spooler` | Stop Print Spooler | — |
+| `ipconfig /flushdns` | Flush DNS cache | `flush_dns` |
+| `nslookup <hostname>` | DNS resolution lookup | — |
+
+Commands are state-aware — e.g., `sc query spooler` shows STOPPED/RUNNING based on `toolStates.printer.spoolerRunning`, `nslookup` returns NXDOMAIN when `toolStates.network.dnsWorks === false`.
+
+### Foundation: PrinterApp + VpnApp State-Driven
+
+Previously both used local `useState`. Now accept `state` + `onAction` props and read from sim state:
+
+- **PrinterApp** — shows HP Offline/Online status, stuck jobs queue, spooler status hint, "Send Test Page" button, test page sent confirmation. All driven by `state.printer.*`
+- **VpnApp** — shows connected/disconnected status, last error message, DNS troubleshooting hint, "Connect" and "Check Status" buttons. All driven by `state.vpn.*`
+
+`RemoteDesktopPane` updated to pass `state` and `onAction` to both.
+
+### Taxonomy XLSX Upload
+
+**API Route:** `POST /api/mvp/taxonomy`
+
+Accepts `multipart/form-data` with:
+- `file` — .xlsx file (expected columns: ID, Board_Name, Type, SubType, Item, definition scope, Playbook, keywords, Helpdesk Tier, Escalation Guidance)
+- `action=replace` (optional) — clears all existing items before import
+
+Parses XLSX via `xlsx` library, generates deterministic IDs via `md5(ID+Type+SubType+Item)`, uses `INSERT OR IGNORE` for idempotent dedup. Returns `{ ok, total, inserted, skipped, typeCounts }`.
+
+**Manager UI:** `app/mvp/taxonomy/page.tsx`
+
+Added upload section at top of taxonomy page:
+- File picker for .xlsx files
+- "Replace all existing items before import" checkbox
+- Upload status feedback (success/error banner with counts)
+- ConnectWise-style boxy visual design
+
+### Architecture Spec
+
+`simpack.md` — 858-line architecture document covering:
+- Current architecture assessment (what works vs what's coupled)
+- 6-step foundation refactor (all implemented in this session)
+- Full spec for 2 new drill packs (Printer Spooler, VPN DNS) with actions, rubric, scoring criteria
+- Cross-assignment reuse diagram (hiring exam / training drill / training shift)
+- 4-level manager customization path (built-in → parameterized → taxonomy-driven → custom builder)
+- Training shift architecture outline
+- Prioritized implementation order
+- Verification matrix proving same shell reused across packs
+- 10 guardrails for implementation
+
+### Tests
+
+All 109 tests pass across 5 suites:
+
+```bash
+npm run test:assignment-types          # 21 passed
+npm run test:dashboard-sim             # 28 passed
+npm run test:dashboard-sim-foundation  # 24 passed
+node scripts/test-session-events.mjs   # 16 passed
+node scripts/test-voice.mjs            # 20 passed
+npx tsc --noEmit                       # compiles clean
+npm run build                          # 54 static pages generated
+```
+
+### Files Changed (16)
+
+```
+lib/mvp/sim/types.ts                    # toolStates, open TaxonomyTag, scoring types
+lib/mvp/sim/stateMachine.ts             # strictPreconditions, failureObservation
+lib/mvp/sim/scoring.ts                  # pack-driven rewrite
+lib/mvp/sim/safeProjection.ts           # toolStates reads, printer/vpn visibility
+lib/mvp/sim/packConfig.ts              # toolStates paths, scoringCriteria, checklist
+lib/mvp/sim/aiCustomer.ts              # toolStates reads
+components/mvp/simulator/CmdApp.tsx     # 5 new commands + state prop
+components/mvp/simulator/PrinterApp.tsx # state-driven rewrite
+components/mvp/simulator/VpnApp.tsx     # state-driven rewrite
+components/mvp/simulator/RemoteDesktopPane.tsx  # pass state/onAction to apps
+components/mvp/simulator/DesktopSurface.tsx     # position:absolute fix
+components/mvp/simulator/ControlPanelApp.tsx    # ESLint fix
+components/mvp/simulator/NetworkApp.tsx         # ESLint fix
+app/api/mvp/taxonomy/route.ts          # POST handler for XLSX upload
+app/mvp/taxonomy/page.tsx              # Upload UI section
+simpack.md                             # Architecture spec (new file)
+```
