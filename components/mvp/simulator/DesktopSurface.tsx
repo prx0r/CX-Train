@@ -20,8 +20,8 @@ const ICONS: DesktopIconDef[] = [
 export default function DesktopSurface({ onOpenApp }: { onOpenApp: (app: string) => void }) {
   return (
     <div style={{
-      flex: 1,
-      position: 'relative',
+      position: 'absolute',
+      inset: 0,
       overflow: 'hidden',
       background: 'linear-gradient(135deg, #0b5ea8 0%, #0f77c8 55%, #1b8ad8 100%)',
       userSelect: 'none',

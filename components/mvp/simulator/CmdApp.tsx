@@ -6,22 +6,33 @@ interface SafeAction { id: string; tool: string; label: string; redFlag?: boolea
 
 interface CmdEntry { input: string; output: string; }
 
-function processCommand(cmd: string, onAction: (id: string, tool: string) => void): string {
+function processCommand(
+  cmd: string,
+  onAction: (id: string, tool: string) => void,
+  state: Record<string, unknown> | undefined,
+): string {
   const trimmed = cmd.trim().toLowerCase();
   if (!trimmed) return '';
+
+  const toolStates = (state as any)?.toolStates || {};
+  const printer = toolStates.printer || {};
+  const vpn = toolStates.vpn || {};
+  const network = toolStates.network || {};
 
   switch (true) {
     case trimmed === 'help':
       return `Available commands:
-  help       Show this help
-  cls        Clear screen
-  whoami     Display current user
-  dir        List directory contents
-  ping       Test network connectivity
-  ipconfig   Show network configuration
-  nslookup   DNS lookup
-  tracert    Trace route
-  exit       Close command prompt`;
+  help              Show this help
+  cls               Clear screen
+  whoami            Display current user
+  dir               List directory contents
+  ping              Test network connectivity
+  ipconfig          Show network configuration
+  nslookup          DNS lookup
+  tracert           Trace route
+  net start/stop    Manage Windows services
+  sc query          Query service status
+  exit              Close command prompt`;
 
     case trimmed.startsWith('ping'):
       onAction('run_ping', 'cmd');
@@ -36,7 +47,7 @@ Ping statistics for 52.96.19.66:
 Approximate round trip times in milli-seconds:
     Minimum = 22ms, Maximum = 25ms, Average = 23ms`;
 
-    case trimmed.startsWith('ipconfig'):
+    case trimmed.startsWith('ipconfig') && !trimmed.includes('/flushdns'):
       onAction('run_ipconfig', 'cmd');
       return `Windows IP Configuration
 
@@ -50,7 +61,20 @@ Ethernet adapter Ethernet0:
 Ethernet adapter Wi-Fi:
    Media State . . . . . . . . . . . : Media disconnected`;
 
-    case trimmed.startsWith('nslookup'):
+    case trimmed === 'ipconfig /flushdns':
+      onAction('flush_dns', 'cmd');
+      return `Windows IP Configuration
+
+Successfully flushed the DNS Resolver Cache.`;
+
+    case trimmed.startsWith('nslookup'): {
+      const dnsWorks = network.dnsWorks !== false;
+      if (!dnsWorks) {
+        return `Server:  dns.connexiondental.com
+Address:  10.0.50.2
+
+*** dns.connexiondental.com can't find ${cmd.replace('nslookup ', '').trim()}: Non-existent domain`;
+      }
       return `Server:  dns.connexiondental.com
 Address:  10.0.50.2
 
@@ -59,6 +83,7 @@ Name:    outlook.office365.com
 Addresses:  52.96.19.66
           52.96.60.82
           52.96.14.146`;
+    }
 
     case trimmed.startsWith('tracert'):
       return `Tracing route to outlook.office365.com [52.96.19.66] over a maximum of 30 hops:
@@ -83,6 +108,31 @@ Trace complete.`;
                1 File(s)          1,024 bytes
                4 Dir(s)  128,450,560,000 bytes free`;
 
+    case trimmed === 'sc query spooler': {
+      const spoolerRunning = printer.spoolerRunning === true;
+      return `SERVICE_NAME: spooler
+        TYPE               : 10  WIN32_OWN_PROCESS
+        STATE              : ${spoolerRunning ? '4  RUNNING' : '1  STOPPED'}
+                                (${spoolerRunning ? 'NOT_STOPPABLE, NOT_PAUSABLE, ACCEPTS_SHUTDOWN' : 'STOPPABLE, NOT_PAUSABLE, ACCEPTS_SHUTDOWN'})
+        WIN32_EXIT_CODE    : 0  (0x0)
+        SERVICE_EXIT_CODE  : 0  (0x0)
+        CHECKPOINT         : 0x0
+        WAIT_HINT          : 0x0`;
+    }
+
+    case trimmed === 'net start spooler':
+      onAction('restart_spooler', 'cmd');
+      return `The Print Spooler service is starting.
+The Print Spooler service was started successfully.`;
+
+    case trimmed === 'net stop spooler': {
+      const spoolerRunning = printer.spoolerRunning === true;
+      if (!spoolerRunning) {
+        return `The Print Spooler service is not started.`;
+      }
+      return `The Print Spooler service was stopped successfully.`;
+    }
+
     case trimmed === 'cls':
       return '__CLEAR__';
 
@@ -91,8 +141,9 @@ Trace complete.`;
   }
 }
 
-export default function CmdApp({ onAction, onRecordInteraction }: {
+export default function CmdApp({ actions, onAction, onRecordInteraction, state }: {
   actions?: SafeAction[];
+  state?: Record<string, unknown>;
   onAction: (id: string, tool: string) => void;
   onRecordInteraction?: (actionId: string, label: string, eventType?: string) => void;
 }) {
@@ -111,7 +162,7 @@ export default function CmdApp({ onAction, onRecordInteraction }: {
   const handleSubmit = () => {
     const cmd = input.trim();
     if (!cmd) return;
-    const output = processCommand(cmd, onAction);
+    const output = processCommand(cmd, onAction, state);
     if (output === '__CLEAR__') {
       setHistory([]);
     } else {

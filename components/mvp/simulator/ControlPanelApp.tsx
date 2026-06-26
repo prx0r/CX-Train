@@ -47,7 +47,7 @@ export default function ControlPanelApp({ actions, onAction, onRecordInteraction
       <main style={{ padding: 18, overflow: 'auto' }}>
         {selected === 'home' && (
           <>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Adjust your computer's settings</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Adjust your computer&apos;s settings</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 600 }}>
               {[{ label: 'System', desc: 'View RAM, processor speed' }, { label: 'Network and Internet', desc: 'View network status' }, { label: 'Programs', desc: 'Uninstall programs' }, { label: 'Mail', desc: 'Microsoft Outlook profiles' }].map(i => (
                 <div key={i.label} style={{ padding: 10, border: '1px solid #cfcfcf', borderRadius: 3, fontSize: 11, color: '#525252' }}>

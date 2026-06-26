@@ -1,4 +1,4 @@
-import { SimPack, SimState, SimToolId, TaxonomyTag } from './types';
+import { SimPack, SimState } from './types';
 
 export const OUTLOOK_WORK_OFFLINE_PACK_ID = 'pack-outlook-sim-v2';
 
@@ -16,24 +16,26 @@ export function getInitialState(): SimState {
       deviceName: 'ALDER-LT-023',
       currentApp: 'none',
     },
-    outlook: {
-      workOffline: true,
-      outboxCount: 3,
-      sentTestEmail: false,
-      profileCorrupt: false,
-    },
-    network: {
-      internetReachable: true,
-      dnsWorks: true,
-      exchangeReachable: true,
-    },
-    connectwise: {
-      ticketId: null,
-      priority: null,
-      status: null,
-      notes: [],
-      kbArticlesViewed: [],
-      assetsViewed: [],
+    toolStates: {
+      outlook: {
+        workOffline: true,
+        outboxCount: 3,
+        sentTestEmail: false,
+        profileCorrupt: false,
+      },
+      network: {
+        internetReachable: true,
+        dnsWorks: true,
+        exchangeReachable: true,
+      },
+      connectwise: {
+        ticketId: null,
+        priority: null,
+        status: null,
+        notes: [],
+        kbArticlesViewed: [],
+        assetsViewed: [],
+      },
     },
     evidence: {
       askedImpact: false,
@@ -166,7 +168,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         allowedPhases: ['remote_active'],
         requiresState: { 'remote.currentApp': 'outlook' },
         effects: {
-          'outlook.workOffline': false,
+          'toolStates.outlook.workOffline': false,
           'evidence.checkedObviousCause': true,
         },
         observation: 'Work Offline is now disabled. Outlook reconnects to Exchange. The status bar shows "Connected."',
@@ -179,12 +181,14 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'outlook',
         label: 'Send/Receive all folders',
         allowedPhases: ['remote_active'],
-        requiresState: { 'outlook.workOffline': false },
+        requiresState: { 'toolStates.outlook.workOffline': false },
+        strictPreconditions: true,
         effects: {
-          'outlook.outboxCount': 0,
-          'outlook.sentTestEmail': true,
+          'toolStates.outlook.outboxCount': 0,
+          'toolStates.outlook.sentTestEmail': true,
         },
         observation: 'Send/Receive completes. Outbox is now empty — all 3 messages sent successfully.',
+        failureObservation: 'The attempt does not complete. Outlook is still disconnected, so mail remains in the Outbox.',
         taxonomyTags: ['tool.outlook.send_receive', 'verification.test_email_sent'],
         scoreImpact: { positive: ['fix', 'verification'] },
       },
@@ -193,12 +197,14 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'outlook',
         label: 'Send a test email',
         allowedPhases: ['remote_active'],
-        requiresState: { 'outlook.workOffline': false },
+        requiresState: { 'toolStates.outlook.workOffline': false },
+        strictPreconditions: true,
         effects: {
-          'outlook.sentTestEmail': true,
+          'toolStates.outlook.sentTestEmail': true,
           'evidence.verifiedFix': true,
         },
         observation: 'Test email sent to the customer. Customer confirms "Yes, I received it!"',
+        failureObservation: 'The attempt does not complete. Outlook is still disconnected, so mail remains in the Outbox.',
         taxonomyTags: ['tool.outlook.send_test_email', 'verification.test_email_sent', 'verification.user_confirmed'],
         scoreImpact: { positive: ['verification'] },
       },
@@ -219,7 +225,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         label: 'Check Outlook Web App',
         allowedPhases: ['remote_active'],
         requiresState: { 'remote.currentApp': 'browser' },
-        effects: { 'network.exchangeReachable': true },
+        effects: { 'toolStates.network.exchangeReachable': true },
         observation: 'Outlook Web App loads successfully and can send email. Issue is isolated to the desktop client.',
         taxonomyTags: ['tool.browser.check_webmail', 'diagnostic.scope_isolation'],
         scoreImpact: { positive: ['diagnosis'] },
@@ -253,8 +259,8 @@ export function getOutlookWorkOfflinePack(): SimPack {
         label: 'Open ticket in ConnectWise',
         allowedPhases: ['remote_active', 'ticketing'],
         effects: {
-          'connectwise.ticketId': 'TKT-2847',
-          'connectwise.status': 'In Progress',
+          'toolStates.connectwise.ticketId': 'TKT-2847',
+          'toolStates.connectwise.status': 'In Progress',
         },
         observation: 'Ticket TKT-2847 opened for Sarah Thompson / Connexion Dental.',
         taxonomyTags: ['tool.connectwise.open_ticket'],
@@ -264,7 +270,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'connectwise',
         label: 'Set priority to High',
         allowedPhases: ['remote_active', 'ticketing'],
-        effects: { 'connectwise.priority': 'High' },
+        effects: { 'toolStates.connectwise.priority': 'High' },
         observation: 'Priority set to High — invoices need to go out this morning.',
         taxonomyTags: ['tool.connectwise.set_priority', 'ticket.urgency_noted'],
         scoreImpact: { positive: ['ticket'] },
@@ -282,7 +288,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'connectwise',
         label: 'Search KB: Outlook not sending',
         allowedPhases: ['remote_active'],
-        effects: { 'connectwise.kbArticlesViewed': ['outlook-work-offline'] },
+        effects: { 'toolStates.connectwise.kbArticlesViewed': ['outlook-work-offline'] },
         observation: 'KB article "Outlook stuck in Work Offline" found at KB-4421. Suggests checking connection status and disabling Work Offline.',
         taxonomyTags: ['tool.connectwise.search_kb', 'diagnostic.kb_used'],
         scoreImpact: { positive: ['diagnosis'] },
@@ -292,7 +298,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'connectwise',
         label: 'View asset ALDER-LT-023',
         allowedPhases: ['remote_active'],
-        effects: { 'connectwise.assetsViewed': ['ALDER-LT-023'] },
+        effects: { 'toolStates.connectwise.assetsViewed': ['ALDER-LT-023'] },
         observation: 'Asset ALDER-LT-023: Dell Latitude 5540, Windows 11, Outlook 365. Last patched 5 days ago.',
         taxonomyTags: ['tool.connectwise.view_asset'],
         scoreImpact: { positive: ['diagnosis'] },
@@ -391,5 +397,31 @@ export function getOutlookWorkOfflinePack(): SimPack {
         'corrupt PST',
       ],
     },
+
+    scoringCriteria: [
+      { id: 'asked_impact', label: 'Asked business impact', weight: 8, check: 'tag_present', target: 'communication.impact_question' },
+      { id: 'asked_scope', label: 'Asked scope', weight: 8, check: 'tag_present', target: 'communication.scope_question' },
+      { id: 'confirmed_user', label: 'Confirmed user identity', weight: 5, check: 'tag_present', target: 'communication.user_confirmation' },
+      { id: 'opened_outlook', label: 'Opened Outlook', weight: 5, check: 'action_performed', target: 'open_outlook' },
+      { id: 'checked_status', label: 'Checked Outlook status', weight: 15, check: 'action_performed', target: 'check_outlook_status' },
+      { id: 'checked_webmail', label: 'Checked webmail', weight: 10, check: 'action_performed', target: 'check_webmail' },
+      { id: 'disabled_wfo', label: 'Disabled Work Offline', weight: 20, check: 'action_performed', target: 'disable_work_offline' },
+      { id: 'verified_fix', label: 'Verified fix', weight: 10, check: 'action_performed', target: 'send_test_email' },
+      { id: 'used_kb', label: 'Used knowledge base', weight: 5, check: 'action_performed', target: 'search_kb_outlook' },
+      { id: 'avoided_red_flags', label: 'Avoided red flags', weight: 10, check: 'state_value', target: 'flags.guessedWithoutEvidence', value: false },
+    ],
+
+    diagnosticChecklist: [
+      { id: 'confirmed_user', label: 'Identified the user', criteria: 'confirmed_user' },
+      { id: 'asked_scope', label: 'Asked scope (one user or many)', criteria: 'asked_scope' },
+      { id: 'asked_impact', label: 'Asked business impact', criteria: 'asked_impact' },
+      { id: 'opened_outlook', label: 'Opened Outlook to investigate', criteria: 'opened_outlook' },
+      { id: 'checked_status', label: 'Checked Outlook connection status', criteria: 'checked_status' },
+      { id: 'checked_webmail', label: 'Checked webmail to isolate scope', criteria: 'checked_webmail' },
+      { id: 'disabled_wfo', label: 'Disabled Work Offline (correct fix)', criteria: 'disabled_wfo' },
+      { id: 'verified_fix', label: 'Verified fix with test email', criteria: 'verified_fix' },
+      { id: 'used_kb', label: 'Used knowledge base', criteria: 'used_kb' },
+      { id: 'avoided_red_flags', label: 'Avoided dangerous actions', criteria: 'avoided_red_flags' },
+    ],
   };
 }

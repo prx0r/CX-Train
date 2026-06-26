@@ -43,14 +43,10 @@ export function transitionPhase(state: SimState, targetPhase: SimPhase): SimStat
   return next;
 }
 
-/* ── Resolve dynamic effect values (e.g. "$now") ────── */
-
 function resolveEffectValue(val: unknown): unknown {
   if (val === '$now') return Date.now();
   return val;
 }
-
-/* ── Core action application ────────────────────────── */
 
 export function applyAction(
   state: SimState,
@@ -59,8 +55,6 @@ export function applyAction(
   const state_before = deepClone(state);
   let updated = deepClone(state);
 
-  /* 1. Precondition awareness. Candidates are allowed to try actions out of order;
-   * the event is still logged so scoring can judge the attempt. */
   let unmetPrecondition: string | null = null;
   if (action.requiresState) {
     for (const [key, val] of Object.entries(action.requiresState)) {
@@ -72,15 +66,13 @@ export function applyAction(
     }
   }
 
-  /* 2. Apply effects. Some actions have natural failed outcomes when tried too early. */
-  const shouldApplyEffects = !unmetPrecondition || !['send_receive', 'send_test_email'].includes(action.id);
+  const shouldApplyEffects = !unmetPrecondition || !action.strictPreconditions;
   if (action.effects && shouldApplyEffects) {
     for (const [key, val] of Object.entries(action.effects)) {
       setNested(updated as unknown as Record<string, unknown>, parseDotPath(key), resolveEffectValue(val));
     }
   }
 
-  /* 3. Track revealed facts and discovered state keys */
   const revealedFacts: string[] = [];
   if (action.revealsFacts && !unmetPrecondition) {
     for (const fact of action.revealsFacts) {
@@ -91,7 +83,6 @@ export function applyAction(
     }
   }
 
-  /* 4. Track discovered taxonomy tags */
   if (action.taxonomyTags) {
     for (const tag of action.taxonomyTags) {
       if (!updated.discovered.includes(tag)) {
@@ -102,7 +93,6 @@ export function applyAction(
 
   const taxonomyTags = action.taxonomyTags ?? [];
 
-  /* 5. Determine phase transition */
   let phaseTransition = false;
   if (action.id === 'start_call') {
     updated = transitionPhase(updated, 'call_active');
@@ -118,8 +108,8 @@ export function applyAction(
     phaseTransition = true;
   }
 
-  const resultText = unmetPrecondition && ['send_receive', 'send_test_email'].includes(action.id)
-    ? 'The attempt does not complete. Outlook is still disconnected, so mail remains in the Outbox.'
+  const resultText = unmetPrecondition && action.failureObservation
+    ? action.failureObservation
     : action.observation;
 
   return {

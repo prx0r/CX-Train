@@ -93,11 +93,11 @@ export default function RemoteDesktopPane({ actions, visibleState, onAction, onR
     switch (win.app) {
       case 'outlook': return <OutlookApp {...common} />;
       case 'browser': return <BrowserApp {...common} />;
-      case 'cmd': return <CmdApp {...common} />;
+      case 'cmd': return <CmdApp state={safeState} actions={toolActions(win.app)} onAction={onAction} onRecordInteraction={onRecordInteraction} />;
       case 'control_panel': return <ControlPanelApp {...common} />;
       case 'network': return <NetworkApp onRecordInteraction={onRecordInteraction} />;
-      case 'vpn': return <VpnApp onRecordInteraction={onRecordInteraction} />;
-      case 'printer': return <PrinterApp onRecordInteraction={onRecordInteraction} />;
+      case 'vpn': return <VpnApp state={safeState} onAction={onAction} onRecordInteraction={onRecordInteraction} />;
+      case 'printer': return <PrinterApp state={safeState} onAction={onAction} onRecordInteraction={onRecordInteraction} />;
       default: return <div style={{ padding: 16, color: '#525252', fontSize: 13 }}>Application not available.</div>;
     }
   };

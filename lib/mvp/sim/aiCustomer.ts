@@ -30,13 +30,15 @@ export function buildAiCustomerContext(pack: SimPack, state: SimState): AiCustom
   }
 
   /* Add conditional facts based on state */
-  if (state.outlook && state.outlook.workOffline === false) {
+  const outlook = state.toolStates.outlook as Record<string, unknown> | undefined;
+  const network = state.toolStates.network as Record<string, unknown> | undefined;
+  if (outlook && outlook.workOffline === false) {
     availableFacts.push('Outlook is now connected and online');
   }
-  if (state.outlook && state.outlook.sentTestEmail) {
+  if (outlook && outlook.sentTestEmail) {
     availableFacts.push('Test email was sent and received successfully');
   }
-  if (state.network && state.network.exchangeReachable === false) {
+  if (network && network.exchangeReachable === false) {
     availableFacts.push('Exchange server appears unreachable');
   }
   if (state.evidence.checkedObviousCause) {

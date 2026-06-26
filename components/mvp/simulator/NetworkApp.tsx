@@ -31,7 +31,7 @@ export default function NetworkApp({ onRecordInteraction }: {
           <div style={{ maxWidth: 500 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Network Status</div>
             <div style={{ padding: 12, border: '1px solid #8db99b', borderRadius: 3, background: '#e8f3ec', marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#0f5132' }}>You're connected to the Internet</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#0f5132' }}>You&apos;re connected to the Internet</div>
               <div style={{ fontSize: 12, color: '#525252', marginTop: 4 }}>Connected via Ethernet0 — Connexion Internal network.</div>
             </div>
             <div style={{ display: 'grid', gap: 8, fontSize: 12 }}>

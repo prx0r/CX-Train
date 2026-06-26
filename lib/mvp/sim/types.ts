@@ -7,43 +7,50 @@ export type SimPhase =
   | 'ticketing'
   | 'submitted';
 
-export type TaxonomyTag =
-  | 'communication.scope_question'
-  | 'communication.impact_question'
-  | 'communication.user_confirmation'
-  | 'communication.empathy'
-  | 'diagnostic.application_state_checked'
-  | 'diagnostic.scope_isolation'
-  | 'diagnostic.connectivity_verified'
-  | 'diagnostic.kb_used'
-  | 'tool.outlook.open'
-  | 'tool.outlook.check_status'
-  | 'tool.outlook.check_outbox'
-  | 'tool.outlook.disable_work_offline'
-  | 'tool.outlook.send_receive'
-  | 'tool.outlook.send_test_email'
-  | 'tool.browser.open'
-  | 'tool.browser.check_webmail'
-  | 'tool.cmd.ping'
-  | 'tool.cmd.ipconfig'
-  | 'tool.connectwise.open_ticket'
-  | 'tool.connectwise.set_priority'
-  | 'tool.connectwise.add_note'
-  | 'tool.connectwise.search_kb'
-  | 'tool.connectwise.view_asset'
-  | 'tool.remote.connect'
-  | 'fix.correct_root_cause'
-  | 'fix.applied_incorrectly'
-  | 'verification.user_confirmed'
-  | 'verification.test_email_sent'
-  | 'ticket.root_cause_present'
-  | 'ticket.impact_noted'
-  | 'ticket.next_step_set'
-  | 'ticket.urgency_noted'
-  | 'red_flag.disruptive_fix_before_basic_checks'
-  | 'red_flag.destructive_action_without_evidence'
-  | 'red_flag.escalate_without_basic_checks'
-  | 'red_flag.guessed_root_cause_without_evidence';
+export type TaxonomyTag = string;
+
+export function isValidTaxonomyTag(tag: string): boolean {
+  return /^[a-z_]+\.[a-z_]+\.[a-z_]+$/.test(tag);
+}
+
+export const REGISTERED_TAXONOMY_TAGS: Record<string, { category: string; subcategory: string; description: string }> = {
+  'communication.scope_question': { category: 'communication', subcategory: 'scope_question', description: 'Asked whether one or many users are affected' },
+  'communication.impact_question': { category: 'communication', subcategory: 'impact_question', description: 'Asked about business impact' },
+  'communication.user_confirmation': { category: 'communication', subcategory: 'user_confirmation', description: 'Confirmed caller identity' },
+  'communication.empathy': { category: 'communication', subcategory: 'empathy', description: 'Showed empathy to caller' },
+  'diagnostic.application_state_checked': { category: 'diagnostic', subcategory: 'application_state_checked', description: 'Checked application state' },
+  'diagnostic.scope_isolation': { category: 'diagnostic', subcategory: 'scope_isolation', description: 'Isolated scope of issue' },
+  'diagnostic.connectivity_verified': { category: 'diagnostic', subcategory: 'connectivity_verified', description: 'Verified network connectivity' },
+  'diagnostic.kb_used': { category: 'diagnostic', subcategory: 'kb_used', description: 'Used knowledge base' },
+  'tool.outlook.open': { category: 'tool', subcategory: 'outlook.open', description: 'Opened Outlook' },
+  'tool.outlook.check_status': { category: 'tool', subcategory: 'outlook.check_status', description: 'Checked Outlook connection status' },
+  'tool.outlook.check_outbox': { category: 'tool', subcategory: 'outlook.check_outbox', description: 'Checked Outbox' },
+  'tool.outlook.disable_work_offline': { category: 'tool', subcategory: 'outlook.disable_work_offline', description: 'Disabled Work Offline' },
+  'tool.outlook.send_receive': { category: 'tool', subcategory: 'outlook.send_receive', description: 'Performed Send/Receive' },
+  'tool.outlook.send_test_email': { category: 'tool', subcategory: 'outlook.send_test_email', description: 'Sent test email' },
+  'tool.browser.open': { category: 'tool', subcategory: 'browser.open', description: 'Opened browser' },
+  'tool.browser.check_webmail': { category: 'tool', subcategory: 'browser.check_webmail', description: 'Checked webmail' },
+  'tool.cmd.ping': { category: 'tool', subcategory: 'cmd.ping', description: 'Ran ping' },
+  'tool.cmd.ipconfig': { category: 'tool', subcategory: 'cmd.ipconfig', description: 'Ran ipconfig' },
+  'tool.connectwise.open_ticket': { category: 'tool', subcategory: 'connectwise.open_ticket', description: 'Opened ticket in ConnectWise' },
+  'tool.connectwise.set_priority': { category: 'tool', subcategory: 'connectwise.set_priority', description: 'Set ticket priority' },
+  'tool.connectwise.add_note': { category: 'tool', subcategory: 'connectwise.add_note', description: 'Added note to ticket' },
+  'tool.connectwise.search_kb': { category: 'tool', subcategory: 'connectwise.search_kb', description: 'Searched knowledge base' },
+  'tool.connectwise.view_asset': { category: 'tool', subcategory: 'connectwise.view_asset', description: 'Viewed asset details' },
+  'tool.remote.connect': { category: 'tool', subcategory: 'remote.connect', description: 'Connected remote session' },
+  'fix.correct_root_cause': { category: 'fix', subcategory: 'correct_root_cause', description: 'Fixed the correct root cause' },
+  'fix.applied_incorrectly': { category: 'fix', subcategory: 'applied_incorrectly', description: 'Applied fix incorrectly' },
+  'verification.user_confirmed': { category: 'verification', subcategory: 'user_confirmed', description: 'User confirmed the fix' },
+  'verification.test_email_sent': { category: 'verification', subcategory: 'test_email_sent', description: 'Test email verified the fix' },
+  'ticket.root_cause_present': { category: 'ticket', subcategory: 'root_cause_present', description: 'Root cause in ticket' },
+  'ticket.impact_noted': { category: 'ticket', subcategory: 'impact_noted', description: 'Impact noted in ticket' },
+  'ticket.next_step_set': { category: 'ticket', subcategory: 'next_step_set', description: 'Next step in ticket' },
+  'ticket.urgency_noted': { category: 'ticket', subcategory: 'urgency_noted', description: 'Urgency noted in ticket' },
+  'red_flag.disruptive_fix_before_basic_checks': { category: 'red_flag', subcategory: 'disruptive_fix_before_basic_checks', description: 'Disruptive fix before basic checks' },
+  'red_flag.destructive_action_without_evidence': { category: 'red_flag', subcategory: 'destructive_action_without_evidence', description: 'Destructive action without evidence' },
+  'red_flag.escalate_without_basic_checks': { category: 'red_flag', subcategory: 'escalate_without_basic_checks', description: 'Escalated without basic checks' },
+  'red_flag.guessed_root_cause_without_evidence': { category: 'red_flag', subcategory: 'guessed_root_cause_without_evidence', description: 'Guessed root cause without evidence' },
+};
 
 export type SimToolId =
   | 'customer_chat'
@@ -82,8 +89,6 @@ export type SimEventType =
 export type CustomerTemperament = 'calm' | 'stressed' | 'angry' | 'confused';
 export type CustomerMood = 'neutral' | 'frustrated' | 'reassured';
 
-/* ── Customer definition ────────────────────────────── */
-
 export interface SimCustomer {
   name: string;
   company: string;
@@ -92,12 +97,12 @@ export interface SimCustomer {
   openingLine: string;
 }
 
-/* ── SimState — structured, nested ──────────────────── */
-
 export type SimErrorCode =
   | 'INVALID_PHASE'
   | 'PRECONDITION_FAILED'
   | 'unknown';
+
+export type SimToolStateKey = 'outlook' | 'network' | 'connectwise' | 'printer' | 'vpn';
 
 export interface SimState {
   phase: SimPhase;
@@ -115,27 +120,7 @@ export interface SimState {
     currentApp: 'none' | 'outlook' | 'browser' | 'cmd' | 'control_panel';
   };
 
-  outlook?: {
-    workOffline: boolean;
-    outboxCount: number;
-    sentTestEmail: boolean;
-    profileCorrupt: boolean;
-  };
-
-  network?: {
-    internetReachable: boolean;
-    dnsWorks: boolean;
-    exchangeReachable: boolean;
-  };
-
-  connectwise?: {
-    ticketId: string | null;
-    priority: string | null;
-    status: string | null;
-    notes: string[];
-    kbArticlesViewed: string[];
-    assetsViewed: string[];
-  };
+  toolStates: Partial<Record<SimToolStateKey, Record<string, unknown>>>;
 
   evidence: {
     askedImpact: boolean;
@@ -155,15 +140,11 @@ export interface SimState {
   discovered: string[];
 }
 
-/* ── Red flag definition ────────────────────────────── */
-
 export interface SimRedFlag {
   id: string;
   severity: 'minor' | 'major' | 'critical';
   message: string;
 }
-
-/* ── Action definition ──────────────────────────────── */
 
 export interface SimAction {
   id: string;
@@ -173,6 +154,8 @@ export interface SimAction {
   requiresState?: Record<string, unknown>;
   effects?: Record<string, unknown>;
   observation: string;
+  failureObservation?: string;
+  strictPreconditions?: boolean;
   revealsFacts?: string[];
   taxonomyTags?: TaxonomyTag[];
   redFlag?: SimRedFlag;
@@ -181,8 +164,6 @@ export interface SimAction {
     negative?: string[];
   };
 }
-
-/* ── Rubric entry ───────────────────────────────────── */
 
 export interface SimRubricEntry {
   weight: number;
@@ -193,8 +174,6 @@ export interface SimRubric {
   [key: string]: SimRubricEntry;
 }
 
-/* ── Ideal ticket spec ──────────────────────────────── */
-
 export interface SimIdealTicket {
   summary: string;
   requiredFields: string[];
@@ -202,7 +181,21 @@ export interface SimIdealTicket {
   mustNotInvent: string[];
 }
 
-/* ── Scenario pack — the core abstraction ───────────── */
+export interface SimPackScoringCriterion {
+  id: string;
+  label: string;
+  weight: number;
+  check: 'action_performed' | 'tag_present' | 'tag_in_event' | 'state_value';
+  target: string;
+  value?: unknown;
+  positive?: boolean;
+}
+
+export interface SimPackDiagnosticStep {
+  id: string;
+  label: string;
+  criteria: string;
+}
 
 export interface SimPack {
   id: string;
@@ -231,9 +224,11 @@ export interface SimPack {
   redFlags: SimRedFlag[];
 
   idealTicket: SimIdealTicket;
-}
 
-/* ── Event log entry ────────────────────────────────── */
+  scoringCriteria?: SimPackScoringCriterion[];
+
+  diagnosticChecklist?: SimPackDiagnosticStep[];
+}
 
 export interface SimPackEvent {
   id: string;
@@ -257,8 +252,6 @@ export interface SimPackEvent {
   created_at: string;
 }
 
-/* ── ActionResult returned to state machine caller ──── */
-
 export interface SimActionResult {
   ok: boolean;
   action_id: string;
@@ -273,8 +266,6 @@ export interface SimActionResult {
   errorCode: SimErrorCode | null;
 }
 
-/* ── Visible (safe) state — never leaks hiddenTruth etc ── */
-
 export interface VisibleSimState {
   phase: SimPhase;
   safe_state: Record<string, unknown>;
@@ -287,8 +278,6 @@ export interface VisibleAction {
   redFlag?: boolean;
 }
 
-/* ── Timeline entry for debug / manager view ────────── */
-
 export interface SimTimelineEntry {
   sequence: number;
   event_type: string;
@@ -299,8 +288,6 @@ export interface SimTimelineEntry {
   is_red_flag: boolean;
   started_at_ms: number | null;
 }
-
-/* ── Scoring result ─────────────────────────────────── */
 
 export interface SimScoringResult {
   actionCriteria: Record<string, 'pass' | 'partial' | 'fail'>;

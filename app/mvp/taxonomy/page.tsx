@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import ManagerShell from '@/components/mvp/ManagerShell';
 
 interface TaxonomyItem {
@@ -25,6 +25,10 @@ export default function TaxonomyPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<TaxonomyItem | null>(null);
   const [byType, setByType] = useState<Record<string, number>>({});
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [replaceAll, setReplaceAll] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -62,6 +66,30 @@ export default function TaxonomyPage() {
     }
   }
 
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setUploadStatus(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (replaceAll) formData.append('action', 'replace');
+
+      const res = await fetch('/api/mvp/taxonomy', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (data.ok) {
+        setUploadStatus({ ok: true, message: `Uploaded ${data.total} rows. ${data.inserted} new, ${data.skipped} duplicates skipped.` });
+        loadAll();
+      } else {
+        setUploadStatus({ ok: false, message: data.error || 'Upload failed' });
+      }
+    } catch (e) {
+      setUploadStatus({ ok: false, message: 'Network error during upload' });
+    }
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
   const displayed = items;
 
   return (
@@ -70,6 +98,39 @@ export default function TaxonomyPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Taxonomy Ground Truth</h1>
           <span className="text-sm text-gray-400">{items.length} items</span>
+        </div>
+
+        {/* Upload Section */}
+        <div style={{ background: '#fff', border: '1px solid #b8b8b8', borderRadius: 3, padding: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 8 }}>Upload Taxonomy XLSX</div>
+          <div style={{ fontSize: 11, color: '#525252', marginBottom: 10 }}>
+            Upload a Master Triage Classification XLSX file. Expected columns: ID, Board_Name, Type, SubType, Item, definition scope, Playbook, keywords, Helpdesk Tier, Escalation Guidance. Duplicate rows (same ID+Type+SubType+Item) are skipped.
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#111', cursor: 'pointer' }}>
+              <input type="checkbox" checked={replaceAll} onChange={e => setReplaceAll(e.target.checked)} />
+              Replace all existing items before import
+            </label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx"
+              disabled={uploading}
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
+              style={{ fontSize: 12, color: '#111' }}
+            />
+            {uploading && <span style={{ fontSize: 12, color: '#525252' }}>Uploading...</span>}
+          </div>
+          {uploadStatus && (
+            <div style={{
+              marginTop: 10, padding: '8px 12px', borderRadius: 3, fontSize: 12, fontWeight: 600,
+              background: uploadStatus.ok ? '#e8f3ec' : '#fff4f2',
+              color: uploadStatus.ok ? '#0f5132' : '#842029',
+              border: `1px solid ${uploadStatus.ok ? '#8db99b' : '#d99a91'}`,
+            }}>
+              {uploadStatus.message}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 flex-wrap">
