@@ -1,136 +1,266 @@
 # Codebase Audit — CX-Train
 
-Date: 2026-06-24
+Date: 2026-06-26
 
 ---
 
-## Current (OpenRouter Lightweight MVP) — ~20 files, ~3,000 lines
+## Active MVP — ~45 files, ~7,000 lines
 
-### Routes
+### Manager Routes
 | Route | Purpose |
 |---|---|
-| `/mvp` | Manager creates assessments, gets invite links |
-| `/mvp/assessment/[token]` | Candidate chat UI (incognito) |
+| `/mvp` | Manager dashboard — creates assessments, views queue, see invite links |
+| `/mvp/assessment/[token]` | Candidate service desk shell (incognito) |
 | `/mvp/assessments/[id]` | Manager reviews transcript + analysis + feedback |
+| `/mvp/taxonomy` | Manager views/searches taxonomy items |
+| `/mvp/standards` | Manager sets call/ticket standards |
+
+### Candidate Routes
+| Route | Purpose |
+|---|---|
+| `/mvp/assessment/[token]` | PSA-style ticket workspace with two-column layout |
+| `/mvp/assessment/[token]/sim` | Loads sim state/pack data |
+| `/mvp/assessment/[token]/sim/action` | Applies sim pack actions |
+| `/mvp/assessment/[token]/event` | Logs candidate workflow events |
+| `/mvp/assessment/[token]/message` | Voice transcript + AI customer reply |
+| `/mvp/assessment/[token]/ticket` | Submits candidate ticket + triggers auto-analysis |
+| `/mvp/assessment/[token]/voice/transcribe` | STT endpoint |
+| `/mvp/assessment/[token]/voice/tts` | TTS endpoint |
 
 ### API Routes (active)
 - `api/mvp/assessments` + `api/mvp/assessments/[id]`
 - `api/mvp/assessments/[id]/analyse`
-- `api/mvp/assessments/[id]/feedback`
-- `api/mvp/assessment/[token]`
-- `api/mvp/assessment/[token]/message`
-- `api/mvp/assessment/[token]/end`
-- `api/mvp/assessment/[token]/ticket`
+- `api/mvp/assessment/[token]` (GET — returns assessment + sim state + analysis)
+- `api/mvp/assessment/[token]/sim` (GET — sim state)
+- `api/mvp/assessment/[token]/sim/action` (POST — state machine)
+- `api/mvp/assessment/[token]/event` (POST — workflow events)
+- `api/mvp/assessment/[token]/message` (POST — voice transcript)
+- `api/mvp/assessment/[token]/ticket` (POST — submit + auto-analyse)
+- `api/mvp/taxonomy` (GET + POST upload XLSX)
+- `api/mvp/taxonomy/search`
+- `api/mvp/taxonomy/ticket-taxonomy` (GET — merged taxonomy for triage)
 
-### Key Files
+### Sim Pack System (lib/mvp/sim/)
 | File | Role |
 |---|---|
-| `lib/mvp/db.ts` | SQLite schema + seed (8 tables) |
-| `lib/mvp/query.ts` | SQLite query layer |
-| `lib/ai/provider.ts` | OpenRouter provider with retry |
-| `lib/assessment-ai.ts` | OpenRouter evaluator |
-| `lib/assessment-scoring.ts` | Deterministic scoring |
+| `types.ts` | Core types: SimState (extensible toolStates), SimAction, SimPack, pack-driven scoring types, open TaxonomyTag |
+| `stateMachine.ts` | Generic applyAction() — reads effects/tags from any SimAction. strictPreconditions, failureObservation |
+| `scoring.ts` | Pack-driven deterministic scoring — reads pack.scoringCriteria, pack.diagnosticChecklist |
+| `safeProjection.ts` | Visible state projection (no hidden truth leaks) |
+| `eventLog.ts` | Sim event → sim_events + session_events bridge |
+| `timeline.ts` | Timeline builder |
+| `packConfig.ts` | Outlook Work Offline pack (26 actions, rubric, scoring criteria) |
+| `packRegistry.ts` | Factory map for pack lookup by ID |
+
+### Key Frontend Components (components/mvp/)
+| Component | Role |
+|---|---|
+| `simulator/ServiceDeskSimulatorShell.tsx` | Unified candidate shell — two-column PSA layout, triage, notes, remote desktop, auto-analysis |
+| `simulator/TicketMetadataPanel.tsx` | Left panel — ticket ID, severity, requester, status, owner, board, SLA |
+| `simulator/TicketTriagePanel.tsx` | Triage form — status, board (Tier 1/2/3), type, subcategory, item, priority. Collapsible. Taxonomy-driven |
+| `simulator/TicketNotesPanel.tsx` | Internal/Live Notes tabs, shared composer, scrollable list |
+| `simulator/RemoteDesktopPane.tsx` | Win11-style desktop with taskbar, window management (useReducer) |
+| `simulator/WindowFrame.tsx` | Shared window wrapper |
+| `simulator/DesktopSurface.tsx` | Desktop icons (7 apps) |
+| `simulator/Taskbar.tsx` | Dark Win11 taskbar |
+| `simulator/OutlookApp.tsx` | Rich Outlook clone (folders, ribbon, email list, status bar) |
+| `simulator/BrowserApp.tsx` | Browser with tabs, address bar, bookmarks |
+| `simulator/CmdApp.tsx` | Typeable terminal (help, ping, ipconfig, nslookup, net spooler, flushdns) |
+| `simulator/ControlPanelApp.tsx` | Control Panel with red flag traps |
+| `simulator/NetworkApp.tsx` | Network/WiFi/Ethernet status |
+| `simulator/VpnApp.tsx` | VPN status toggle |
+| `simulator/PrinterApp.tsx` | Printer queue/status |
+| `simulator/CallBar.tsx` | Persistent top call state + voice controls |
+| `simulator/TicketSidePanel.tsx` | Narrow ticket panel used during remote mode |
+| `simulator/WorkArea.tsx` | Work area container |
+| `simulator/VoiceRecorderButton.tsx` | Mic button for voice |
+| `simulator/CustomerAudioPlayer.tsx` | TTS playback |
+| `results/AssessmentResults.tsx` | Post-submission results view — score, checklist, strengths, coaching |
+
+### Key Backend Files (lib/mvp/)
+| File | Role |
+|---|---|
+| `db.ts` | SQLite schema + seed (10+ tables: assessments, sessions, messages, tickets, sim_sessions, session_events, taxonomy_items, etc.) |
+| `query.ts` | SQLite query layer |
+| `assignment-types.ts` | Assignment type registry (hiring_exam, training_drill, training_shift) + capability map |
+| `events/eventLog.ts` | Canonical session_events write/read |
+| `events/types.ts` | SessionEventType (25+ event types including triage events) |
+| `events/timeline.ts` | Evidence timeline builder |
+| `analysis/runBaseCallumAnalysis.ts` | 3-stage analysis pipeline (AI evidence → deterministic score → AI narrative) |
+| `analysis/context.ts` | Builds analysis context from assessment |
+| `analysis/scoring.ts` | Deterministic scoring with fail gates |
+| `analysis/evidencePrompt.ts` | Evidence extraction prompt |
+| `analysis/narrativePrompt.ts` | Narrative feedback prompt |
+| `analysis/validation.ts` | JSON parsing, evidence grounding, quality checks |
+| `analysis/types.ts` | Analysis types |
+| `sim/scoring.ts` | Pack-driven sim action scoring |
+| `taxonomy/defaultTicketTaxonomy.ts` | Fallback taxonomy config (board options, types, categories, impacts, urgencies, priorities P1-P5) |
+
+### AI Provider (lib/ai/)
+| File | Role |
+|---|---|
+| `provider.ts` | OpenRouter/opencode.ai provider with retry, reasoning extraction, JSON fallback |
+| `mock-provider.ts` | Mock provider for testing |
+
+### Scripts
+| File | Role |
+|---|---|
 | `scripts/mvp-init-db.mjs` | Init SQLite DB |
 | `scripts/mvp-reset-db.mjs` | Reset SQLite DB |
-| `scripts/test-mvp-flow.mjs` | 37-check integration test |
-| `scripts/test-openrouter.mjs` | API key smoke test |
-| `.env.example` | Documents current vars |
+| `scripts/test-mvp-flow.mjs` | Integration test |
+| `scripts/test-dashboard-sim.mjs` | Dashboard sim test (28 checks) |
+| `scripts/test-dashboard-sim-foundation.mjs` | Foundation test (24 checks) |
+| `scripts/test-assignment-types.mjs` | Assignment type test (21 checks) |
+| `scripts/test-session-events.mjs` | Session events test (16 checks) |
+| `scripts/test-voice.mjs` | Voice test (20 checks) |
+| `scripts/test-analysis-scoring.mjs` | Analysis scoring test |
+| `scripts/test-50-transcripts.mjs` | Bulk transcript test |
+| `scripts/test-ai-behavior.mjs` | AI behavior test |
 
 ### Architecture
 - No auth (manager + candidate pages fully public)
 - SQLite via better-sqlite3 (local only, not prod-ready)
-- OpenRouter free models for caller simulation + evaluation
-- Deterministic ticket scoring (regex-based) + AI checkpoint scoring
-- Single seeded scenario + criteria version
+- opencode.ai / deepseek-v4-flash for caller simulation + evaluation + analysis
+- Pack-driven deterministic scoring (per-pack scoringCriteria + diagnosticChecklist)
+- session_events as canonical event stream (unified for all assignment types)
+- Service desk shell shared across all 3 assignment types (capability-gated)
+- Two-column PSA-style ticket workspace (left: metadata + triage, right: description + notes)
+- Taxonomy XLSX upload → DB → triage dropdowns
+- Auto-analysis on ticket submission (3-stage pipeline)
 
 ---
 
-## Legacy (Supabase/Chutes Build) — ~90 files, ~15,000+ lines
+## Data Flow
 
-### Auth (Clerk + Supabase)
+```
+Manager creates assessment (POST /api/mvp/assessments)
+  → stores assessment_type + assessment_pack_id + manager standards snapshot
+  → creates sim_session for training_drill
+
+Candidate opens token (GET /api/mvp/assessment/[token])
+  → returns assessment data, pack info, sim state, capabilities
+  → if completed: also returns analysis results
+
+Candidate works ticket
+  → sim actions: POST /sim/action → state machine → sim_events + session_events
+  → voice: POST /message → AI customer → transcript in session_events
+  → notes: POST /event → session_events
+  → triage: POST /event → session_events (10+ event types)
+
+Candidate submits ticket (POST /ticket)
+  → stores ticket in DB
+  → completes sim session
+  → triggers runBaseCallumAnalysis() (3-stage)
+  → returns { status, analysis, candidate_analysis }
+
+Candidate sees results (AssessmentResults.tsx)
+  → score, readiness label, diagnostic checklist, strengths, improvements
+  → reload persists via GET route returning candidate_analysis
+```
+
+---
+
+## Legacy (Supabase/Chutes Build) — ~90 files, ~15,000+ lines — FROZEN
+
+All legacy Supabase functionality is frozen. The active MVP uses SQLite. Documentation stating otherwise is outdated.
+
+### Auth (Clerk + Supabase) — LEGACY/FROZEN
 - `app/(auth)/` — Clerk sign-in/sign-up pages
 - `lib/supabase/client.ts`, `server.ts`, `proxy.ts`
 - `middleware.ts` — Supabase session refresh
 - `app/auth/callback/route.ts` — Auth code exchange
 - `app/api/webhooks/clerk/route.ts` — User sync
 
-### Dashboard Pages
+### Dashboard Pages — LEGACY/FROZEN
 - `app/(dashboard)/` route group (~26 files)
   - Admin: assessments, bots, trainees, sessions, taxonomy CRUD
   - Trainee: progress, history, how-it-works, future-ideas
 
-### Dashboard Components
-- `components/admin/` — 18 files (charts, tables, editors)
-- `components/trainee/` — 4 files
-- `components/shared/` — 3 files
-- `components/assessments/` — 3 files
-
-### Legacy Assessment Flow
+### Legacy Assessment Flow — LEGACY/FROZEN
 - `app/assessment/[token]/page.tsx` — Supabase candidate page
 - `app/voice/[token]/` — Voice assessment UI (3 files)
 - `api/assessment/[token]/*` — start-session, submit-session, respond, submit-ticket
 - `api/voice/session/*` — Voice session CRUD
 - `api/gpt/first-calls/[token]/*` — Custom GPT integration
 
-### Legacy AI (Chutes)
+### Legacy AI (Chutes) — LEGACY/FROZEN
 - `lib/ai/chutes.ts` — Chutes AI integration
 - `lib/ai/monitor.ts` — AI monitoring
 - `lib/ai/feedback-analyzer.ts` — Feedback analysis
 - `api/ai/analyze/route.ts`, `api/ai/monitor/route.ts`
 
-### Taxonomy System
+### Taxonomy System — LEGACY/FROZEN (active MVP has own taxonomy system)
 - `lib/taxonomy.ts`, `lib/taxonomy-db.ts`
 - `api/taxonomy/search`, `/item/[id]`, `/propose-change`, `/apply-change`
 - `api/admin/taxonomy/*` — CRUD + import
 - `taxonomy/` directory (JSON/Excel source files)
 
-### Scoring / Levels / GPT Actions
+### Scoring / Levels / GPT Actions — LEGACY/FROZEN
 - `api/levels/promote`, `api/levels/check`
 - `api/session`, `api/progress/[name]`, `api/upload`, `api/labels`, `api/prompt/[bot_id]`
 - `lib/scoring.ts` — Rubric scoring
 
-### Voice / Evaluation
+### Voice / Evaluation — LEGACY/FROZEN
 - `lib/voice/` — 8 files (session, chat, stt, tts, providers, cost-tracker)
 - `lib/evaluation/` — 5 files (evaluator, scoring, types, scenarios, prompts)
 
-### Admin APIs
-- `api/admin/bots/[id]`, `api/admin/bots/[id]/documents`
-- `api/admin/cleared-for-live`
-
-### Legacy Infrastructure
+### Legacy Infrastructure — LEGACY/FROZEN
 - `supabase/` directory — schema.sql, seed.sql, 9 migration files
 - `lib/supabase/` — 3 auth helper files
 
-### Documentation (outdated)
+### Documentation (outdated) — LEGACY/FROZEN
 - `blueprint.md`, `SOURCE_OF_TRUTH.md`, `DEPLOY.md`
 - `WORKING_SETUP.md`, `AGENT_HANDOFF.md`, `PROJECT_AUDIT.md`
 - `FUTURE_INTEGRATIONS.md`, `PROPOSED_CHANGES.md`
 - `gptinstructions.md`, `gpt-actions-openapi.yaml`
 - `SETUP.md` (partially updated)
+- `note2.md`, `note3.md`
 
-### Build Artifacts
-- `.next/` — Next.js build output
-- `.test-dist/` — Compiled test output
-- `next-env.d.ts` — Auto-generated types
-- `tsconfig.tsbuildinfo` — Incremental build cache
+---
 
-### Other
-- `CONNEXION_System_Audit_2026.docx` — Binary doc
-- `mvp` — Unknown root-level binary/artifact
-- `data/` — Empty directory
+## Documentation Status — Supabase Mentions
+
+| Document | Supabase mentioned as | Status |
+|---|---|---|
+| `README.md` | Future/not-current | ✅ Correct |
+| `docs/AGENT_RULES.md` | Legacy/frozen | ✅ Correct |
+| `docs/agentadvice.md` | Legacy/frozen | ✅ Correct |
+| `docs/ACTIVE_ARCHITECTURE.md` | Frozen | ✅ Correct |
+| `DEPLOY.md` | Active production | ❌ Outdated (needs update for SQLite MVP) |
+| `SETUP.md` | Active production | ❌ Outdated |
+| `SOURCE_OF_TRUTH.md` | Active production | ❌ Outdated |
+| `WORKING_SETUP.md` | Active production | ❌ Outdated |
+| `blueprint.md` | Active production | ❌ Outdated |
+| `note2.md` | Active production | ❌ Outdated (historical) |
+| `note3.md` | Active production | ❌ Outdated (historical) |
 
 ---
 
 ## Critical Issues
 
 1. **No auth on MVP** — Manager page at `/mvp` is fully public
-2. **Live API key in `.env.local`** — `AI_API_KEY` is committed as plaintext
+2. **Live API key in `.env.local`** — `AI_API_KEY` is in git history (should be rotated)
 3. **Demo cookie bypass** — `demo_admin=1` cookie grants admin access (`lib/auth.ts`)
 4. **Next.js 14.2.0** — known CVEs (1 critical, 11 high)
 5. **Dual data models** — `lib/types.ts` (legacy) vs `lib/mvp/query.ts` (current)
 6. **Dead imports throughout** — files referencing legacy modules
-7. **Race condition** — progress updates use read/compute/upsert pattern
-8. **Two definitions of "passed"** — GPT-supplied vs server-computed
+7. **Outdated docs describe Supabase as active** — 6+ docs need updating for SQLite MVP
+8. **Analysis pipeline transcript-heavy** — sim actions not fully factored into AI evidence extraction (timeline is in prompt but criteria are transcript-driven)
+
+---
+
+## Key Architecture Decisions
+
+| Decision | Current |
+|---|---|
+| Database | SQLite (better-sqlite3) |
+| Auth | None (public) |
+| AI provider | opencode.ai (deepseek-v4-flash) |
+| Sim engine | Pack-driven (SimPack + stateMachine) |
+| Scoring | Deterministic (per-pack + analysis fail gates) |
+| Events | session_events (canonical, unified) |
+| Candidate UI | ServiceDeskSimulatorShell (shared across assignment types) |
+| Taxonomy | XLSX upload → taxonomy_items DB → triage dropdowns |
 
 ---
 
@@ -138,7 +268,7 @@ Date: 2026-06-24
 
 | Category | Files | Est. Lines |
 |---|---|---|
-| Active MVP code | ~20 | ~3,000 |
-| Legacy code | ~90 | ~15,000+ |
+| Active MVP code | ~45 | ~7,000 |
+| Legacy code (frozen) | ~90 | ~15,000+ |
 | Build artifacts | ~500+ | ~5,000+ |
-| Documentation | ~20 | ~2,000+ |
+| Documentation | ~25 | ~2,500+ |
