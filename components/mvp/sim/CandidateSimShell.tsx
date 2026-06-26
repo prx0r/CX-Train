@@ -10,7 +10,7 @@ import CommandPromptWindow from '@/components/win11/tools/CommandPromptWindow';
 import CustomerChatWindow from '@/components/win11/tools/CustomerChatWindow';
 import TicketWindow from '@/components/win11/tools/TicketWindow';
 import SimTimeline from './SimTimeline';
-import { VoiceRecorderButton } from '@/components/mvp/voice/VoiceRecorderButton';
+import { VoiceRecorderButton, type VoiceTranscriptResult } from '@/components/mvp/voice/VoiceRecorderButton';
 import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
 
 interface Message {
@@ -79,7 +79,7 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
     return () => clearInterval(interval);
   }, [loadSim, open]);
 
-  async function sendMessage(msg: string, inputSource?: string) {
+  async function sendMessage(msg: string, inputSource?: string, voice?: VoiceTranscriptResult) {
     setSending(true);
     setMessages(prev => [...prev, { role: 'candidate', content: msg }]);
 
@@ -92,7 +92,9 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
           message: msg,
           started_at_ms: startedAt,
           ended_at_ms: Date.now(),
+          duration_ms: voice?.durationMs,
           input_source: inputSource || 'text',
+          audio_metadata: voice?.metadata,
         }),
       });
       const data = await res.json();
@@ -107,8 +109,8 @@ function SimShellContent({ token, initialMessages }: { token: string; initialMes
     setSending(false);
   }
 
-  async function handleVoiceTranscript(transcript: string) {
-    await sendMessage(transcript, 'voice');
+  async function handleVoiceTranscript(result: VoiceTranscriptResult) {
+    await sendMessage(result.text, 'voice', result);
   }
 
   async function handleAction(actionId: string, toolId: string) {

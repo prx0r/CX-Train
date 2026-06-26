@@ -9,7 +9,7 @@ import BrowserWindow from '@/components/win11/tools/BrowserWindow';
 import CommandPromptWindow from '@/components/win11/tools/CommandPromptWindow';
 import CustomerChatWindow from '@/components/win11/tools/CustomerChatWindow';
 import TicketWindow from '@/components/win11/tools/TicketWindow';
-import { VoiceRecorderButton } from '@/components/mvp/voice/VoiceRecorderButton';
+import { VoiceRecorderButton, type VoiceTranscriptResult } from '@/components/mvp/voice/VoiceRecorderButton';
 import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
 
 interface Message { role: string; content: string; }
@@ -95,14 +95,22 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
     } catch { setError('Failed to perform action'); }
   }
 
-  async function sendMessage(msg: string, source?: string) {
+  async function sendMessage(msg: string, source?: string, voice?: VoiceTranscriptResult) {
     if (!msg.trim() || sending) return;
     setSending(true);
     setMessages(p => [...p, { role: 'candidate', content: msg }]);
+    const startedAtMs = Date.now();
     try {
       const res = await fetch(`/api/mvp/assessment/${token}/message`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, input_source: source || 'text', started_at_ms: Date.now() }),
+        body: JSON.stringify({
+          message: msg,
+          input_source: source || 'text',
+          started_at_ms: startedAtMs,
+          ended_at_ms: Date.now(),
+          duration_ms: voice?.durationMs,
+          audio_metadata: voice?.metadata,
+        }),
       });
       const d = await res.json();
       if (d.reply) {
@@ -113,7 +121,9 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
     setSending(false);
   }
 
-  async function handleVoiceTranscript(text: string) { await sendMessage(text, 'voice'); }
+  async function handleVoiceTranscript(result: VoiceTranscriptResult) {
+    await sendMessage(result.text, 'voice', result);
+  }
   async function submitTicket() {
     if (!ticketText.trim()) return;
     try {

@@ -31,6 +31,8 @@ export interface SessionEvent {
   state_before_json: Record<string, unknown> | null;
   state_after_json: Record<string, unknown> | null;
   payload_json: Record<string, unknown> | null;
+  input_source: string | null;
+  audio_metadata_json: Record<string, unknown> | null;
   started_at_ms: number | null;
   ended_at_ms: number | null;
   duration_ms: number | null;

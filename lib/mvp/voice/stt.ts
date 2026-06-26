@@ -1,5 +1,11 @@
 import { SttResult, VoiceMetadata, DEFAULT_STT_MODEL, MAX_AUDIO_SIZE_BYTES } from './types';
 
+function toOpenRouterAudioFormat(mimeType: string): 'webm' | 'wav' {
+  const normalized = mimeType.toLowerCase();
+  if (normalized.includes('webm') || normalized.includes('ogg')) return 'webm';
+  return 'wav';
+}
+
 export async function transcribeAudio(
   audioBase64: string,
   mimeType: string,
@@ -22,7 +28,7 @@ export async function transcribeAudio(
       model,
       input_audio: {
         data: audioBase64,
-        format: mimeType === 'audio/webm' ? 'webm' : 'wav',
+        format: toOpenRouterAudioFormat(mimeType),
       },
       language: 'en',
     }),

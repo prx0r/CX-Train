@@ -85,6 +85,8 @@ export function getSessionEvents(sessionId: string): SessionEvent[] {
     state_before_json: r.state_before_json ? JSON.parse(r.state_before_json) : null,
     state_after_json: r.state_after_json ? JSON.parse(r.state_after_json) : null,
     payload_json: r.payload_json ? JSON.parse(r.payload_json) : null,
+    input_source: r.input_source,
+    audio_metadata_json: r.audio_metadata_json ? JSON.parse(r.audio_metadata_json) : null,
     started_at_ms: r.started_at_ms,
     ended_at_ms: r.ended_at_ms,
     duration_ms: r.duration_ms,

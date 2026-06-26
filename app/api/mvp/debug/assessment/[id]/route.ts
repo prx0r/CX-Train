@@ -137,6 +137,8 @@ export async function GET(
             actor: e.actor,
             label: e.label,
             result_text: e.result_text,
+            input_source: e.input_source,
+            audio_metadata: e.audio_metadata_json,
             started_at_ms: e.started_at_ms,
           })),
         };

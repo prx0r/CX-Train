@@ -38,6 +38,13 @@ export const MVP_MODULES: MvpModule[] = [
     icon: '💬',
   },
   {
+    id: 'voice',
+    label: 'Voice',
+    status: 'active',
+    description: 'Candidate microphone STT and customer reply TTS for simulated calls.',
+    icon: '🎙',
+  },
+  {
     id: 'assist',
     label: 'Assist',
     status: 'planned',

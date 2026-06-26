@@ -2,13 +2,42 @@
 
 import { useRef, useState, useEffect } from 'react';
 
+export type VoiceTranscriptResult = {
+  text: string;
+  durationMs: number;
+  mimeType: string;
+  metadata?: {
+    duration_ms: number;
+    mime_type: string;
+    stt_provider: string;
+    stt_model: string;
+  };
+};
+
 type Props = {
   token: string;
-  onTranscript: (text: string) => Promise<void>;
+  onTranscript: (result: VoiceTranscriptResult) => Promise<void>;
   disabled?: boolean;
   /** When true, clicks toggle recording on/off instead of hold-to-talk */
   clickToToggle?: boolean;
 };
+
+function chooseRecorderMimeType(): string | undefined {
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/ogg;codecs=opus',
+    'audio/webm',
+    'audio/ogg',
+  ];
+
+  return candidates.find(type => MediaRecorder.isTypeSupported(type));
+}
+
+function audioExtension(mimeType: string): string {
+  if (mimeType.includes('ogg')) return 'ogg';
+  if (mimeType.includes('wav')) return 'wav';
+  return 'webm';
+}
 
 export function VoiceRecorderButton({ token, onTranscript, disabled, clickToToggle }: Props) {
   const [recording, setRecording] = useState(false);
@@ -26,6 +55,16 @@ export function VoiceRecorderButton({ token, onTranscript, disabled, clickToTogg
   async function startRecording() {
     try {
       setError('');
+      if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+        setError('Microphone requires HTTPS');
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError('Microphone is not available in this browser context');
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -38,11 +77,11 @@ export function VoiceRecorderButton({ token, onTranscript, disabled, clickToTogg
       chunksRef.current = [];
       startTimeRef.current = Date.now();
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
+      const requestedMimeType = chooseRecorderMimeType();
 
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const recorder = requestedMimeType
+        ? new MediaRecorder(stream, { mimeType: requestedMimeType })
+        : new MediaRecorder(stream);
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);
@@ -54,10 +93,11 @@ export function VoiceRecorderButton({ token, onTranscript, disabled, clickToTogg
         if (chunksRef.current.length === 0) return;
 
         const durationMs = Date.now() - startTimeRef.current;
+        const mimeType = recorder.mimeType || requestedMimeType || 'audio/webm';
         const blob = new Blob(chunksRef.current, { type: mimeType });
 
         const formData = new FormData();
-        formData.append('audio', blob, 'candidate.webm');
+        formData.append('audio', blob, `candidate.${audioExtension(mimeType)}`);
         formData.append('duration_ms', String(durationMs));
 
         try {
@@ -75,7 +115,12 @@ export function VoiceRecorderButton({ token, onTranscript, disabled, clickToTogg
           const data = await res.json();
 
           if (data.text?.trim()) {
-            await onTranscript(data.text.trim());
+            await onTranscript({
+              text: data.text.trim(),
+              durationMs,
+              mimeType,
+              metadata: data.metadata,
+            });
           }
         } catch {
           setError('Failed to send audio');
@@ -88,6 +133,10 @@ export function VoiceRecorderButton({ token, onTranscript, disabled, clickToTogg
     } catch (err: any) {
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setError('Microphone permission denied');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setError('No microphone found');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setError('Microphone is already in use');
       } else {
         setError('Could not start recording');
       }
