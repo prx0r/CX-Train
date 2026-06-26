@@ -16,6 +16,7 @@ interface ApiResponse {
     ticket: TicketData;
     call: { status: string; caller_name: string; caller_company: string };
     messages: Message[];
+    candidate_analysis?: Record<string, unknown>;
   };
 }
 
@@ -52,7 +53,7 @@ export default function CandidatePage() {
     return <div style={{ height: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#842029', fontSize: 14 }}>{error || 'Assessment not found'}</div>;
   }
 
-  const { assessment, assignment_runtime, ticket, messages } = assessmentData;
+  const { assessment, assignment_runtime, ticket, messages, candidate_analysis } = assessmentData;
 
   return (
     <ServiceDeskSimulatorShell
@@ -60,6 +61,7 @@ export default function CandidatePage() {
       assignmentType={assessment.assignment_type}
       capabilities={assignment_runtime.capabilities}
       initialMessages={messages}
+      initialAnalysis={candidate_analysis as any}
       ticket={{
         id: ticket.id,
         title: ticket.title,

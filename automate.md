@@ -281,3 +281,68 @@ candidate sees results + walkthrough
 5. **Taxonomy drives the walkthrough, not hardcoded text.** The `diagnosticChecklist` from each pack defines the steps shown in the walkthrough.
 6. **session_events remains canonical.** All retake assessments start with fresh `session_events` and `sim_events`.
 7. **Candidate never sees hidden truth.** The walkthrough shows what they should have done (from `hiddenTruth.idealDiagnosticPath`), not the root cause or correct fix directly if that would leak answers. Use generic coaching language.
+
+---
+
+## Implementation Progress — Session 2026-06-26
+
+### Phase 1: Auto-Analysis on Submission — COMPLETE
+
+**Files changed:**
+
+| File | Change |
+|---|---|
+| `app/api/mvp/assessment/[token]/ticket/route.ts` | Calls `runBaseCallumAnalysis(assessmentId)` after ticket stored. Catches analysis errors gracefully. Returns `analysis` + `candidate_analysis` in response |
+| `lib/mvp/analysis/runBaseCallumAnalysis.ts` | Added `buildCandidateAnalysis()` — extracts safe candidate-facing results from raw analysis data (scores, strengths, improvements, diagnostic checklist, narrative). Added `CandidateAnalysisResult` interface |
+| `app/api/mvp/assessment/[token]/route.ts` | GET route now includes `candidate_analysis` when assessment is completed/analysed, so results survive page refresh |
+
+**Flow:**
+```
+POST /api/mvp/assessment/[token]/ticket
+  → store ticket + events + sim completion
+  → runBaseCallumAnalysis(assessmentId)
+    → buildAssessmentContext (transcript, ticket, events, timeline, sim state)
+    → Stage 1: AI evidence extraction (deepseek-v4-flash via opencode.ai, temperature 0)
+    → Stage 2: Deterministic scoring (fail gates, readiness label)
+    → Stage 3: AI narrative feedback (temperature 0.3)
+    → store in assessment_results + analysis_runs
+  → buildCandidateAnalysis (cleaned for candidate display)
+  → return { status, analysis, candidate_analysis }
+```
+
+### Phase 2: Candidate-Facing Results Page — COMPLETE
+
+**Files created/changed:**
+
+| File | Change |
+|---|---|
+| `components/mvp/results/AssessmentResults.tsx` | New component. Shows: score (large number), readiness label (colored badge), diagnostic checklist (✓/✗ per criterion), strengths, improvements, ticket feedback, coaching focus. ConnectWise-style dense layout. Accepts `CandidateAnalysisResult` type |
+| `components/mvp/simulator/ServiceDeskSimulatorShell.tsx` | Updated `submitTicket()` to receive analysis from response, set `analysing` state. Shows "Analyzing your performance..." loading screen while LLM processes. On completion, renders `<AssessmentResults>` instead of simple completion screen |
+| `app/mvp/assessment/[token]/page.tsx` | Passes `initialAnalysis` from GET route to shell for reload persistence |
+
+**States:**
+1. "Analyzing your performance..." — while LLM runs (2-10s)
+2. Results view — score, checklist, strengths, improvements, coaching
+
+### Verified
+
+- End-to-end test: created training_drill, performed sim actions (start call → remote → outlook → disable work offline → send test email → end call), submitted ticket with summary. Analysis triggered automatically and returned results with score, breakdown, narrative.
+- GET route returns `candidate_analysis` on reload (page refresh preserves results)
+- All 109 tests pass (5 suites)
+- TypeScript compiles clean
+- Build: 55 static pages
+
+### Remaining Phases
+
+| Phase | What | Status |
+|---|---|---|
+| 1 | Auto-trigger analysis on ticket submission | **DONE** |
+| 2 | Candidate-facing results page | **DONE** |
+| 3 | Retake flow (clone assessment + fresh start) | Next |
+| 4 | Learning walkthrough (pack diagnosticChecklist vs actual) | Next |
+| 5 | Manager AI assistant | Later |
+| 6 | Manager standards-from-chat | Later |
+
+### Known Limitation
+
+The analysis pipeline's evidence extraction AI currently evaluates the transcript (voice messages) for communication criteria. If the candidate takes correct sim actions but never speaks (no voice messages), the score will be low because communication criteria are not met from the transcript alone. The timeline is included in the prompt context, but the AI criteria extraction is primarily transcript-driven. This will naturally improve when candidates use voice interaction (which is the intended production flow).

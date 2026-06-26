@@ -293,3 +293,49 @@ function collectEvidenceQuotes(extraction: any): string[] {
   }
   return quotes;
 }
+
+/* ── Candidate-safe analysis summary ─────────────────── */
+
+export interface CandidateAnalysisResult {
+  overall_score: number;
+  readiness_label: string;
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  diagnostic_checklist: Record<string, boolean>;
+  narrative: {
+    summary: string;
+    ticket_feedback: string;
+    coaching_focus: string[];
+  };
+  error?: string;
+}
+
+export function buildCandidateAnalysis(analysisData: any, pack?: { diagnosticChecklist?: { id: string; label: string; criteria: string }[] } | null): CandidateAnalysisResult | null {
+  if (!analysisData || analysisData.status === 'analysis_failed') return null;
+
+  const structured = analysisData.structured as Record<string, any> | undefined;
+  const score = structured?.deterministic_score;
+  const narrative = structured?.narrative;
+
+  const checklist: Record<string, boolean> = {};
+  if (structured?.evidence_extraction?.criteria) {
+    for (const [key, criterion] of Object.entries(structured.evidence_extraction.criteria as Record<string, { status: string }>)) {
+      checklist[key] = criterion.status === 'pass';
+    }
+  }
+
+  return {
+    overall_score: analysisData.overall_score ?? score?.score ?? 0,
+    readiness_label: analysisData.readiness_label ?? score?.rating ?? 'not_ready',
+    summary: analysisData.summary ?? score?.summary ?? 'Analysis complete.',
+    strengths: analysisData.strengths ?? narrative?.strengths ?? [],
+    improvements: analysisData.weaknesses ?? narrative?.improvements ?? [],
+    diagnostic_checklist: checklist,
+    narrative: {
+      summary: narrative?.summary ?? analysisData.summary ?? '',
+      ticket_feedback: narrative?.ticket_feedback ?? analysisData.ticket_feedback ?? '',
+      coaching_focus: narrative?.coaching_focus ?? [],
+    },
+  };
+}

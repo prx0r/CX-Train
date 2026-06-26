@@ -10,6 +10,8 @@ import TicketMetadataPanel from './TicketMetadataPanel';
 import TicketTriagePanel from './TicketTriagePanel';
 import type { TicketTriageState } from './TicketTriagePanel';
 import TicketNotesPanel from './TicketNotesPanel';
+import AssessmentResults from '@/components/mvp/results/AssessmentResults';
+import type { CandidateAnalysisResult } from '@/components/mvp/results/AssessmentResults';
 import { VoiceRecorderButton, type VoiceTranscriptResult } from '@/components/mvp/voice/VoiceRecorderButton';
 import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
 import type { SimulatorCapabilities } from '@/lib/mvp/assignment-types';
@@ -28,6 +30,7 @@ export interface ShellProps {
   capabilities: SimulatorCapabilities;
   initialMessages: Message[];
   ticket: TicketData;
+  initialAnalysis?: CandidateAnalysisResult | null;
 }
 
 const initialTriageState: TicketTriageState = {
@@ -35,7 +38,7 @@ const initialTriageState: TicketTriageState = {
   status: 'open',
 };
 
-export default function ServiceDeskSimulatorShell({ token, assignmentType, capabilities, initialMessages, ticket }: ShellProps) {
+export default function ServiceDeskSimulatorShell({ token, assignmentType, capabilities, initialMessages, ticket, initialAnalysis }: ShellProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [internalNotes, setInternalNotes] = useState<string[]>([]);
   const [liveNotes, setLiveNotes] = useState<string[]>([]);
@@ -44,6 +47,8 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   const [sending, setSending] = useState(false);
   const [ticketText, setTicketText] = useState('');
   const [ticketSubmitted, setTicketSubmitted] = useState(false);
+  const [analysing, setAnalysing] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState<CandidateAnalysisResult | null>(null);
   const [error, setError] = useState('');
   const [simData, setSimData] = useState<{ safe_actions: SafeAction[]; visible_state: Record<string, unknown>; phase: string; timeline: unknown[] } | null>(null);
   const [phase, setPhase] = useState<Phase>('not_started');
@@ -92,6 +97,14 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (initialAnalysis) {
+      setTicketSubmitted(true);
+      setAnalysisResults(initialAnalysis);
+      setPhase('ticketing');
+    }
+  }, [initialAnalysis]);
 
   const showFeedback = (text: string, ok: boolean) => {
     setActionFeedback({ text, ok });
@@ -308,27 +321,36 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
 
   async function submitTicket() {
     if (!ticketText.trim()) return;
+    setAnalysing(true);
     try {
       const res = await fetch(`/api/mvp/assessment/${token}/ticket`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticket: ticketText.trim() }),
       });
       const d = await res.json();
-      if (d.status === 'completed') setTicketSubmitted(true);
-      else setError(d.error || 'Failed to submit ticket');
+      if (d.status === 'completed') {
+        setTicketSubmitted(true);
+        if (d.candidate_analysis) {
+          setAnalysisResults(d.candidate_analysis);
+        }
+      } else setError(d.error || 'Failed to submit ticket');
     } catch { setError('Failed to submit ticket'); }
+    setAnalysing(false);
   }
 
   if (ticketSubmitted) {
-    return (
-      <div style={{ height: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ background: '#2f2f2f', borderRadius: 2, padding: 48, maxWidth: 440, textAlign: 'center', border: '1px solid #4a4a4a' }}>
-          <div style={{ fontSize: 48, marginBottom: 16, color: '#4ade80' }}>✓</div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#4ade80', margin: '0 0 8px' }}>Assessment Complete</h2>
-          <p style={{ color: '#999', fontSize: 14, margin: 0 }}>Your ticket has been submitted. You may close this window.</p>
+    if (analysing) {
+      return (
+        <div style={{ height: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#2f2f2f', borderRadius: 2, padding: 48, maxWidth: 440, textAlign: 'center', border: '1px solid #4a4a4a' }}>
+            <div style={{ fontSize: 48, marginBottom: 16, color: '#7a4f00' }}>⏳</div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: '#f6e8b1', margin: '0 0 8px' }}>Analyzing your performance...</h2>
+            <p style={{ color: '#999', fontSize: 14, margin: 0 }}>Your assessment has been submitted. AI is evaluating your ticket, call handling, and diagnostic process. This may take a few seconds.</p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+    return <AssessmentResults analysis={analysisResults} />;
   }
 
   const safeActions = simData?.safe_actions || [];

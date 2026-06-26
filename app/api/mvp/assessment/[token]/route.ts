@@ -110,6 +110,40 @@ export async function GET(
       };
     }
 
+    /* Include analysis results if assessment has been analysed */
+    if (full.assessment.status === 'completed' || full.assessment.status === 'analysed') {
+      const db = getDb();
+      const result = db.prepare(`
+        SELECT r.overall_score, r.readiness_label, r.summary, r.strengths_json, r.weaknesses_json,
+               r.checkpoint_json, r.raw_model_json
+        FROM assessment_results r
+        WHERE r.assessment_id = ?
+        ORDER BY r.created_at DESC LIMIT 1
+      `).get(full.assessment.id) as any;
+
+      if (result) {
+        const packId = (full.assessment as any).assessment_pack_id;
+        let pack = null;
+        if (packId) {
+          try { pack = getPackById(packId); } catch {}
+        }
+        const { buildCandidateAnalysis } = await import('@/lib/mvp/analysis/runBaseCallumAnalysis');
+
+        const analysisData = {
+          status: 'analysed',
+          overall_score: result.overall_score,
+          readiness_label: result.readiness_label,
+          summary: result.summary,
+          strengths: result.strengths_json ? JSON.parse(result.strengths_json) : [],
+          weaknesses: result.weaknesses_json ? JSON.parse(result.weaknesses_json) : [],
+          checkpoints: result.checkpoint_json ? JSON.parse(result.checkpoint_json) : {},
+          structured: result.raw_model_json ? JSON.parse(result.raw_model_json) : undefined,
+        };
+        baseResponse.data.analysis = analysisData;
+        baseResponse.data.candidate_analysis = buildCandidateAnalysis(analysisData, pack);
+      }
+    }
+
     return NextResponse.json(baseResponse);
   } catch (err) {
     console.error('[MVP] Get assessment error:', err);

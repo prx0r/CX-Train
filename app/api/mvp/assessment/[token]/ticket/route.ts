@@ -33,7 +33,6 @@ export async function POST(
       VALUES (?, ?, ?, datetime('now'))`).run(makeId(), session.id, ticketText);
     db.prepare('UPDATE assessments SET status = ? WHERE id = ?').run('completed', assessment.id);
 
-    /* Canonical event log */
     appendSessionEvent({
       assessment_id: assessment.id,
       session_id: session.id,
@@ -53,7 +52,6 @@ export async function POST(
       started_at_ms: Date.now() + 50,
     });
 
-    /* Complete sim_session when this assignment has remote simulation tools. */
     const assignmentType = (assessment as any).assignment_type || ((assessment as any).assessment_mode === 'dashboard_sim' ? 'training_drill' : 'hiring_exam');
     const capabilities = getCapabilitiesForType(assignmentType);
     if (capabilities?.remoteDesktop || (assessment as any).assessment_mode === 'dashboard_sim') {
@@ -78,7 +76,41 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ status: 'completed', message: 'Ticket submitted' });
+    /* Trigger AI analysis synchronously */
+    let analysisResults = null;
+    let candidateAnalysis = null;
+    try {
+      const { runBaseCallumAnalysis, buildCandidateAnalysis } = await import('@/lib/mvp/analysis/runBaseCallumAnalysis');
+      analysisResults = await runBaseCallumAnalysis(assessment.id);
+
+      if (analysisResults.status === 'analysed') {
+        const { getPackById } = await import('@/lib/mvp/sim/packRegistry');
+        let pack = null;
+        try {
+          const packId = (assessment as any).assessment_pack_id;
+          if (packId) pack = getPackById(packId);
+        } catch {}
+        candidateAnalysis = buildCandidateAnalysis(analysisResults, pack);
+      }
+    } catch (analyseErr) {
+      console.error('[MVP] Auto-analysis error:', analyseErr);
+    }
+
+    return NextResponse.json({
+      status: 'completed',
+      message: 'Ticket submitted',
+      analysis: analysisResults ? {
+        status: analysisResults.status,
+        overall_score: analysisResults.overall_score,
+        readiness_label: analysisResults.readiness_label,
+        summary: analysisResults.summary,
+        strengths: analysisResults.strengths,
+        weaknesses: analysisResults.weaknesses,
+        checkpoints: analysisResults.checkpoints,
+        error: analysisResults.error,
+      } : null,
+      candidate_analysis: candidateAnalysis,
+    });
   } catch (err) {
     console.error('[MVP] Ticket error:', err);
     return NextResponse.json({ error: 'Failed to submit ticket' }, { status: 500 });
