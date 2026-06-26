@@ -217,71 +217,14 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
 
       {/* Main layout */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Ticket panel — always visible */}
-        {capabilities.ticketPanel && (
-          <TicketSidePanel
-            ticket={ticket}
-            notes={ticketText}
-            onNotesChange={setTicketText}
-          >
-            {phase === 'ticketing' && (
-              <button onClick={submitTicket} disabled={!ticketText.trim()} style={{
-                width: '100%', padding: '8px 16px', background: '#059669', color: '#fff',
-                border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                opacity: !ticketText.trim() ? 0.5 : 1,
-              }}>
-                Submit Ticket
-              </button>
-            )}
-          </TicketSidePanel>
-        )}
-
-        {/* Work area */}
-        <WorkArea phase={phase}>
-          {phase === 'not_started' && callStatus === 'idle' && (
-            <StartCallView onStartCall={capabilities.remoteDesktop ? () => handleAction('start_call', 'customer_chat') : () => {
-              setCallStatus('active');
-              const msg = initialMessages.find(m => m.role === 'caller');
-              if (msg) setTimeout(() => speak(msg.content).catch(() => {}), 500);
-            }} />
-          )}
-
-          {phase === 'call_active' && callStatus !== 'idle' && (
-            <>
-              {capabilities.remoteDesktop ? (
-                <div style={{ flex: 1, display: 'flex' }}>
-                  <div style={{ flex: 1 }}>
-                    <RemoteDesktopPane
-                      actions={safeActions}
-                      visibleState={visibleState as Record<string, unknown>}
-                      onAction={handleAction}
-                      disabled={false}
-                    />
-                  </div>
-                  {/* Right actions sidebar */}
-                  <div style={{ width: 200, background: '#1e293b', borderLeft: '1px solid #334155', padding: 8, overflow: 'auto' }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: '#64748b', padding: '4px 6px', marginBottom: 4 }}>
-                      Quick Actions
-                    </div>
-                    {safeActions.filter(a => a.tool === 'connectwise' || a.tool === 'control_panel').map(a => (
-                      <button key={a.id} onClick={() => handleAction(a.id, a.tool)} style={{
-                        width: '100%', textAlign: 'left', padding: '5px 8px', marginBottom: 2,
-                        background: a.redFlag ? '#450a0a' : '#1e293b',
-                        border: `1px solid ${a.redFlag ? '#7f1d1d' : '#334155'}`, borderRadius: 3, fontSize: 11,
-                        cursor: 'pointer', color: a.redFlag ? '#fca5a5' : '#94a3b8',
-                      }}>
-                        {a.redFlag ? '⚠ ' : ''}{a.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <ActiveCallView statusText={`On call with ${ticket.requesterName}`} />
-              )}
-            </>
-          )}
-
-          {phase === 'remote_active' && (
+        {/* ── REMOTED: split layout (ticket left, remote right) ── */}
+        {phase === 'remote_active' && capabilities.remoteDesktop ? (
+          <>
+            <TicketSidePanel
+              ticket={ticket}
+              notes={ticketText}
+              onNotesChange={setTicketText}
+            />
             <div style={{ flex: 1, display: 'flex' }}>
               <RemoteDesktopPane
                 actions={safeActions}
@@ -305,12 +248,123 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
                 ))}
               </div>
             </div>
-          )}
+          </>
+        ) : (
+          /* ── NOT REMOTED: full-width ticket view ── */
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Ticket detail header */}
+            <div style={{ padding: '16px 24px 12px', borderBottom: '1px solid #1e293b', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', fontFamily: 'monospace' }}>
+                  {ticket.id}
+                </span>
+                <span style={{
+                  padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                  background: ticket.severity === 'high' || ticket.severity === 'critical' ? '#450a0a' : '#1e3a5f',
+                  color: ticket.severity === 'high' || ticket.severity === 'critical' ? '#fca5a5' : '#60a5fa',
+                }}>
+                  {ticket.severity.toUpperCase()}
+                </span>
+                <span style={{ fontSize: 11, color: '#64748b', marginLeft: 'auto' }}>{ticket.status}</span>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#f1f5f9', marginBottom: 6 }}>
+                {ticket.title}
+              </div>
+              <div style={{ fontSize: 13, color: '#94a3b8', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span><strong style={{ color: '#cbd5e1' }}>{ticket.requesterName}</strong></span>
+                <span>·</span>
+                <span>{ticket.company}</span>
+                <span>·</span>
+                <span>{ticket.department}</span>
+              </div>
+            </div>
 
-          {phase === 'ticketing' && (
-            <TicketComposerView ticketText={ticketText} onTicketChange={setTicketText} onSubmit={submitTicket} disabled={ticketSubmitted} />
-          )}
-        </WorkArea>
+            {/* Description / customer message */}
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid #1e293b', flexShrink: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: '#64748b', marginBottom: 4 }}>Customer Description</div>
+              <div style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.5, background: '#1e293b', borderRadius: 6, padding: 12 }}>
+                {ticket.description}
+              </div>
+            </div>
+
+            {/* Work area content (StartCall, ActiveCall, or Ticketing) */}
+            <WorkArea phase={phase}>
+              {phase === 'not_started' && callStatus === 'idle' && (
+                <StartCallView onStartCall={capabilities.remoteDesktop ? () => handleAction('start_call', 'customer_chat') : () => {
+                  setCallStatus('active');
+                  const msg = initialMessages.find(m => m.role === 'caller');
+                  if (msg) setTimeout(() => speak(msg.content).catch(() => {}), 500);
+                }} />
+              )}
+
+              {(phase === 'call_active' || (phase === 'not_started' && callStatus !== 'idle')) && (
+                <>
+                  {capabilities.remoteDesktop ? (
+                    <div style={{ flex: 1, display: 'flex', padding: '0 24px', gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <RemoteDesktopPane
+                          actions={safeActions}
+                          visibleState={visibleState as Record<string, unknown>}
+                          onAction={handleAction}
+                          disabled={false}
+                        />
+                      </div>
+                      <div style={{ width: 200, background: '#1e293b', border: '1px solid #334155', borderRadius: 6, padding: 8, overflow: 'auto' }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: '#64748b', padding: '4px 6px', marginBottom: 4 }}>
+                          Quick Actions
+                        </div>
+                        {safeActions.filter(a => a.tool === 'connectwise' || a.tool === 'control_panel').map(a => (
+                          <button key={a.id} onClick={() => handleAction(a.id, a.tool)} style={{
+                            width: '100%', textAlign: 'left', padding: '5px 8px', marginBottom: 2,
+                            background: a.redFlag ? '#450a0a' : '#1e293b',
+                            border: `1px solid ${a.redFlag ? '#7f1d1d' : '#334155'}`, borderRadius: 3, fontSize: 11,
+                            cursor: 'pointer', color: a.redFlag ? '#fca5a5' : '#94a3b8',
+                          }}>
+                            {a.redFlag ? '⚠ ' : ''}{a.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <ActiveCallView statusText={`On call with ${ticket.requesterName}`} />
+                  )}
+                </>
+              )}
+
+              {phase === 'ticketing' && (
+                <TicketComposerView ticketText={ticketText} onTicketChange={setTicketText} onSubmit={submitTicket} disabled={ticketSubmitted} />
+              )}
+            </WorkArea>
+
+            {/* Notes / ticket draft area (always visible when not remoted) */}
+            {phase !== 'ticketing' && phase !== 'submitted' && (
+              <div style={{ flexShrink: 0, padding: '12px 24px 16px', borderTop: '1px solid #1e293b', background: '#0f172a' }}>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: '#64748b', marginBottom: 4 }}>
+                  Ticket Notes / Draft
+                </div>
+                <textarea
+                  value={ticketText}
+                  onChange={e => setTicketText(e.target.value)}
+                  placeholder="Write your ticket notes here..."
+                  rows={3}
+                  style={{
+                    width: '100%', padding: 10, border: '1px solid #334155', borderRadius: 6,
+                    fontSize: 13, background: '#1e293b', color: '#e2e8f0', resize: 'vertical',
+                    fontFamily: 'inherit', lineHeight: 1.5,
+                  }}
+                />
+                {phase === 'call_active' && callStatus !== 'idle' && (
+                  <button onClick={() => handleAction('end_call', 'customer_chat')} style={{
+                    marginTop: 8, padding: '6px 16px', background: '#dc2626', color: '#fff',
+                    border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}>
+                    End Call & Submit Ticket
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
