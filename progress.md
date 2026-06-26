@@ -440,183 +440,196 @@ npm run build                      # compiles clean
 
 ## Dev Server
 
-Current dev server command:
-
 ```bash
 npx next dev -H 0.0.0.0 -p 3000
 ```
+
+**Important**: The host firewall uses UFW with default DROP policy. Port 3000 is explicitly allowed. If the server is unreachable from a browser, check that:
+1. The port is in `sudo ufw status` — if not, run `sudo ufw allow 3000/tcp`
+2. The server is actually running — `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/mvp` should return 200
+3. No stale `EADDRINUSE` error — kill old processes with `kill $(lsof -ti:3000)` then restart with fresh `.next` dir
 
 Current URLs:
 
 ```text
 http://138.199.223.35:3000/mvp                        # Manager dashboard
 http://138.199.223.35:3000/mvp/assessment/<token>     # Candidate assessment
-
----
-
-## Next Work: Interactive App Surfaces
-
-### Problem
-
-The remote desktop apps (Outlook, Browser, CMD, Control Panel) currently have limited interactivity — clicking an app mostly triggers a backend sim action. The user wants to actually interact with the apps: click folders, right-click items, switch ribbon tabs, type commands, navigate pages — without triggering a backend call for every trivial UI action.
-
-### Constraints
-
-- **No heavy CPU/GPU** — this runs in a browser on unknown hardware. No canvas-based rendering, no VM-in-browser, no full OS simulation.
-- **No window manager** — per `cohesion.md`, no drag/resize/minimize/z-index management.
-- **Scoring-relevant actions still hit backend** — actions like "disable Work Offline", "send test email", "reinstall Outlook" must still be logged to `session_events` via `POST /api/mvp/assessment/[token]/sim/action`.
-- **Local UI state is free** — folder selection, right-click menus, tab switching, hover states, scroll positions — all frontend-only, zero backend cost.
-
-### Recommended Approach: Rich React Components + Local State + Selective Backend
-
-Each app component becomes a rich interactive surface. Interactions split into two categories:
-
-| Interaction | Handling | Example |
-|---|---|---|
-| UI navigation (click folder, switch ribbon tab, right-click menu, scroll) | Local React state, `useState` | Clicking Inbox folder just sets `selectedFolder: 'inbox'` |
-| Scoring-relevant action | Backend `POST /sim/action` | Clicking "Disable Work Offline" sends action |
-| UI state that reflects sim state | Polled from `simData.visible_state` via existing 10s interval | Outbox count, work offline status |
-
-This approach costs near-zero CPU (React re-renders only the changed subtree) while making the apps feel real.
-
-### Outlook Interactive Plan
-
-Target file: `components/mvp/simulator/OutlookPanel.tsx`
-
-**Folder navigation** (local state):
-- Clicking any folder in the left sidebar sets `selectedFolder` and shows its contents
-- Inbox shows real-looking email list (mock data)
-- Drafts, Sent Items, Deleted Items show appropriate mock content
-- Outbox reflects real `outboxCount` from sim state
-- Folders show unread count badges
-
-**Ribbon tabs** (local state):
-- Clickable tabs: File, Home, Send/Receive, Folder, View
-- Each tab shows different ribbon buttons (greyed out if not applicable)
-- Home tab: New Email, Reply, Reply All, Forward, Delete
-- Send/Receive tab: Send/Receive All (hits backend), Work Offline toggle (hits backend), Update Folder
-
-**Email list interactivity** (local state):
-- Click an email to select it (highlight)
-- Double-click opens reading pane below
-- Right-click context menu: Mark as Read, Mark as Unread, Delete, Print
-- Reading pane shows sender, subject, body
-
-**Status bar** (from sim state + local):
-- Always visible: Connected/Work Offline status, outbox count, server info
-- Clicking status area triggers connection status check (hits backend)
-
-**Right-click context menu** (local state):
-- Custom `useContextMenu` hook
-- Menu appears at cursor position
-- Dismisses on click outside or menu action
-
-### Browser Interactive Plan
-
-Target file: `components/mvp/simulator/BrowserPanel.tsx`
-
-**Address bar** (local state):
-- Editable URL bar at top
-- Shows current "page"
-- Clicking "Check Outlook Web App" navigates to OWA page
-
-**Tab bar** (local state):
-- Multiple tabs (New Tab, OWA, etc.)
-- Click to switch, close button on each tab
-
-**Page content** (local state):
-- OWA page shows a simulated Outlook Web App login/page
-- Search engine shows a mock search results page
-- Pages can have clickable links
-
-**Right-click** (local state):
-- Context menu: Open in new tab, Copy link address, etc.
-
-### Command Prompt Interactive Plan
-
-Target file: `components/mvp/simulator/CommandPromptPanel.tsx`
-
-**Text input** (local state):
-- Editable command line at bottom
-- User types commands and presses Enter
-- Command history (up/down arrow)
-
-**Known commands** (local state, not backend):
-- `help` — list available commands
-- `ipconfig` — show mock network config (also hits backend for scoring)
-- `ping outlook.office365.com` — show mock ping output (also hits backend)
-- `cls` / `clear` — clear screen
-- `whoami` — show user
-- Unknown commands show "command not recognized"
-
-**Output area** (local state):
-- Scrollable output showing command history + results
-- Mock output looks like real CMD
-
-### Control Panel Interactive Plan
-
-Target file: currently inline in `RemoteDesktopPane.tsx`
-
-**Category navigation** (local state):
-- Clickable left sidebar categories: Programs, Mail, Network and Internet, System
-- Each shows different content in the main area
-
-**Programs view**:
-- "Repair Microsoft 365 Apps" button (hits backend for red flag)
-- "Reinstall Outlook" button (hits backend, red flag)
-- "Delete mail profile" button (hits backend, red flag)
-
-### Shared Infrastructure
-
-```tsx
-// Hook for right-click context menu
-function useContextMenu() {
-  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
-  const show = (e: React.MouseEvent, items: MenuItem[]) => { ... };
-  const hide = () => setMenu(null);
-  return { menu, show, hide };
-}
-
-// Global ContextMenuRenderer component
-function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
-  // Renders at fixed position, dark theme, closes on click outside
-}
 ```
 
-### Non-Goals
-
-- Do not build a real terminal emulator or shell
-- Do not build a real web browser
-- Do not add drag/resize to app panels
-- Do not render full desktop backgrounds or window chrome for each app
-- Do not add animations that consume CPU (no CSS transitions on heavy elements)
-- Do not replace the tab-based sandbox layout
-
-### Effort Estimate
-
-| Component | Changes | Est. size |
-|---|---|---|
-| `useContextMenu` hook | New file, ~60 lines | Small |
-| `ContextMenu` component | New file, ~80 lines | Small |
-| `OutlookPanel` | Major rewrite, ~400 lines | Medium |
-| `BrowserPanel` | Moderate rewrite, ~200 lines | Medium |
-| `CommandPromptPanel` | Significant rewrite, ~250 lines | Medium |
-| `ControlPanel` (extract from RemoteDesktopPane) | Extract + enhance, ~150 lines | Small |
-
-Total estimated additions: ~800-1000 lines of new React code, zero new dependencies, zero backend changes.
-
 ---
 
-## Session 2026-06-26 (continued) — Remote Desktop Build Plan
+## Session 2026-06-26 — Interactive Win11 Desktop (BUILT)
 
-Full interactive Win11 desktop plan written to `remotedesktop.md`. Key decisions:
+### What Was Built
 
-- **Approach D selected**: React window frames (no drag/resize) with local state per app and backend only for scoring actions — zero CPU/GPU cost.
-- Desktop state managed by `useReducer` — open windows, z-ordering, preset tiling positions.
-- Each app is a fully interactive React component: Outlook with clickable folders/ribbon tabs/right-click/reading pane, CMD with typed commands and history, Browser with tabs/address bar/OWA simulation, Control Panel with category navigation.
-- Every interaction (local or backend) is recorded to `session_events` via the event route. New `ui_interaction` event type proposed for fine-grained logging.
-- TranscriptToggle extended to show system events alongside messages.
-- 7-phase implementation plan, 12-18 hour estimate, 11 bugs identified for fixing.
+The remote desktop tab system was fully replaced with a Windows-11-style desktop with interactive app windows. Every interaction is local React state — zero CPU/GPU cost, zero new dependencies.
 
-See `remotedesktop.md` for full architecture, per-app specs, event recording, performance strategy, and testing plan.
+### New Foundation Files (9 files)
+
+| File | Purpose |
+|---|---|
+| `components/mvp/simulator/useContextMenu.ts` | Right-click context menu hook (~50 lines) |
+| `components/mvp/simulator/ContextMenu.tsx` | Dark-themed context menu renderer |
+| `components/mvp/simulator/WindowFrame.tsx` | Shared window wrapper (title bar × close button, 8px radius) |
+| `components/mvp/simulator/DesktopSurface.tsx` | Blue gradient desktop with 7 app icons |
+| `components/mvp/simulator/Taskbar.tsx` | Dark Win11-style taskbar, Start button, app buttons, clock |
+
+### Interactive App Components (7 files)
+
+All apps use local `useState` for UI navigation. Only scoring-relevant actions (Disable Work Offline, Send Test Email, Ping, etc.) hit the backend `POST /sim/action`.
+
+**OutlookApp** (`OutlookApp.tsx` — replaces `OutlookPanel.tsx`):
+- Clickable folder sidebar: Inbox (12 mock), Drafts (1), Sent Items, Outbox (from sim state), Deleted Items
+- Switchable ribbon tabs: Home, Send/Receive, Folder, View — each shows different toolbar buttons
+- Email list with clickable rows, right-click context menu (Mark Read/Unread, Delete, Print)
+- Reading pane: back/forward, shows sender/subject/body
+- Status bar always visible: Working Offline/Connected status, outbox count, clickable to inspect connection
+- Ribbon toggle for Work Offline (highlights red when active)
+
+**CmdApp** (`CmdApp.tsx` — replaces `CommandPromptPanel.tsx`):
+- Typeable command line at bottom with blinking caret
+- Command history via ArrowUp/ArrowDown
+- Known commands: `help`, `cls`, `whoami`, `dir`, `ping` (hits backend), `ipconfig` (hits backend), `nslookup`, `tracert`
+- Mock realistic output for each command
+- Black terminal background, green prompt, monospace font
+
+**BrowserApp** (`BrowserApp.tsx` — replaces `BrowserPanel.tsx`):
+- Multiple tabs with close buttons, add tab (+)
+- Editable address bar with Enter to navigate
+- "Check Outlook Web App" quick link — navigates to simulated OWA page
+- Blank page shows search-engine-like UI with bookmarks
+- OWA page shows working webmail status
+
+**ControlPanelApp** (`ControlPanelApp.tsx` — extracted from inline code):
+- Sidebar: Control Panel Home, Programs, Mail, Network and Internet, System
+- Programs view: "Repair Microsoft 365 Apps" (info), "Reinstall Outlook" (red flag, hits backend)
+- Mail view: "Delete Outlook profile" (red flag, hits backend)
+- Network view: Shows active network, IP info
+- System view: Device name ALDER-LT-023, RAM, Windows version
+- Red flag actions shown with ⚠ warning banners
+
+**NetworkApp** (`NetworkApp.tsx`):
+- Tabs: Status, Wi-Fi, Ethernet
+- Status: shows IPv4, gateway, DNS, DHCP status
+- Wi-Fi: shows Wi-Fi is off (device on ethernet)
+- Ethernet: adapter details, speed, MAC, IP config
+
+**VpnApp** (`VpnApp.tsx`):
+- Toggle VPN connection on/off (local state)
+- Shows connection status with green/grey dot
+- VPN type, server address, IPsec info
+
+**PrinterApp** (`PrinterApp.tsx`):
+- Lists 3 printers with status badges (Online/Offline)
+- HP LaserJet Pro M404dn shows offline with 3 stuck jobs in queue
+- Canon imageRUNNER shows online
+- Microsoft Print to PDF always available
+- Click detail view shows IP, driver, queue, troubleshooting info
+
+### RemoteDesktopPane Rewrite
+
+Replaced tab system (`Desktop \| Outlook \| Edge \| CMD \| Control Panel`) with `useReducer`-based desktop state:
+
+```ts
+type DesktopAction = { type: 'OPEN', app, title } | { type: 'CLOSE', app } | { type: 'FOCUS', app };
+```
+
+- Desktop shows 7 app icons in left column
+- Clicking an icon opens a `WindowFrame` at preset position (full height, floating)
+- Multiple windows cascade — z-ordering via reducer's `nextZ` counter
+- Taskbar shows open app buttons, clicking focuses window
+- Close button on each window title bar
+- No drag, no resize, no minimize (per `cohesion.md`)
+
+### Backend Changes
+
+| File | Change |
+|---|---|
+| `lib/mvp/events/types.ts` | Added `'ui_interaction'` to `SessionEventType` |
+| `lib/mvp/sim/types.ts` | Added `'network'`, `'vpn'`, `'printer'` to `SimToolId` |
+| `app/api/mvp/assessment/[token]/event/route.ts` | Added `ui_interaction` to allowed types, relaxed session status check to allow `not_started` |
+| `lib/mvp/sim/packConfig.ts` | Added `network`, `vpn`, `printer` to tools array |
+
+### Event Recording Architecture
+
+```
+UI-only interaction (folder click, right-click, typed command, window open/close)
+    ↓
+recordAppEvent(app, actionId, label)  // in ServiceDeskSimulatorShell
+    ↓
+POST /api/mvp/assessment/[token]/event  { event_type: 'ui_interaction', tool_id, action_id, label }
+    ↓
+INSERT into session_events  (canonical evidence timeline)
+
+Scoring-relevant action (disable Work Offline, send test email, reinstall)
+    ↓
+onAction(actionId, tool)  // in RemoteDesktopPane
+    ↓
+POST /api/mvp/assessment/[token]/sim/action
+    ↓
+State machine → sim_events + session_events (full state tracking)
+```
+
+### Remaining Gaps
+
+1. **Internal notes lost on reload** — `internalNotes` state starts empty. Should load prior notes from `session_events` on mount (filter by `event_type = 'ticket_note_updated'` and `action_id = 'add_internal_note'`).
+2. **Transcript doesn't show system events** — `TranscriptToggle` only shows `messages` array (candidate + caller). Should merge `session_events` entries (action observations, phase transitions) sorted by timestamp.
+3. **New app sim actions** — NetworkApp, VpnApp, PrinterApp are locally interactive but have no backend sim actions. They could be wired into future drill packs (e.g., a Wi-Fi troubleshooting scenario).
+4. **Loading state for remote desktop** — When `simData` is null and `capabilities.remoteDesktop` is true, the shell shows nothing. Should show "Connecting to remote desktop..." until data loads.
+5. **NotesPanel Live Notes tab doesn't submit** — The Live Notes tab in the remote layout's NotesPanel shows ticketText but there's no submit button. The ticket is submitted only from the `ticketing` phase's `TicketComposerView`.
+
+### Tests
+
+All 109 tests pass across 5 suites:
+
+```bash
+npm run test:assignment-types          # 21 passed
+npm run test:dashboard-sim             # 28 passed
+npm run test:dashboard-sim-foundation  # 24 passed
+node scripts/test-session-events.mjs   # 16 passed
+node scripts/test-voice.mjs            # 20 passed
+npx tsc --noEmit                       # compiles clean
+```
+
+### Key Codebase Map (simulator components)
+
+```
+components/mvp/simulator/
+├── ServiceDeskSimulatorShell.tsx   # Main candidate shell (orchestrates everything)
+├── RemoteDesktopPane.tsx           # Desktop + window management (useReducer)
+├── WindowFrame.tsx                 # Shared window wrapper
+├── DesktopSurface.tsx             # Desktop icons
+├── Taskbar.tsx                    # Taskbar with app buttons
+├── ContextMenu.tsx                 # Right-click context menu
+├── useContextMenu.ts               # Context menu hook
+├── OutlookApp.tsx                  # Rich Outlook clone (active)
+├── BrowserApp.tsx                  # Browser with tabs/address bar
+├── CmdApp.tsx                      # Typeable terminal
+├── ControlPanelApp.tsx             # Control Panel with categories
+├── NetworkApp.tsx                  # WiFi/Ethernet status
+├── VpnApp.tsx                      # VPN toggle
+├── PrinterApp.tsx                  # Printer queue/status
+├── TicketSidePanel.tsx             # Left ticket panel in remote mode
+├── CallBar.tsx                     # Top call status bar
+├── WorkArea.tsx                    # Work status / closure composer
+├── VoiceRecorderButton.tsx         # Mic button for voice
+└── CustomerAudioPlayer.tsx         # TTS playback
+```
+
+### Guardrails For New Agent
+
+- Preserve one shell. Do not branch back into separate candidate experiences.
+- Preserve voice-first call flow (text chat is collapsed behind transcript toggle).
+- Do not show root cause or correct fix in candidate-facing placeholder text.
+- Do not add generic "Next step" action lists. Build UI surfaces that imply real tools.
+- Let candidates make mistakes. Log everything. Score later.
+- Keep ticketing visible and professional.
+- Copy ConnectWise-like density and visual language for the manager dashboard.
+- Treat `assessment_mode` as compatibility plumbing, not product architecture.
+- Prefer `assignment_type` and `SimulatorCapabilities` for runtime behavior.
+- Keep `session_events` canonical for evidence, transcript, actions, notes, and scoring.
+- Do not add drag/resize/minimize to window frames (per `cohesion.md`).
+- All UI interactions should be local React state — zero network cost for folder clicks, etc.
+- Only scoring-relevant actions call `POST /sim/action`. Everything else is `POST /event` with `ui_interaction`.
+- New app components must be added to both `packConfig.ts` tools array and `sim/types.ts` SimToolId.
 ```
