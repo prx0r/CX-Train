@@ -796,3 +796,102 @@ app/api/mvp/taxonomy/route.ts          # POST handler for XLSX upload
 app/mvp/taxonomy/page.tsx              # Upload UI section
 simpack.md                             # Architecture spec (new file)
 ```
+
+---
+
+## Session 2026-06-26 — PSA Ticket Workspace & Triage Workflow
+
+### Two-Column Ticket Detail Layout
+
+Restructured the candidate ticket detail from a flat single-column layout into a proper ConnectWise-style two-column workspace:
+
+```
+┌──────────320px──────────┬──────────────────────────────────┐
+│ LEFT: Metadata + Triage │ RIGHT: Work Area                 │
+│                         │                                  │
+│ ← Back to service board │ Customer Description             │
+│ INC-XXXXXX  🔴 HIGH     │                                  │
+│ Title / Requester info  │ Notes Panel                      │
+│ Status  ║ Owner ║ Board │ [Internal Notes] [Live Notes]    │
+│ SLA: Due Today          │ note list / scrollable           │
+│                         │ shared composer                  │
+│ [Claim] [Open Remote]   │ Ctrl+Enter to post               │
+│ [Submit Ticket]         │                                  │
+│                         │ Call Transcript (collapsed)      │
+│ Triage Ticket           │                                  │
+│ Status / Type / Cat...  │ Remote Desktop (when active)     │
+│ Impact / Urgency / Pri  │                                  │
+│ Submit Triage           │                                  │
+└─────────────────────────┴──────────────────────────────────┘
+```
+
+Key changes:
+- SLA/Board moved from horizontal cards into the left metadata panel
+- Customer description stays on the right above notes
+- Notes panel uses the full right-column width
+- Remote desktop replaces the right column content when active (notes preserved in state)
+- Disconnect remote restores the notes view
+
+### Triage Workflow
+
+Before working the ticket, the candidate completes a triage form:
+
+1. Claim ticket → logs `ticket_claimed`
+2. Set Status (Open / In Progress / Waiting Customer / Resolved / Escalated) → logs `ticket_status_updated`
+3. Select Type → from taxonomy (Incident / Request)
+4. Select Category → from taxonomy sub_types (Desktop/Laptop, Email, Network...)
+5. Select Subcategory → from taxonomy items
+6. Select Impact → Extensive / Large / Medium / Small
+7. Select Urgency → Critical / High / Medium / Low
+8. Select Priority → P1-P5 from taxonomy
+9. Submit Triage → logs `ticket_triage_submitted` with full triage snapshot
+
+After submission, the triage panel shows a read-only summary.
+
+### Taxonomy: Live from DB
+
+The triage category/subcategory/item options now come from the **uploaded Master Triage Classification XLSX** (163 items in the taxonomy_items DB table), not hardcoded arrays:
+
+- `GET /api/mvp/taxonomy/ticket-taxonomy` — new API route merging DB taxonomy_items with default impact/urgency/priority options
+- Frontend fetches this on mount and falls back to `defaultTicketTaxonomy.ts` if the API is unavailable
+
+### Event Logging
+
+Every triage action logs to `session_events` with old/new values and taxonomy tags:
+
+| Event Type | Description |
+|---|---|
+| `ticket_claimed` | Candidate claimed the ticket |
+| `ticket_status_updated` | Status changed |
+| `ticket_type_set` | Ticket type selected |
+| `ticket_category_set` | Category selected |
+| `ticket_subcategory_set` | Subcategory selected |
+| `ticket_item_set` | Item/service selected |
+| `ticket_impact_set` | Impact selected |
+| `ticket_urgency_set` | Urgency selected |
+| `ticket_priority_set` | Priority selected |
+| `ticket_triage_submitted` | Full triage submitted |
+
+### New/Extracted Components
+
+| File | Purpose |
+|---|---|
+| `components/mvp/simulator/TicketMetadataPanel.tsx` | Left metadata panel — ticket ID, severity, title, requester, status, owner, board, SLA |
+| `components/mvp/simulator/TicketTriagePanel.tsx` | Triage form with cascade selects (category→subcategory→item), impact/urgency/priority, submit. Read-only summary after submission |
+| `components/mvp/simulator/TicketNotesPanel.tsx` | Extracted from shell — Internal/Live Notes tabs, shared composer, scrollable list, persists across remote open/close |
+| `app/api/mvp/taxonomy/ticket-taxonomy/route.ts` | API endpoint merging DB taxonomy_items with default impact/urgency/priority options |
+| `lib/mvp/taxonomy/defaultTicketTaxonomy.ts` | Default fallback taxonomy (used when DB is empty or API unavailable) |
+
+### Tests
+
+All 109 tests pass across 5 suites:
+
+```bash
+npm run test:dashboard-sim             # 28 passed
+npm run test:assignment-types          # 21 passed
+npm run test:dashboard-sim-foundation  # 24 passed
+node scripts/test-session-events.mjs   # 16 passed
+node scripts/test-voice.mjs            # 20 passed
+npx tsc --noEmit                       # compiles clean
+npm run build                          # 55 static pages generated
+```
