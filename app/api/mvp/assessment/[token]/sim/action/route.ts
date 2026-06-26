@@ -8,6 +8,7 @@ import { buildTimeline } from '@/lib/mvp/sim/timeline';
 import { getPackById } from '@/lib/mvp/sim/packRegistry';
 import { SimState } from '@/lib/mvp/sim/types';
 import { getSessionEvents } from '@/lib/mvp/events/eventLog';
+import { getCapabilitiesForType } from '@/lib/mvp/assignment-types';
 
 export async function POST(
   request: NextRequest,
@@ -20,9 +21,10 @@ export async function POST(
       return NextResponse.json({ error: 'Assessment not found' }, { status: 404 });
     }
 
-    const assessmentMode = (full.assessment as any).assessment_mode;
-    if (assessmentMode !== 'dashboard_sim') {
-      return NextResponse.json({ error: 'Not a dashboard sim assessment' }, { status: 400 });
+    const assignmentType = (full.assessment as any).assignment_type || ((full.assessment as any).assessment_mode === 'dashboard_sim' ? 'training_drill' : 'hiring_exam');
+    const capabilities = getCapabilitiesForType(assignmentType);
+    if (!capabilities?.remoteDesktop && (full.assessment as any).assessment_mode !== 'dashboard_sim') {
+      return NextResponse.json({ error: 'Remote tool actions are not enabled for this assignment' }, { status: 400 });
     }
 
     const body = await request.json();

@@ -3,6 +3,7 @@ import { getDb, initTables } from '@/lib/mvp/db';
 import { getAssessmentByToken, getSessionByAssessment, makeId } from '@/lib/mvp/query';
 import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
+import { getCapabilitiesForType } from '@/lib/mvp/assignment-types';
 
 export async function POST(
   request: NextRequest,
@@ -52,9 +53,10 @@ export async function POST(
       started_at_ms: Date.now() + 50,
     });
 
-    /* Complete sim_session for dashboard_sim */
-    const assessmentMode = (assessment as any).assessment_mode || 'chat_call';
-    if (assessmentMode === 'dashboard_sim') {
+    /* Complete sim_session when this assignment has remote simulation tools. */
+    const assignmentType = (assessment as any).assignment_type || ((assessment as any).assessment_mode === 'dashboard_sim' ? 'training_drill' : 'hiring_exam');
+    const capabilities = getCapabilitiesForType(assignmentType);
+    if (capabilities?.remoteDesktop || (assessment as any).assessment_mode === 'dashboard_sim') {
       const simSession = db.prepare('SELECT id, current_state_json FROM sim_sessions WHERE session_id = ?').get(session.id) as any;
       if (simSession) {
         const currentState = JSON.parse(simSession.current_state_json);

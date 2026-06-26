@@ -28,9 +28,9 @@ function assert(condition, label) {
 
 /* Mirrors lib/mvp/assignment-types.ts constants for test isolation */
 const ASSIGNMENT_TYPES = {
-  hiring_exam: { label: 'Hiring Exam', enabled: true, assessmentMode: 'chat_call', comingSoon: false },
-  training_drill: { label: 'Training Drill', enabled: true, assessmentMode: 'dashboard_sim', comingSoon: false },
-  training_shift: { label: 'Training Shift', enabled: false, assessmentMode: null, comingSoon: true },
+  hiring_exam: { label: 'Hiring Exam', enabled: true, comingSoon: false, capabilities: { call: true, ticketPanel: true, remoteDesktop: false } },
+  training_drill: { label: 'Training Drill', enabled: true, comingSoon: false, capabilities: { call: true, ticketPanel: true, remoteDesktop: true } },
+  training_shift: { label: 'Training Shift', enabled: false, comingSoon: true, capabilities: { call: true, ticketPanel: true, remoteDesktop: true } },
 };
 const ASSIGNMENT_TYPE_LIST = ['hiring_exam', 'training_drill', 'training_shift'];
 const ENABLED_TRAINING_DRILL_PACKS = ['pack-outlook-sim-v2'];
@@ -44,9 +44,9 @@ async function main() {
   assert(ASSIGNMENT_TYPES.hiring_exam.enabled === true, 'hiring_exam is enabled');
   assert(ASSIGNMENT_TYPES.training_drill.enabled === true, 'training_drill is enabled');
   assert(ASSIGNMENT_TYPES.training_shift.enabled === false, 'training_shift is disabled');
-  assert(ASSIGNMENT_TYPES.hiring_exam.assessmentMode === 'chat_call', 'hiring_exam maps to chat_call');
-  assert(ASSIGNMENT_TYPES.training_drill.assessmentMode === 'dashboard_sim', 'training_drill maps to dashboard_sim');
-  assert(ASSIGNMENT_TYPES.training_shift.assessmentMode === null, 'training_shift has no active mode');
+  assert(ASSIGNMENT_TYPES.hiring_exam.capabilities.ticketPanel === true, 'hiring_exam uses unified ticket shell');
+  assert(ASSIGNMENT_TYPES.hiring_exam.capabilities.remoteDesktop === false, 'hiring_exam hides remote desktop tools');
+  assert(ASSIGNMENT_TYPES.training_drill.capabilities.remoteDesktop === true, 'training_drill enables remote desktop tools');
   assert(ASSIGNMENT_TYPES.training_shift.comingSoon === true, 'training_shift is coming soon');
 
   // ── 2. DB schema ─────────────────────────────────────────────────

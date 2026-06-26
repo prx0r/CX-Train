@@ -6,6 +6,7 @@ import { runAiTask } from '@/lib/ai/provider';
 import { getPackById } from '@/lib/mvp/sim/packRegistry';
 import { buildAiCustomerContext } from '@/lib/mvp/sim/aiCustomer';
 import { SimState } from '@/lib/mvp/sim/types';
+import { getCapabilitiesForType } from '@/lib/mvp/assignment-types';
 
 export async function POST(
   request: NextRequest,
@@ -58,11 +59,13 @@ export async function POST(
     /* Build conversation history */
     const priorMessages = getMessages(session.id);
 
-    /* Determine AI caller prompt — use sim AI context for dashboard_sim, fallback for chat_call */
-    const assessmentMode = (assessment as any).assessment_mode || 'chat_call';
+    /* Determine AI caller prompt from assignment capabilities. assessment_mode remains a legacy fallback. */
+    const assignmentType = (assessment as any).assignment_type || ((assessment as any).assessment_mode === 'dashboard_sim' ? 'training_drill' : 'hiring_exam');
+    const capabilities = getCapabilitiesForType(assignmentType);
+    const hasRemoteTools = capabilities?.remoteDesktop || (assessment as any).assessment_mode === 'dashboard_sim';
     let systemMessage: string;
 
-    if (assessmentMode === 'dashboard_sim') {
+    if (hasRemoteTools) {
       /* Load current sim state and build AI customer context */
       const packId = (assessment as any).assessment_pack_id || 'pack-outlook-sim-v2';
       const pack = getPackById(packId);

@@ -130,6 +130,10 @@ export default function MvpDashboard() {
     reviewed: assessments.filter(a => a.status === 'reviewed').length,
   };
 
+  function getScore(a: Assessment): number | undefined {
+    return (a as any).overall_score ?? undefined;
+  }
+
   const ticketRows = assessments.map(a => ({
     id: a.id,
     number: `INC${a.id.slice(-6).toUpperCase()}`,
@@ -139,64 +143,64 @@ export default function MvpDashboard() {
     description: `${a.title} [${getAssignmentLabel(a)}]`,
     assigned: a.candidate_name,
     updated: a.created_at?.slice(0, 10) || '',
-    score: (a as any).overall_score ?? undefined,
+    score: getScore(a),
   }));
 
   return (
     <ManagerShell>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#1b2f53', marginBottom: 4 }}>Service Desk Dashboard</div>
-        <div style={{ fontSize: 13, color: '#666' }}>Welcome back, Manager</div>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 2 }}>Service Desk</div>
+        <div style={{ fontSize: 12, color: '#525252' }}>Board: Help Desk / New and Active Tickets</div>
       </div>
 
       <ItsmStatsCards cards={[
-        { label: 'Total Assessments', value: String(statusCounts.total), color: '#1b2f53', icon: '🎫' },
-        { label: 'Pending Review', value: String(statusCounts.invited), color: '#f0ad4e', icon: '⏳' },
-        { label: 'Completed', value: String(statusCounts.completed), color: '#27ae60', icon: '✓' },
-        { label: 'Reviewed', value: String(statusCounts.reviewed), color: '#3498db', icon: '📋' },
+        { label: 'Total', value: String(statusCounts.total), color: '#111' },
+        { label: 'Pending Review', value: String(statusCounts.invited), color: '#7a4f00' },
+        { label: 'Completed', value: String(statusCounts.completed), color: '#0f5132' },
+        { label: 'Reviewed', value: String(statusCounts.reviewed), color: '#004b8d' },
       ]} />
 
       {/* Create Assignment Flow */}
-      <div style={{ background: '#fff', borderRadius: 6, padding: 20, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+      <div style={{ background: '#fff', border: '1px solid #9f9f9f', borderRadius: 3, marginBottom: 16 }}>
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid #b8b8b8', background: '#f4f4f4', fontWeight: 700, fontSize: 14, color: '#111' }}>
+          Create Assignment
+        </div>
+        <div style={{ padding: 14 }}>
         {!selectedType ? (
-          <>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#1b2f53', marginBottom: 12 }}>Create Assignment</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {ASSIGNMENT_CARDS.map(card => (
                 <button
                   key={card.type}
                   onClick={() => card.enabled && handleSelectType(card.type)}
                   disabled={!card.enabled}
                   style={{
-                    padding: 16, borderRadius: 6, border: card.enabled ? '1px solid #ddd' : '1px dashed #ccc',
-                    background: card.enabled ? '#f9fafb' : '#f5f5f5', cursor: card.enabled ? 'pointer' : 'not-allowed',
-                    textAlign: 'left', opacity: card.enabled ? 1 : 0.6, display: 'flex', flexDirection: 'column',
-                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                    padding: 14, borderRadius: 3, border: card.enabled ? '1px solid #b8b8b8' : '1px dashed #b8b8b8',
+                    background: card.enabled ? '#f4f4f4' : '#efefef', cursor: card.enabled ? 'pointer' : 'not-allowed',
+                    textAlign: 'left', opacity: card.enabled ? 1 : 0.5, display: 'flex', flexDirection: 'column',
                   }}
-                  onMouseEnter={e => { if (card.enabled) { e.currentTarget.style.borderColor = '#82b814'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(130,184,20,0.15)'; } }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = card.enabled ? '#ddd' : '#ccc'; e.currentTarget.style.boxShadow = 'none'; }}
+                  onMouseEnter={e => { if (card.enabled) e.currentTarget.style.background = '#fff'; }}
+                  onMouseLeave={e => { if (card.enabled) e.currentTarget.style.background = '#f4f4f4'; }}
                 >
-                  <div style={{ fontWeight: 700, fontSize: 14, color: card.enabled ? '#1b2f53' : '#999', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: card.enabled ? '#111' : '#6f6f6f', marginBottom: 6 }}>
                     {card.label}
                     {card.comingSoon && (
-                      <span style={{ marginLeft: 8, fontSize: 10, color: '#f0ad4e', fontWeight: 600, background: '#fff8e1', padding: '2px 6px', borderRadius: 3 }}>Coming soon</span>
+                      <span style={{ marginLeft: 8, fontSize: 10, color: '#7a4f00', fontWeight: 600, background: '#f6e8b1', padding: '2px 6px', borderRadius: 2, border: '1px solid #c8b66a' }}>Coming soon</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: '#666', lineHeight: 1.4 }}>{card.description}</div>
+                  <div style={{ fontSize: 12, color: '#525252', lineHeight: 1.4 }}>{card.description}</div>
                 </button>
               ))}
             </div>
-          </>
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <button
                 onClick={handleBack}
-                style={{ background: 'none', border: 'none', color: '#0070d2', cursor: 'pointer', fontSize: 13, padding: 0 }}
+                style={{ background: 'none', border: 'none', color: '#004b8d', cursor: 'pointer', fontSize: 13, padding: 0, fontWeight: 700 }}
               >
                 &larr; Back
               </button>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#1b2f53' }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>
                 Create {ASSIGNMENT_CARDS.find(c => c.type === selectedType)?.label}
               </div>
             </div>
@@ -206,23 +210,23 @@ export default function MvpDashboard() {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="Candidate name"
-                style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, flex: 1, minWidth: 200 }}
+                style={{ padding: '7px 10px', border: '1px solid #b8b8b8', borderRadius: 3, fontSize: 13, flex: 1, minWidth: 200, color: '#111', background: '#fff' }}
               />
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="Email (optional)"
-                style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, flex: 1, minWidth: 200 }}
+                style={{ padding: '7px 10px', border: '1px solid #b8b8b8', borderRadius: 3, fontSize: 13, flex: 1, minWidth: 200, color: '#111', background: '#fff' }}
               />
             </div>
             {selectedType === 'training_drill' && (
               <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Drill type</label>
+                <label style={{ fontSize: 12, color: '#525252', display: 'block', marginBottom: 4, fontWeight: 700 }}>Drill type</label>
                 <select
                   value={drillPack}
                   onChange={e => setDrillPack(e.target.value)}
-                  style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, background: '#fff' }}
+                  style={{ padding: '7px 10px', border: '1px solid #b8b8b8', borderRadius: 3, fontSize: 13, background: '#fff', color: '#111' }}
                 >
                   {DRILL_OPTIONS.map(p => (
                     <option key={p.id} value={p.id}>{p.title}</option>
@@ -234,22 +238,23 @@ export default function MvpDashboard() {
               onClick={createAssessment}
               disabled={creating || !name.trim()}
               style={{
-                padding: '8px 20px', background: '#82b814', color: '#fff', border: 'none',
-                borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                opacity: creating || !name.trim() ? 0.6 : 1,
+                padding: '8px 20px', background: '#111', color: '#fff', border: '1px solid #111',
+                borderRadius: 3, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                opacity: creating || !name.trim() ? 0.45 : 1,
               }}
             >
               {creating ? 'Creating...' : `Create ${ASSIGNMENT_CARDS.find(c => c.type === selectedType)?.label || 'Assignment'}`}
             </button>
             {inviteUrl && (
-              <div style={{ marginTop: 12, padding: 12, background: '#f0f7e8', borderRadius: 4, border: '1px solid #d4edda' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#155724', marginBottom: 4 }}>Invite Link Created:</div>
-                <a href={inviteUrl} style={{ fontSize: 13, color: '#0070d2', wordBreak: 'break-all' }}>{inviteUrl}</a>
+              <div style={{ marginTop: 12, padding: 10, background: '#e8f3ec', border: '1px solid #8db99b', borderRadius: 3 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f5132', marginBottom: 4 }}>Invite Link Created:</div>
+                <a href={inviteUrl} style={{ fontSize: 13, color: '#004b8d', wordBreak: 'break-all' }}>{inviteUrl}</a>
               </div>
             )}
-            {error && <div style={{ marginTop: 8, fontSize: 12, color: '#e74c3c' }}>{error}</div>}
+            {error && <div style={{ marginTop: 8, fontSize: 12, color: '#842029' }}>{error}</div>}
           </>
         )}
+      </div>
       </div>
 
       <ItsmTicketTable tickets={ticketRows} title="Assessment Queue" />

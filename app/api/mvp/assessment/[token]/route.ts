@@ -19,7 +19,6 @@ export async function GET(
       return NextResponse.json({ error: 'Assessment not found' }, { status: 404 });
     }
 
-    const assessmentMode = (full.assessment as any).assessment_mode || 'chat_call';
     const assignmentType = (full.assessment as any).assignment_type || 'hiring_exam';
     const capabilities = getCapabilitiesForType(assignmentType);
 

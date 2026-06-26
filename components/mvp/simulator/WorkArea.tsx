@@ -22,18 +22,25 @@ export function StartCallView({ onStartCall }: { onStartCall: () => void }) {
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', gap: 16, color: '#64748b', padding: 40,
+      justifyContent: 'center', gap: 12, color: '#525252', padding: 40,
+      background: '#f7f7f7',
     }}>
-      <div style={{ fontSize: 48 }}>📞</div>
-      <div style={{ fontSize: 16, fontWeight: 600, color: '#e2e8f0' }}>
-        Ready for the call
+      <div style={{
+        width: 52, height: 52, borderRadius: 4, border: '1px solid #c8c8c8',
+        background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 22, fontWeight: 700, color: '#111',
+      }}>
+        CTI
       </div>
-      <div style={{ fontSize: 13, color: '#94a3b8', maxWidth: 360, textAlign: 'center', lineHeight: 1.5 }}>
-        Review the ticket details on the left, then start the call when you are ready.
+      <div style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>
+        Work the requester contact
+      </div>
+      <div style={{ fontSize: 13, color: '#525252', maxWidth: 430, textAlign: 'center', lineHeight: 1.5 }}>
+        Review the ticket, claim ownership, then start the customer call from the service desk toolbar.
       </div>
       <button onClick={onStartCall} style={{
-        padding: '10px 32px', background: '#22c55e', color: '#fff', border: 'none',
-        borderRadius: 6, fontSize: 15, fontWeight: 600, cursor: 'pointer', marginTop: 8,
+        padding: '9px 28px', background: '#111', color: '#fff', border: '1px solid #111',
+        borderRadius: 3, fontSize: 13, fontWeight: 700, cursor: 'pointer', marginTop: 8,
       }}>
         Start Call
       </button>
@@ -45,13 +52,14 @@ export function ActiveCallView({ statusText }: { statusText: string }) {
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', gap: 12, color: '#94a3b8', padding: 40,
+      justifyContent: 'center', gap: 10, color: '#525252', padding: 40,
+      background: '#f7f7f7',
     }}>
-      <div style={{ fontSize: 16, fontWeight: 600, color: '#e2e8f0' }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>
         {statusText}
       </div>
-      <div style={{ fontSize: 13, maxWidth: 400, textAlign: 'center', lineHeight: 1.5, color: '#64748b' }}>
-        Use the call bar at the top to speak with the customer. Available actions are on the right panel.
+      <div style={{ fontSize: 13, maxWidth: 430, textAlign: 'center', lineHeight: 1.5, color: '#525252' }}>
+        Capture facts in the work notes while you ask questions and validate the issue.
       </div>
     </div>
   );
@@ -64,24 +72,24 @@ export function TicketComposerView({ ticketText, onTicketChange, onSubmit, disab
   disabled: boolean;
 }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 20, gap: 8 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: '#f1f5f9' }}>Write Closure Ticket</div>
-      <div style={{ fontSize: 12, color: '#64748b' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 20, gap: 8, background: '#f7f7f7' }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>Closure Notes</div>
+      <div style={{ fontSize: 12, color: '#525252' }}>
         Summarize the issue, steps taken, root cause, and next steps.
       </div>
       <textarea
         value={ticketText}
         onChange={e => onTicketChange(e.target.value)}
-        placeholder="INC-002847 — Outlook Work Offline&#10;&#10;User: Sarah Thompson, Connexion Dental&#10;Issue: Outlook stuck in Work Offline mode&#10;Root cause: Work Offline was enabled&#10;Resolution: Disabled Work Offline, cleared Outbox (3 messages), sent test email — confirmed received&#10;Status: Resolved"
+        placeholder="Ticket summary&#10;&#10;Requester:&#10;Issue:&#10;Impact:&#10;Troubleshooting performed:&#10;Resolution or handoff:&#10;Customer confirmation:&#10;Status:"
         style={{
-          flex: 1, width: '100%', padding: 12, border: '1px solid #334155', borderRadius: 6,
-          fontSize: 13, background: '#1e293b', color: '#e2e8f0', resize: 'none',
+          flex: 1, width: '100%', padding: 12, border: '1px solid #b8b8b8', borderRadius: 3,
+          fontSize: 13, background: '#fff', color: '#111', resize: 'none',
           fontFamily: 'monospace', lineHeight: 1.6,
         }}
       />
       <button onClick={onSubmit} disabled={disabled || !ticketText.trim()} style={{
-        alignSelf: 'flex-end', padding: '8px 24px', background: '#059669', color: '#fff',
-        border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: disabled ? 'default' : 'pointer',
+        alignSelf: 'flex-end', padding: '8px 24px', background: '#111', color: '#fff',
+        border: '1px solid #111', borderRadius: 3, fontSize: 13, fontWeight: 700, cursor: disabled ? 'default' : 'pointer',
         opacity: disabled || !ticketText.trim() ? 0.5 : 1,
       }}>
         Submit Ticket

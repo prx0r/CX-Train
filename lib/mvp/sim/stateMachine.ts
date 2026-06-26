@@ -29,24 +29,7 @@ function parseDotPath(key: string): string[] {
   return key.split('.');
 }
 
-/* ── Phase transition map ───────────────────────────── */
-
-const PHASE_TRANSITIONS: Record<SimPhase, SimPhase[]> = {
-  not_started: ['call_active'],
-  call_active: ['remote_active', 'ticketing'],
-  remote_active: ['call_active', 'ticketing'],
-  ticketing: ['submitted'],
-  submitted: [],
-};
-
-function canTransition(from: SimPhase, to: SimPhase): boolean {
-  return PHASE_TRANSITIONS[from]?.includes(to) ?? false;
-}
-
 export function transitionPhase(state: SimState, targetPhase: SimPhase): SimState {
-  if (!canTransition(state.phase, targetPhase)) {
-    return state;
-  }
   const next = deepClone(state);
   next.phase = targetPhase;
 
@@ -76,61 +59,30 @@ export function applyAction(
   const state_before = deepClone(state);
   let updated = deepClone(state);
 
-  /* 1. Phase check */
-  if (!action.allowedPhases.includes(state.phase)) {
-    return {
-      result: {
-        ok: false,
-        action_id: action.id,
-        label: action.label,
-        result_text: `Action "${action.id}" not allowed during phase "${state.phase}".`,
-        state_before: state_before as unknown as Record<string, unknown>,
-        state_after: state_before as unknown as Record<string, unknown>,
-        phaseTransition: false,
-        revealedFacts: [],
-        taxonomyTags: [],
-        redFlag: null,
-        errorCode: 'INVALID_PHASE',
-      },
-      updatedState: state,
-    };
-  }
-
-  /* 2. Precondition check */
+  /* 1. Precondition awareness. Candidates are allowed to try actions out of order;
+   * the event is still logged so scoring can judge the attempt. */
+  let unmetPrecondition: string | null = null;
   if (action.requiresState) {
     for (const [key, val] of Object.entries(action.requiresState)) {
       const currentVal = getNested(updated as unknown as Record<string, unknown>, parseDotPath(key));
       if (currentVal !== val) {
-        return {
-          result: {
-            ok: false,
-            action_id: action.id,
-            label: action.label,
-            result_text: `Precondition not met: requires ${key}=${val} but current=${JSON.stringify(currentVal)}.`,
-            state_before: state_before as unknown as Record<string, unknown>,
-            state_after: state_before as unknown as Record<string, unknown>,
-            phaseTransition: false,
-            revealedFacts: [],
-            taxonomyTags: [],
-            redFlag: null,
-            errorCode: 'PRECONDITION_FAILED',
-          },
-          updatedState: state,
-        };
+        unmetPrecondition = `${key}=${val}`;
+        break;
       }
     }
   }
 
-  /* 3. Apply effects (nested dot-path, dynamic resolution) */
-  if (action.effects) {
+  /* 2. Apply effects. Some actions have natural failed outcomes when tried too early. */
+  const shouldApplyEffects = !unmetPrecondition || !['send_receive', 'send_test_email'].includes(action.id);
+  if (action.effects && shouldApplyEffects) {
     for (const [key, val] of Object.entries(action.effects)) {
       setNested(updated as unknown as Record<string, unknown>, parseDotPath(key), resolveEffectValue(val));
     }
   }
 
-  /* 4. Track revealed facts and discovered state keys */
+  /* 3. Track revealed facts and discovered state keys */
   const revealedFacts: string[] = [];
-  if (action.revealsFacts) {
+  if (action.revealsFacts && !unmetPrecondition) {
     for (const fact of action.revealsFacts) {
       if (!updated.call.factsRevealed.includes(fact)) {
         updated.call.factsRevealed.push(fact);
@@ -139,7 +91,7 @@ export function applyAction(
     }
   }
 
-  /* 5. Track discovered taxonomy tags */
+  /* 4. Track discovered taxonomy tags */
   if (action.taxonomyTags) {
     for (const tag of action.taxonomyTags) {
       if (!updated.discovered.includes(tag)) {
@@ -150,37 +102,39 @@ export function applyAction(
 
   const taxonomyTags = action.taxonomyTags ?? [];
 
-  /* 6. Determine phase transition */
+  /* 5. Determine phase transition */
   let phaseTransition = false;
-  if (action.id === 'start_call' && updated.phase === 'not_started') {
+  if (action.id === 'start_call') {
     updated = transitionPhase(updated, 'call_active');
     phaseTransition = true;
   }
-  if (action.id === 'remote_connect' && updated.phase === 'call_active') {
+  if (action.id === 'remote_connect') {
     updated = transitionPhase(updated, 'remote_active');
     updated.remote.connected = true;
     phaseTransition = true;
   }
   if (action.id === 'end_call') {
-    if (updated.phase === 'call_active' || updated.phase === 'remote_active') {
-      updated = transitionPhase(updated, 'ticketing');
-      phaseTransition = true;
-    }
+    updated = transitionPhase(updated, 'ticketing');
+    phaseTransition = true;
   }
+
+  const resultText = unmetPrecondition && ['send_receive', 'send_test_email'].includes(action.id)
+    ? 'The attempt does not complete. Outlook is still disconnected, so mail remains in the Outbox.'
+    : action.observation;
 
   return {
     result: {
       ok: true,
       action_id: action.id,
       label: action.label,
-      result_text: action.observation,
+      result_text: resultText,
       state_before: state_before as unknown as Record<string, unknown>,
       state_after: updated as unknown as Record<string, unknown>,
       phaseTransition,
       revealedFacts,
       taxonomyTags,
       redFlag: action.redFlag ?? null,
-      errorCode: null,
+      errorCode: unmetPrecondition ? 'PRECONDITION_FAILED' : null,
     },
     updatedState: updated,
   };

@@ -5,12 +5,28 @@
 
 import { createRequire } from 'module';
 import { execSync } from 'child_process';
-import { existsSync, unlinkSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
+const ts = require('typescript');
+
+require.extensions['.ts'] = function compileTypeScript(module, filename) {
+  const source = readFileSync(filename, 'utf8');
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020,
+      esModuleInterop: true,
+      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      skipLibCheck: true,
+    },
+    fileName: filename,
+  }).outputText;
+  module._compile(output, filename);
+};
 
 /* ── Helpers ── */
 const DB_PATH = '/tmp/test-voice.db';

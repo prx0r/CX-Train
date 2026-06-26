@@ -1,24 +1,28 @@
 'use client';
 
-const CARD_STYLE = (borderColor: string) => ({
-  background: '#fff', borderRadius: 6, padding: '14px 18px',
-  boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: `3px solid ${borderColor}`,
-});
-
 interface StatCard {
-  label: string; value: string; color: string; icon: string;
+  label: string;
+  value: string;
+  color: string;
 }
 
 export default function ItsmStatsCards({ cards }: { cards: StatCard[] }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 20 }}>
-      {cards.map(c => (
-        <div key={c.label} style={CARD_STYLE(c.color)}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: c.color }}>{c.value}</div>
-            <div style={{ fontSize: 22, opacity: 0.5 }}>{c.icon}</div>
-          </div>
-          <div style={{ fontSize: 12, color: '#777', marginTop: 4 }}>{c.label}</div>
+    <div style={{
+      display: 'flex', gap: 0, marginBottom: 16,
+      border: '1px solid #9f9f9f', borderRadius: 3, overflow: 'hidden', background: '#fff',
+    }}>
+      {cards.map((c, i) => (
+        <div
+          key={c.label}
+          style={{
+            flex: 1, padding: '10px 16px',
+            borderRight: i < cards.length - 1 ? '1px solid #e5e5e5' : 'none',
+            display: 'flex', flexDirection: 'column',
+          }}
+        >
+          <div style={{ fontSize: 20, fontWeight: 700, color: c.color, lineHeight: 1.2 }}>{c.value}</div>
+          <div style={{ fontSize: 11, color: '#6f6f6f', textTransform: 'uppercase', fontWeight: 600, marginTop: 2 }}>{c.label}</div>
         </div>
       ))}
     </div>

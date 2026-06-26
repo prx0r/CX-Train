@@ -2,16 +2,10 @@ import { SimState, SimAction, VisibleSimState, VisibleAction } from './types';
 
 /* ── Visibility rules ──────────────────────────────────
  *
- * Phase-based gating:
- *   not_started / call_active → only call info
- *   remote_active             → remote info + unlocked subsections
- *   ticketing / submitted     → everything discovered so far
- *
- * Subsection visibility requires a key in state.discovered:
- *   'tool.outlook.*'    → outlook block visible
- *   'tool.cmd.ping'     → network block visible
- *   'tool.connectwise.*'→ connectwise block visible
- *   'fix.correct_root_cause' → sentTestEmail / verifiedFix visible
+ * The simulator no longer hides controls to force a fixed path. The candidate
+ * can try actions freely; scoring and red flags judge the behavior afterwards.
+ * We still avoid sending hidden truth, but visible app state is projected once
+ * it would naturally be visible on the remote desktop.
  */
 
 function outlookVisible(state: SimState): boolean {
@@ -40,13 +34,10 @@ function pickSafe(raw: SimState): Record<string, unknown> {
     startedAt: raw.call.startedAt,
   };
 
-  /* Remote info visible only in remote_active+ */
-  if (raw.phase === 'remote_active' || raw.phase === 'ticketing' || raw.phase === 'submitted') {
-    safe.remote = {
-      connected: raw.remote.connected,
-      currentApp: raw.remote.currentApp,
-    };
-  }
+  safe.remote = {
+    connected: raw.remote.connected,
+    currentApp: raw.remote.currentApp,
+  };
 
   /* Outlook state — only after discovery */
   if (raw.outlook && outlookVisible(raw)) {
@@ -88,21 +79,6 @@ export function getVisibleState(state: SimState): VisibleSimState {
 
 export function getVisibleActions(state: SimState, actions: SimAction[]): VisibleAction[] {
   return actions
-    .filter(a => {
-      if (!a.allowedPhases.includes(state.phase)) return false;
-      if (a.requiresState) {
-        for (const [key, val] of Object.entries(a.requiresState)) {
-          const parts = key.split('.');
-          let current: unknown = state;
-          for (const p of parts) {
-            if (current === null || current === undefined) return false;
-            current = (current as Record<string, unknown>)[p];
-          }
-          if (current !== val) return false;
-        }
-      }
-      return true;
-    })
     .map(a => ({
       id: a.id,
       tool: a.tool,
