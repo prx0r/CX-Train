@@ -90,8 +90,14 @@ ${redFlagLines}
     ? `Scenario: ${(context.active_scenario as any).title || ''}`
     : '';
 
+  const timelineText = context.evidence_timeline && context.evidence_timeline.length > 0
+    ? `\n\nSIMULATION TIMELINE (actions performed by the candidate):\n${context.evidence_timeline.map((e: any) =>
+        `[${e.formatted_time}] ${e.actor}: ${e.label || e.event_type}${e.result_text ? ' → ' + e.result_text : ''}${e.is_red_flag ? ' ⚠' : ''}`
+      ).join('\n')}`
+    : '';
+
   const userPrompt = `TRANSCRIPT:
-${context.transcript_text}
+${context.transcript_text}${timelineText}
 
 TICKET:
 ${context.submitted_ticket || 'No ticket submitted'}

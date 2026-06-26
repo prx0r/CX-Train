@@ -125,6 +125,18 @@ export function getOutlookWorkOfflinePack(): SimPack {
         taxonomyTags: ['tool.remote.connect'],
         scoreImpact: { positive: ['diagnosis'] },
       },
+      {
+        id: 'remote_disconnect',
+        tool: 'connectwise',
+        label: 'Disconnect Remote Desktop',
+        allowedPhases: ['remote_active'],
+        effects: {
+          'remote.connected': false,
+          'remote.currentApp': 'none',
+        },
+        observation: 'Remote session disconnected. Returned to call view.',
+        taxonomyTags: ['tool.remote.disconnect'],
+      },
 
       /* ── Outlook actions ───────────────────────────── */
       {

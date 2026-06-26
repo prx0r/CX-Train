@@ -11,7 +11,7 @@ export default function WorkArea({ phase, children }: {
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column',
-      background: '#0f172a', position: 'relative', overflow: 'hidden',
+      position: 'relative', overflow: 'hidden',
     }}>
       {children}
     </div>

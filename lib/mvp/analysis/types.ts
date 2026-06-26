@@ -184,6 +184,7 @@ export interface AnalysisContext {
   assessment_id: string;
   session_id: string;
   assessment_pack_id: string | null;
+  assignment_type?: string;
   transcript_messages: { role: string; content: string }[];
   transcript_text: string;
   submitted_ticket: string | null;

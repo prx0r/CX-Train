@@ -4,15 +4,22 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import CallBar from './CallBar';
 import TicketSidePanel from './TicketSidePanel';
 import type { TicketData } from './TicketSidePanel';
-import WorkArea, { TicketComposerView } from './WorkArea';
+import WorkArea from './WorkArea';
 import RemoteDesktopPane from './RemoteDesktopPane';
+import TicketMetadataPanel from './TicketMetadataPanel';
+import TicketTriagePanel from './TicketTriagePanel';
+import type { TicketTriageState } from './TicketTriagePanel';
+import TicketNotesPanel from './TicketNotesPanel';
 import { VoiceRecorderButton, type VoiceTranscriptResult } from '@/components/mvp/voice/VoiceRecorderButton';
 import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
 import type { SimulatorCapabilities } from '@/lib/mvp/assignment-types';
+import { DEFAULT_TICKET_TAXONOMY } from '@/lib/mvp/taxonomy/defaultTicketTaxonomy';
+import type { ManagerTicketTaxonomy } from './TicketTriagePanel';
 
 type Message = { role: string; content: string };
 type CallStatus = 'idle' | 'incoming' | 'active' | 'thinking' | 'speaking' | 'recording' | 'ended';
 type Phase = 'not_started' | 'call_active' | 'remote_active' | 'ticketing' | 'submitted';
+type NoteTab = 'internal' | 'live';
 interface SafeAction { id: string; tool: string; label: string; redFlag?: boolean; }
 
 export interface ShellProps {
@@ -23,10 +30,17 @@ export interface ShellProps {
   ticket: TicketData;
 }
 
+const initialTriageState: TicketTriageState = {
+  claimed: false,
+  status: 'open',
+};
+
 export default function ServiceDeskSimulatorShell({ token, assignmentType, capabilities, initialMessages, ticket }: ShellProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [internalNoteDraft, setInternalNoteDraft] = useState('');
   const [internalNotes, setInternalNotes] = useState<string[]>([]);
+  const [liveNotes, setLiveNotes] = useState<string[]>([]);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [activeNoteTab, setActiveNoteTab] = useState<NoteTab>('internal');
   const [sending, setSending] = useState(false);
   const [ticketText, setTicketText] = useState('');
   const [ticketSubmitted, setTicketSubmitted] = useState(false);
@@ -39,8 +53,12 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   const [ticketListView, setTicketListView] = useState(true);
   const [claimed, setClaimed] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [triageState, setTriageState] = useState<TicketTriageState>(initialTriageState);
   const actionFeedbackTimer = useRef<ReturnType<typeof setTimeout>>();
   const { speak, setOnPlaying, autoplayBlocked } = useCustomerAudio(token);
+  const [taxonomy, setTaxonomy] = useState<ManagerTicketTaxonomy>(DEFAULT_TICKET_TAXONOMY);
+
+  const triageSubmitted = !!triageState.submittedAt;
 
   useEffect(() => { setOnPlaying(setTtsPlaying); }, [setOnPlaying]);
 
@@ -63,13 +81,25 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     }
   }, [loadSim, capabilities.remoteDesktop]);
 
+  /* Load ticket taxonomy from uploaded Master Triage Classification, fall back to defaults */
+  useEffect(() => {
+    fetch('/api/mvp/taxonomy/ticket-taxonomy')
+      .then(r => r.json())
+      .then(data => {
+        if (data.typeOptions && data.typeOptions.length > 0) {
+          setTaxonomy(data as ManagerTicketTaxonomy);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const showFeedback = (text: string, ok: boolean) => {
     setActionFeedback({ text, ok });
     clearTimeout(actionFeedbackTimer.current);
     actionFeedbackTimer.current = setTimeout(() => setActionFeedback(null), 4000);
   };
 
-  async function recordUiAction(actionId: string, label: string, eventType: 'action_performed' | 'tool_opened' | 'ticket_note_updated' | 'ui_interaction' = 'action_performed', text?: string) {
+  async function recordUiAction(actionId: string, label: string, eventType: string = 'action_performed', text?: string, extra?: Record<string, unknown>) {
     try {
       await fetch(`/api/mvp/assessment/${token}/event`, {
         method: 'POST',
@@ -80,10 +110,18 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
           action_id: actionId,
           label,
           text,
+          ...extra,
           started_at_ms: Date.now(),
         }),
       });
     } catch {}
+  }
+
+  async function recordTriageEvent(eventType: string, field: string, oldVal: unknown, newVal: unknown) {
+    await recordUiAction(field, `Set ${field} to ${newVal}`, eventType, undefined, {
+      field, old_value: oldVal, new_value: newVal,
+      taxonomy_tags: [`ticket.${field}_set`],
+    });
   }
 
   async function recordAppEvent(toolId: string, actionId: string, label: string, eventType = 'ui_interaction') {
@@ -121,7 +159,12 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
           const msg = initialMessages.find(m => m.role === 'caller');
           if (msg) setTimeout(() => speak(msg.content).catch(() => {}), 500);
         }
-        if (actionId === 'end_call') setPhase('ticketing');
+        if (actionId === 'end_call') {
+          setPhase('ticketing');
+        }
+        if (actionId === 'remote_disconnect') {
+          setTicketListView(false);
+        }
       } else {
         const errMsg = d.error || 'Action not available';
         setError(errMsg);
@@ -164,13 +207,18 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     await sendMessage(result.text, result);
   }
 
-  async function postInternalNote() {
-    const note = internalNoteDraft.trim();
-    if (!note) return;
-    setInternalNotes(p => [...p, note]);
-    setInternalNoteDraft('');
-    await recordUiAction('add_internal_note', 'Post internal note', 'ticket_note_updated', note);
-    showFeedback('Internal note posted', true);
+  async function postActiveNote() {
+    const text = noteDraft.trim();
+    if (!text) return;
+    if (activeNoteTab === 'internal') {
+      setInternalNotes(p => [...p, text]);
+      await recordUiAction('add_internal_note', 'Post internal note', 'internal_note_posted', text);
+    } else {
+      setLiveNotes(p => [...p, text]);
+      await recordUiAction('add_live_note', 'Post live note', 'live_note_posted', text);
+    }
+    setNoteDraft('');
+    showFeedback(activeNoteTab === 'internal' ? 'Internal note posted' : 'Live note posted', true);
   }
 
   function answerCall() {
@@ -178,7 +226,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
       handleAction('start_call', 'customer_chat');
       return;
     }
-    recordUiAction('start_call', 'Answer customer call');
+    recordUiAction('start_call', 'Answer customer call', 'tool_opened');
     setCallStatus('active');
     setPhase('call_active');
     const msg = initialMessages.find(m => m.role === 'caller');
@@ -190,7 +238,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
       handleAction('end_call', 'customer_chat');
       return;
     }
-    recordUiAction('end_call', 'End customer call');
+    recordUiAction('end_call', 'End customer call', 'tool_opened');
     setCallStatus('ended');
     setPhase('ticketing');
   }
@@ -198,6 +246,59 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   function openRemoteDesktop() {
     if (!capabilities.remoteDesktop) return;
     handleAction('remote_connect', 'connectwise');
+  }
+
+  function disconnectRemoteDesktop() {
+    if (!capabilities.remoteDesktop) return;
+    handleAction('remote_disconnect', 'connectwise');
+  }
+
+  function handleClaim() {
+    if (claimed) return;
+    setClaimed(true);
+    setTriageState(s => ({ ...s, claimed: true }));
+    recordUiAction('claim_ticket', 'Claim ticket', 'ticket_claimed');
+    showFeedback('Ticket claimed', true);
+  }
+
+  function handleTriageChange(update: Partial<TicketTriageState>) {
+    const oldState = triageState;
+    const newState = { ...triageState, ...update };
+    setTriageState(newState);
+
+    if (update.status !== undefined && update.status !== oldState.status) {
+      recordTriageEvent('ticket_status_updated', 'status', oldState.status, update.status);
+    }
+    if (update.typeId !== undefined && update.typeId !== oldState.typeId) {
+      recordTriageEvent('ticket_type_set', 'type', oldState.typeId, update.typeId);
+    }
+    if (update.categoryId !== undefined && update.categoryId !== oldState.categoryId) {
+      recordTriageEvent('ticket_category_set', 'category', oldState.categoryId, update.categoryId);
+    }
+    if (update.subcategoryId !== undefined && update.subcategoryId !== oldState.subcategoryId) {
+      recordTriageEvent('ticket_subcategory_set', 'subcategory', oldState.subcategoryId, update.subcategoryId);
+    }
+    if (update.itemId !== undefined && update.itemId !== oldState.itemId) {
+      recordTriageEvent('ticket_item_set', 'item', oldState.itemId, update.itemId);
+    }
+    if (update.impactId !== undefined && update.impactId !== oldState.impactId) {
+      recordTriageEvent('ticket_impact_set', 'impact', oldState.impactId, update.impactId);
+    }
+    if (update.urgencyId !== undefined && update.urgencyId !== oldState.urgencyId) {
+      recordTriageEvent('ticket_urgency_set', 'urgency', oldState.urgencyId, update.urgencyId);
+    }
+    if (update.priorityId !== undefined && update.priorityId !== oldState.priorityId) {
+      recordTriageEvent('ticket_priority_set', 'priority', oldState.priorityId, update.priorityId);
+    }
+  }
+
+  async function handleTriageSubmit() {
+    setTriageState(s => ({ ...s, submittedAt: new Date().toISOString() }));
+    await recordUiAction('submit_triage', 'Submit ticket triage', 'ticket_triage_submitted', undefined, {
+      triage: triageState,
+      taxonomy_tags: ['ticket.triage_submitted', 'ticket.classification_completed', 'ticket.priority_set', 'ticket.urgency_set'],
+    });
+    showFeedback('Triage submitted', true);
   }
 
   const handleTtsEnded = useCallback(() => {
@@ -292,42 +393,8 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
 
       {/* Main layout */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* ── REMOTED: left panel (ticket + notes + transcript), right fills with remote desktop ── */}
-        {phase === 'remote_active' && capabilities.remoteDesktop ? (
-          <>
-            <div style={{ width: 380, background: '#fff', borderRight: '1px solid #b8b8b8', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
-              <TicketSidePanel
-                ticket={ticket}
-              />
-              <div style={{ borderTop: '1px solid #cfcfcf' }} />
-              <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto', flex: 1 }}>
-                <NotesPanel
-                  internalNotes={internalNotes}
-                  internalDraft={internalNoteDraft}
-                  onInternalDraftChange={setInternalNoteDraft}
-                  onPostInternal={postInternalNote}
-                  liveNotes={ticketText}
-                  onLiveNotesChange={setTicketText}
-                />
-                <TranscriptToggle
-                  visible={showTranscript}
-                  onToggle={() => setShowTranscript(p => !p)}
-                  messages={messages}
-                />
-              </div>
-            </div>
-            <div style={{ flex: 1, display: 'flex' }}>
-              <RemoteDesktopPane
-                actions={safeActions}
-                visibleState={visibleState as Record<string, unknown>}
-                onAction={handleAction}
-                onRecordInteraction={(id, label) => recordAppEvent('remote_desktop', id, label, 'ui_interaction')}
-                disabled={false}
-              />
-            </div>
-          </>
-        ) : ticketListView ? (
-          /* ── TICKET QUEUE (landing page) ── */
+        {ticketListView ? (
+          /* ── TICKET QUEUE ── */
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 18, background: '#dcdcdc' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginBottom: 12 }}>
               <div>
@@ -360,7 +427,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
               <button
                 onClick={() => {
                   setTicketListView(false);
-                  if (callStatus === 'idle') setCallStatus('incoming');
+                  if (callStatus === 'idle' && phase === 'not_started') setCallStatus('incoming');
                   recordUiAction('open_ticket', 'Open ticket workspace', 'tool_opened');
                 }}
                 style={{
@@ -395,127 +462,133 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
             </div>
           </div>
         ) : (
-          /* ── NOT REMOTED: full-width ticket detail ── */
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f7f7f7' }}>
-            <div style={{ padding: '12px 20px 10px', borderBottom: '1px solid #b8b8b8', flexShrink: 0, background: '#fff' }}>
-              <button onClick={() => setTicketListView(true)}
-                style={{ background: 'none', border: 'none', color: '#004b8d', cursor: 'pointer', fontSize: 12, padding: 0, marginBottom: 8, display: 'block', fontWeight: 700 }}>
-                &larr; Back to service board
-              </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#111', fontFamily: 'monospace' }}>
-                  {ticket.id}
-                </span>
-                <span style={{
-                  padding: '2px 8px', borderRadius: 2, fontSize: 11, fontWeight: 700,
-                  background: ticket.severity === 'high' || ticket.severity === 'critical' ? '#fff4f2' : '#f6e8b1',
-                  border: `1px solid ${ticket.severity === 'high' || ticket.severity === 'critical' ? '#d99a91' : '#c8b66a'}`,
-                  color: priorityColor,
-                }}>
-                  {ticket.severity.toUpperCase()}
-                </span>
-                <span style={{ fontSize: 11, color: '#525252', marginLeft: 'auto' }}>Status: {claimed ? 'In Progress' : ticket.status}</span>
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 6 }}>
-                {ticket.title}
-              </div>
-              <div style={{ fontSize: 13, color: '#525252', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <span><strong style={{ color: '#111' }}>{ticket.requesterName}</strong></span>
-                <span>·</span>
-                <span>{ticket.company}</span>
-                <span>·</span>
-                <span>{ticket.department}</span>
-                <span>·</span>
-                <span>Owner: {claimed ? 'Trainee' : 'Unassigned'}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <button
-                  onClick={() => {
-                    setClaimed(true);
-                    recordUiAction('claim_ticket', 'Claim ticket');
-                  }}
-                  disabled={claimed}
-                  style={{
-                    padding: '7px 14px', borderRadius: 3, border: '1px solid #111',
-                    background: claimed ? '#efefef' : '#111', color: claimed ? '#525252' : '#fff',
-                    fontSize: 12, fontWeight: 700, cursor: claimed ? 'default' : 'pointer',
-                  }}
-                >
-                  {claimed ? 'Claimed' : 'Claim Ticket'}
+          /* ── TICKET DETAIL (two-column layout) ── */
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            {/* Left column: metadata + triage */}
+            <div style={{ width: 320, background: '#fff', borderRight: '1px solid #b8b8b8', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
+              <div style={{ flex: 1, overflow: 'auto' }}>
+                <button onClick={() => setTicketListView(true)}
+                  style={{ background: 'none', border: 'none', color: '#004b8d', cursor: 'pointer', fontSize: 11, padding: '8px 14px', display: 'block', fontWeight: 700, textAlign: 'left' }}>
+                  &larr; Back to service board
                 </button>
-                <button
-                  onClick={() => {
-                    recordUiAction('write_closure', 'Open closure notes', 'tool_opened');
-                    setPhase('ticketing');
-                  }}
-                  style={{ padding: '7px 14px', borderRadius: 3, border: '1px solid #9f9f9f', background: '#fff', color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Write Closure
-                </button>
-                {capabilities.remoteDesktop && (
+                <TicketMetadataPanel ticket={ticket} claimed={claimed} phase={phase} />
+
+                {/* Action buttons */}
+                <div style={{ padding: '8px 14px', borderBottom: '1px solid #cfcfcf', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button
-                    onClick={openRemoteDesktop}
+                    onClick={handleClaim}
+                    disabled={claimed}
                     style={{
-                      padding: '7px 14px',
-                      borderRadius: 3,
-                      border: '1px solid #9f9f9f',
-                      background: '#fff',
-                      color: '#111',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
+                      padding: '6px 12px', borderRadius: 3, border: '1px solid #111',
+                      background: claimed ? '#efefef' : '#111', color: claimed ? '#525252' : '#fff',
+                      fontSize: 11, fontWeight: 700, cursor: claimed ? 'default' : 'pointer',
                     }}
                   >
-                    Open Remote Desktop
+                    {claimed ? 'Claimed' : 'Claim Ticket'}
                   </button>
+                  {!triageSubmitted && capabilities.remoteDesktop && (
+                    <button
+                      onClick={openRemoteDesktop}
+                      style={{
+                        padding: '6px 12px', borderRadius: 3, border: '1px solid #9f9f9f',
+                        background: '#fff', color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      Open Remote Desktop
+                    </button>
+                  )}
+                  {phase === 'ticketing' && (
+                    <button
+                      onClick={submitTicket}
+                      disabled={!ticketText.trim() || ticketSubmitted}
+                      style={{
+                        padding: '6px 12px', borderRadius: 3, border: '1px solid #111',
+                        background: ticketText.trim() && !ticketSubmitted ? '#111' : '#efefef',
+                        color: ticketText.trim() && !ticketSubmitted ? '#fff' : '#525252',
+                        fontSize: 11, fontWeight: 700,
+                        cursor: ticketText.trim() && !ticketSubmitted ? 'pointer' : 'default',
+                      }}
+                    >
+                      {ticketSubmitted ? 'Submitted' : 'Submit Ticket'}
+                    </button>
+                  )}
+                </div>
+
+                <TicketTriagePanel
+                  taxonomy={taxonomy}
+                  triageState={triageState}
+                  onTriageChange={handleTriageChange}
+                  onSubmit={handleTriageSubmit}
+                  disabled={triageSubmitted}
+                />
+
+                {/* Notes panel in left column when remote is active */}
+                {phase === 'remote_active' && capabilities.remoteDesktop && (
+                  <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: 6, minHeight: 200 }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={disconnectRemoteDesktop} style={{
+                        flex: 1, padding: '5px 10px', borderRadius: 3, border: '1px solid #9f9f9f',
+                        background: '#fff', color: '#111', fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                      }}>
+                        Disconnect Remote Desktop
+                      </button>
+                    </div>
+                    <TicketNotesPanel
+                      activeTab={activeNoteTab}
+                      onTabChange={setActiveNoteTab}
+                      internalNotes={internalNotes}
+                      liveNotes={liveNotes}
+                      draft={noteDraft}
+                      onDraftChange={setNoteDraft}
+                      onSubmit={postActiveNote}
+                    />
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Description / customer message */}
-            <div style={{ padding: '12px 20px', borderBottom: '1px solid #cfcfcf', flexShrink: 0, background: '#f7f7f7' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 180px', gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#525252', marginBottom: 4 }}>Customer Description</div>
-                  <div style={{ fontSize: 13, color: '#222', lineHeight: 1.5, background: '#fff', border: '1px solid #cfcfcf', borderRadius: 3, padding: 10 }}>
-                {ticket.description}
+            {/* Right column: work area (description + notes + remote desktop) */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {phase === 'remote_active' && capabilities.remoteDesktop ? (
+                <div style={{ flex: 1, display: 'flex' }}>
+                  <RemoteDesktopPane
+                    actions={safeActions}
+                    visibleState={visibleState as Record<string, unknown>}
+                    onAction={handleAction}
+                    onRecordInteraction={(id, label) => recordAppEvent('remote_desktop', id, label, 'ui_interaction')}
+                    disabled={false}
+                  />
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f7f7f7' }}>
+                  {/* Customer description */}
+                  <div style={{ padding: '12px 20px', borderBottom: '1px solid #cfcfcf', flexShrink: 0, background: '#fff' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#525252', marginBottom: 4 }}>Customer Description</div>
+                    <div style={{ fontSize: 13, color: '#222', lineHeight: 1.5 }}>{ticket.description}</div>
+                  </div>
+
+                  {/* Notes + transcript */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 20px', minHeight: 0, overflow: 'hidden', background: '#f7f7f7' }}>
+                    <TicketNotesPanel
+                      activeTab={activeNoteTab}
+                      onTabChange={setActiveNoteTab}
+                      internalNotes={internalNotes}
+                      liveNotes={liveNotes}
+                      draft={noteDraft}
+                      onDraftChange={setNoteDraft}
+                      onSubmit={postActiveNote}
+                    />
+                    <div style={{ flexShrink: 0 }}>
+                      <CallTranscriptPanel
+                        visible={showTranscript}
+                        onToggle={() => setShowTranscript(p => !p)}
+                        messages={messages}
+                      />
+                    </div>
                   </div>
                 </div>
-                <div style={{ background: '#fff', border: '1px solid #cfcfcf', borderRadius: 3, padding: 10 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#525252', marginBottom: 6 }}>SLA</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: priorityColor }}>Due Today</div>
-                  <div style={{ fontSize: 11, color: '#525252', marginTop: 3 }}>Response target active</div>
-                </div>
-                <div style={{ background: '#fff', border: '1px solid #cfcfcf', borderRadius: 3, padding: 10 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#525252', marginBottom: 6 }}>Board</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>Help Desk</div>
-                  <div style={{ fontSize: 11, color: '#525252', marginTop: 3 }}>{modeLabel}</div>
-                </div>
-              </div>
+              )}
             </div>
-
-            {/* Work area content (StartCall, ActiveCall, or Ticketing) */}
-            <WorkArea phase={phase}>
-              {phase !== 'ticketing' && (
-                <TicketWorkbench
-                  canRemote={capabilities.remoteDesktop}
-                  onOpenRemote={openRemoteDesktop}
-                  messages={messages}
-                  showTranscript={showTranscript}
-                  onToggleTranscript={() => setShowTranscript(p => !p)}
-                  internalNotes={internalNotes}
-                  internalDraft={internalNoteDraft}
-                  onInternalDraftChange={setInternalNoteDraft}
-                  onPostInternal={postInternalNote}
-                  liveNotes={ticketText}
-                  onLiveNotesChange={setTicketText}
-                />
-              )}
-
-              {phase === 'ticketing' && (
-                <TicketComposerView ticketText={ticketText} onTicketChange={setTicketText} onSubmit={submitTicket} disabled={ticketSubmitted} />
-              )}
-            </WorkArea>
           </div>
         )}
       </div>
@@ -523,155 +596,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   );
 }
 
-function TicketWorkbench({ canRemote, onOpenRemote, messages, showTranscript, onToggleTranscript, internalNotes, internalDraft, onInternalDraftChange, onPostInternal, liveNotes, onLiveNotesChange }: {
-  canRemote: boolean;
-  onOpenRemote: () => void;
-  messages: Message[];
-  showTranscript: boolean;
-  onToggleTranscript: () => void;
-  internalNotes: string[];
-  internalDraft: string;
-  onInternalDraftChange: (value: string) => void;
-  onPostInternal: () => void;
-  liveNotes: string;
-  onLiveNotesChange: (value: string) => void;
-}) {
-  return (
-    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 360px', gap: 12, padding: '12px 20px', minHeight: 0, background: '#f7f7f7' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, gap: 12 }}>
-        {canRemote && (
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button onClick={onOpenRemote} style={{
-              padding: '7px 14px', borderRadius: 3, border: '1px solid #111',
-              background: '#111', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            }}>
-              Open Remote Desktop
-            </button>
-          </div>
-        )}
-        <NotesPanel
-          internalNotes={internalNotes}
-          internalDraft={internalDraft}
-          onInternalDraftChange={onInternalDraftChange}
-          onPostInternal={onPostInternal}
-          liveNotes={liveNotes}
-          onLiveNotesChange={onLiveNotesChange}
-        />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
-        <TranscriptToggle
-          visible={showTranscript}
-          onToggle={onToggleTranscript}
-          messages={messages}
-        />
-      </div>
-    </div>
-  );
-}
-
-function NotesPanel({ internalNotes, internalDraft, onInternalDraftChange, onPostInternal, liveNotes, onLiveNotesChange }: {
-  internalNotes: string[];
-  internalDraft: string;
-  onInternalDraftChange: (value: string) => void;
-  onPostInternal: () => void;
-  liveNotes: string;
-  onLiveNotesChange: (value: string) => void;
-}) {
-  const [tab, setTab] = useState<'internal' | 'live'>('internal');
-
-  return (
-    <div style={{
-      flex: 1, minHeight: 0,
-      background: '#fff', border: '1px solid #b8b8b8', borderRadius: 3,
-      display: 'flex', flexDirection: 'column', overflow: 'hidden',
-    }}>
-      {/* Tab bar */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #b8b8b8', flexShrink: 0 }}>
-        <button
-          onClick={() => setTab('internal')}
-          style={{
-            flex: 1, padding: '8px 10px', border: 'none', borderBottom: tab === 'internal' ? '2px solid #111' : '2px solid transparent',
-            background: tab === 'internal' ? '#fff' : '#f4f4f4',
-            fontSize: 11, fontWeight: 700, color: tab === 'internal' ? '#111' : '#6f6f6f',
-            cursor: 'pointer', textTransform: 'uppercase',
-          }}
-        >
-          Internal Notes
-        </button>
-        <button
-          onClick={() => setTab('live')}
-          style={{
-            flex: 1, padding: '8px 10px', border: 'none', borderBottom: tab === 'live' ? '2px solid #111' : '2px solid transparent',
-            background: tab === 'live' ? '#fff' : '#f4f4f4',
-            fontSize: 11, fontWeight: 700, color: tab === 'live' ? '#111' : '#6f6f6f',
-            cursor: 'pointer', textTransform: 'uppercase',
-          }}
-        >
-          Live Notes
-        </button>
-      </div>
-
-      {tab === 'internal' ? (
-        <>
-          <div style={{ maxHeight: 160, overflow: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-            {internalNotes.map((note, index) => (
-              <div key={`${index}-${note.slice(0, 10)}`} style={{ borderLeft: '3px solid #111', background: '#f7f7f7', padding: '6px 8px' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#525252', textTransform: 'uppercase', marginBottom: 2 }}>
-                  Internal note {index + 1}
-                </div>
-                <div style={{ fontSize: 12, color: '#111', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{note}</div>
-              </div>
-            ))}
-            {internalNotes.length === 0 && (
-              <div style={{ fontSize: 12, color: '#6f6f6f', fontStyle: 'italic', padding: '8px 0' }}>No internal notes posted yet.</div>
-            )}
-          </div>
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', borderTop: '1px solid #cfcfcf', padding: 8, background: '#fff' }}>
-            <textarea
-              value={internalDraft}
-              onChange={e => onInternalDraftChange(e.target.value)}
-              placeholder="Questions to ask, facts to capture, things to check..."
-              rows={3}
-              style={{
-                width: '100%', resize: 'none', border: '1px solid #b8b8b8', borderRadius: 3,
-                padding: 8, fontSize: 12, color: '#111', background: '#fff', lineHeight: 1.4,
-              }}
-            />
-            <button
-              onClick={onPostInternal}
-              disabled={!internalDraft.trim()}
-              style={{
-                marginTop: 6, padding: '7px 12px', background: '#111', color: '#fff',
-                border: '1px solid #111', borderRadius: 3, fontSize: 12, fontWeight: 700,
-                cursor: internalDraft.trim() ? 'pointer' : 'default', opacity: internalDraft.trim() ? 1 : 0.45,
-              }}
-            >
-              Post Internal Note
-            </button>
-          </div>
-        </>
-      ) : (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ padding: '8px 10px', borderBottom: '1px solid #cfcfcf', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#525252', background: '#f4f4f4' }}>
-            Ticket / Closure Notes
-          </div>
-          <textarea
-            value={liveNotes}
-            onChange={e => onLiveNotesChange(e.target.value)}
-            placeholder="Summarize the issue, steps taken, root cause, and next steps.&#10;&#10;Requester:&#10;Issue:&#10;Impact:&#10;Troubleshooting performed:&#10;Resolution or handoff:&#10;Customer confirmation:&#10;Status:"
-            style={{
-              flex: 1, width: '100%', padding: 10, border: 'none', resize: 'none',
-              fontSize: 13, color: '#111', background: '#fff', lineHeight: 1.6,
-              fontFamily: 'monospace',
-            }}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TranscriptToggle({ visible, onToggle, messages }: {
+function CallTranscriptPanel({ visible, onToggle, messages }: {
   visible: boolean;
   onToggle: () => void;
   messages: Message[];

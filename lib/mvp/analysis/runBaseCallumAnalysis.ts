@@ -43,7 +43,7 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     return { status: 'analysis_failed', error_code: 'TICKET_NOT_FOUND', error: 'Cannot analyse assessment because no ticket has been submitted.' };
   }
 
-  if (!context.transcript_text || context.transcript_messages.length < 2) {
+  if ((!context.transcript_text || context.transcript_messages.length < 2) && !context.assessment_pack_id) {
     return { status: 'analysis_failed', error_code: 'NO_MESSAGES_FOUND', error: 'Cannot analyse assessment because there are no messages.' };
   }
 

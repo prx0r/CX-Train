@@ -13,7 +13,19 @@ export type SessionEventType =
   | 'ticket_submitted'
   | 'red_flag_triggered'
   | 'assessment_completed'
-  | 'ui_interaction';
+  | 'ui_interaction'
+  | 'internal_note_posted'
+  | 'live_note_posted'
+  | 'ticket_claimed'
+  | 'ticket_status_updated'
+  | 'ticket_type_set'
+  | 'ticket_category_set'
+  | 'ticket_subcategory_set'
+  | 'ticket_item_set'
+  | 'ticket_impact_set'
+  | 'ticket_urgency_set'
+  | 'ticket_priority_set'
+  | 'ticket_triage_submitted';
 
 export type SessionActor = 'candidate' | 'customer' | 'system' | 'simulator' | 'analysis';
 

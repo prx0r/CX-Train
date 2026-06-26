@@ -44,6 +44,9 @@ export function buildAssessmentContext(assessmentId: string): AnalysisContext | 
   const timingMetrics = calculateTimingMetrics(sessionEvents);
   const timelineSummary = summariseTimelineForAnalysis(sessionEvents);
 
+  const assessmentRow = full.assessment as any;
+  const assignmentType = assessmentRow.assignment_type || (assessmentRow.assessment_mode === 'dashboard_sim' ? 'training_drill' : 'hiring_exam');
+
   return {
     org_id: 'org-default',
     manager_id: 'manager-default',
@@ -52,7 +55,8 @@ export function buildAssessmentContext(assessmentId: string): AnalysisContext | 
     timeline_summary: timelineSummary,
     assessment_id: full.assessment.id,
     session_id: full.session?.id || '',
-    assessment_pack_id: null,
+    assessment_pack_id: assessmentRow.assessment_pack_id || null,
+    assignment_type: assignmentType,
     transcript_messages: full.messages.map(m => ({ role: m.role, content: m.content })),
     transcript_text: transcriptText,
     submitted_ticket: ticketText,

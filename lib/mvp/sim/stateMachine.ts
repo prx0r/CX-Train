@@ -107,6 +107,11 @@ export function applyAction(
     updated = transitionPhase(updated, 'ticketing');
     phaseTransition = true;
   }
+  if (action.id === 'remote_disconnect') {
+    updated = transitionPhase(updated, 'call_active');
+    updated.remote.connected = false;
+    phaseTransition = true;
+  }
 
   const resultText = unmetPrecondition && action.failureObservation
     ? action.failureObservation
