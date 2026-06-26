@@ -37,6 +37,8 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
   const [callActive, setCallActive] = useState(false);
   const [ttsPlaying, setTtsPlaying] = useState(false);
   const [showTicketForm, setShowTicketForm] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<{ text: string; ok: boolean } | null>(null);
+  const actionFeedbackTimer = useRef<ReturnType<typeof setTimeout>>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { speak, setOnPlaying, autoplayBlocked } = useCustomerAudio(token);
   const prevPhaseRef = useRef(phase);
@@ -91,15 +93,36 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
       if (d.ok) {
         setSimData(d.data);
         setPhase(d.data.phase);
+        const resultText = d.data?.last_result || d.data?.result_text || '';
+        if (resultText) {
+          setActionFeedback({ text: resultText, ok: true });
+          clearTimeout(actionFeedbackTimer.current);
+          actionFeedbackTimer.current = setTimeout(() => setActionFeedback(null), 4000);
+        }
         if (actionId === 'start_call') {
           setCallActive(true); setIncomingCall(false);
           open('chat', 'Customer Chat', '💬', 'chat');
           const openingMsg = messages.find(m => m.role === 'caller');
           if (openingMsg) setTimeout(() => speak(openingMsg.content).catch(() => {}), 500);
         }
+        if (actionId === 'remote_connect') {
+          open('chat', 'Customer Chat', '💬', 'chat');
+        }
         if (actionId === 'end_call') setShowTicketForm(true);
-      } else setError(d.error || 'Action failed');
-    } catch { setError('Failed to perform action'); }
+      } else {
+        const errMsg = d.error || 'Action not available right now';
+        setError(errMsg);
+        setActionFeedback({ text: errMsg, ok: false });
+        clearTimeout(actionFeedbackTimer.current);
+        actionFeedbackTimer.current = setTimeout(() => setActionFeedback(null), 4000);
+      }
+    } catch {
+      const errMsg = 'Failed to perform action';
+      setError(errMsg);
+      setActionFeedback({ text: errMsg, ok: false });
+      clearTimeout(actionFeedbackTimer.current);
+      actionFeedbackTimer.current = setTimeout(() => setActionFeedback(null), 4000);
+    }
   }
 
   async function sendMessage(msg: string, source?: string, voice?: VoiceTranscriptResult) {
@@ -191,6 +214,21 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
           {phase === 'not_started' ? '● Ready' : phase === 'call_active' ? '📞 On call' : isRemoted ? '🖥️ Remote: ALDER-LT-023' : phase === 'ticketing' ? '📝 Writing ticket' : ''}
         </div>
       </div>
+
+      {/* ── Action Feedback Toast ── */}
+      {actionFeedback && (
+        <div style={{
+          position: 'fixed', top: 56, left: '50%', transform: 'translateX(-50%)', zIndex: 99999,
+          padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, maxWidth: 520,
+          background: actionFeedback.ok ? '#065f46' : '#7f1d1d',
+          color: actionFeedback.ok ? '#a7f3d0' : '#fecaca',
+          border: `1px solid ${actionFeedback.ok ? '#059669' : '#dc2626'}`,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          pointerEvents: 'none', textAlign: 'center',
+        }}>
+          {actionFeedback.text}
+        </div>
+      )}
 
       {/* ── Incoming Call Banner ── */}
       {incomingCall && phase === 'not_started' && (
@@ -362,8 +400,8 @@ function SimContent({ token, initialMessages }: { token: string; initialMessages
           )}
         </div>
 
-        {/* RIGHT: Actions Panel — call phase only */}
-        {callActive && !isRemoted && (
+        {/* RIGHT: Actions Panel */}
+        {callActive && (
           <div style={{ width: 240, background: C.card, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, zIndex: 500 }}>
             <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, fontWeight: 600, fontSize: 12, color: C.text }}>
               📋 Actions

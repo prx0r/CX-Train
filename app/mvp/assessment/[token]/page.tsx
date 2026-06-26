@@ -54,8 +54,9 @@ export default function CandidatePage() {
       });
   }, [token]);
 
-  /* Auto-play initial customer message */
+  /* Auto-play initial customer message — hiring exam only */
   useEffect(() => {
+    if (assignmentType !== 'hiring_exam') return;
     if (!loading && messages.length > 0 && firstLoadRef.current) {
       firstLoadRef.current = false;
       const firstCaller = messages.find(m => m.role === 'caller');
@@ -63,7 +64,7 @@ export default function CandidatePage() {
         setTimeout(() => speak(firstCaller.content).catch(() => {}), 500);
       }
     }
-  }, [loading, messages, speak]);
+  }, [loading, messages, speak, assignmentType]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
