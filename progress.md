@@ -915,3 +915,42 @@ npm run build                          # 55 static pages generated
 ### New Document
 
 `automate.md` — detailed spec for post-submission auto-analysis, candidate-facing results walkthrough, retake flow, learning walkthrough (ideal diagnostic path vs actual), and manager AI assistant. Covers architecture, data flow, implementation order (6 phases), and guardrails.
+
+---
+
+## Session 2026-06-26 — Auto-Analysis on Submission
+
+### Phase 1 + 2 Implemented
+
+**Auto-analysis on ticket submission:**
+- `POST /api/mvp/assessment/[token]/ticket` now triggers `runBaseCallumAnalysis()` after storing the ticket
+- Full 3-stage pipeline runs synchronously: AI evidence extraction (deepseek-v4-flash via opencode.ai, temp 0) → deterministic scoring → AI narrative feedback (temp 0.3)
+- Returns `analysis` (raw) + `candidate_analysis` (cleaned for display) in the response
+
+**Candidate results view** (`components/mvp/results/AssessmentResults.tsx`):
+- Shows: large score number, readiness label badge, diagnostic checklist (✓/✗ per criterion), strengths, improvements, ticket feedback, coaching focus
+- ConnectWise-style dense layout
+- Loading state: "Analyzing your performance..." while LLM processes
+
+**Reload persistence:**
+- `GET /api/mvp/assessment/[token]` returns `candidate_analysis` for completed/analysed assessments
+- `app/mvp/assessment/[token]/page.tsx` passes `initialAnalysis` to shell on page load
+
+**Helper added:**
+- `buildCandidateAnalysis()` in `runBaseCallumAnalysis.ts` — extracts safe results from raw analysis (no internal model JSON, no hidden rubric)
+
+### Files changed (7)
+```
+app/api/mvp/assessment/[token]/ticket/route.ts    # Triggers analysis after ticket stored
+app/api/mvp/assessment/[token]/route.ts           # Returns analysis on GET for reload
+lib/mvp/analysis/runBaseCallumAnalysis.ts          # Added buildCandidateAnalysis helper
+components/mvp/results/AssessmentResults.tsx        # NEW: candidate results view
+components/mvp/simulator/ServiceDeskSimulatorShell.tsx  # Loading + results state
+app/mvp/assessment/[token]/page.tsx                # Passes initialAnalysis to shell
+automate.md                                        # Updated with implementation progress
+```
+
+### Verified
+- End-to-end test: full sim flow → ticket submission → analysis triggered → results returned with score, checklist, narrative
+- All 109 tests pass
+- Build: 55 static pages
