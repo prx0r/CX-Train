@@ -12,7 +12,8 @@ export type SessionEventType =
   | 'ticket_note_updated'
   | 'ticket_submitted'
   | 'red_flag_triggered'
-  | 'assessment_completed';
+  | 'assessment_completed'
+  | 'ui_interaction';
 
 export type SessionActor = 'candidate' | 'customer' | 'system' | 'simulator' | 'analysis';
 

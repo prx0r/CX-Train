@@ -82,7 +82,7 @@ export default function VoiceRoomClient({ paramsPromise }: { paramsPromise: Prom
         <button
           onClick={handleStart}
           disabled={!name.trim()}
-          className="w-full py-3 bg-blue-500 text-white rounded-lg font-medium disabled:opacity-40"
+          className="w-full py-3 bg-gray-800 text-white rounded font-medium disabled:opacity-40"
         >
           Start assessment
         </button>

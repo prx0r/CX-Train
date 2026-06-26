@@ -6,7 +6,7 @@ import ManagerShell from '@/components/mvp/ManagerShell';
 const STATUS_COLORS: Record<string, string> = {
   active: 'text-green-400 bg-green-950/30 border-green-800/50',
   partial: 'text-yellow-400 bg-yellow-950/30 border-yellow-800/50',
-  planned: 'text-blue-400 bg-blue-950/30 border-blue-800/50',
+  planned: 'text-cyan-400 bg-cyan-950/30 border-cyan-800/50',
   not_built: 'text-gray-500 bg-gray-900 border-gray-800',
 };
 
@@ -70,7 +70,7 @@ export default function SystemPage() {
                 <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/50">
                   <td className="p-3 text-gray-300">{r.module}</td>
                   <td className="p-3">
-                    <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${r.method === 'GET' ? 'bg-green-900/50 text-green-300' : 'bg-blue-900/50 text-blue-300'}`}>
+                    <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${r.method === 'GET' ? 'bg-green-900/50 text-green-300' : 'bg-cyan-900/50 text-cyan-300'}`}>
                       {r.method}
                     </span>
                   </td>
@@ -160,7 +160,7 @@ export default function SystemPage() {
             {data.latest?.assessments?.length === 0 && <p className="text-xs text-gray-500">None</p>}
             {data.latest?.assessments?.map((a: any) => (
               <div key={a.id} className="text-xs mb-2 border-b border-gray-800 pb-1">
-                <a href={`/mvp/assessments/${a.id}`} className="text-blue-400 hover:underline">{a.candidate_name || a.id}</a>
+                <a href={`/mvp/assessments/${a.id}`} className="text-cyan-400 hover:underline">{a.candidate_name || a.id}</a>
                 <span className={`ml-2 ${a.status === 'analysed' ? 'text-green-400' : 'text-yellow-400'}`}>{a.status}</span>
               </div>
             ))}

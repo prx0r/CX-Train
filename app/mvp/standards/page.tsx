@@ -118,7 +118,7 @@ export default function StandardsPage() {
           <p className="text-sm text-gray-400">Define how your MSP expects service desk work to be handled.</p>
         </div>
         <button
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
+          className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
           onClick={save}
           disabled={saving}
         >
@@ -140,7 +140,7 @@ export default function StandardsPage() {
               onClick={() => toggleField(field)}
               className={`px-3 py-1.5 rounded text-xs border transition-colors ${
                 standards.required_ticket_fields.includes(field)
-                  ? 'bg-blue-600/30 border-blue-600 text-blue-300'
+                  ? 'bg-cyan-600/30 border-cyan-600 text-cyan-300'
                   : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
               }`}
             >
@@ -217,7 +217,7 @@ export default function StandardsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div className="bg-gray-900 border border-gray-800 rounded p-4">
-          <h2 className="text-sm font-semibold text-blue-400 mb-2">Good Customer Update</h2>
+          <h2 className="text-sm font-semibold text-cyan-400 mb-2">Good Customer Update</h2>
           <textarea
             className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-full min-h-[100px]"
             value={standards.good_customer_update_example}

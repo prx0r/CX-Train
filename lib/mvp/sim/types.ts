@@ -53,7 +53,10 @@ export type SimToolId =
   | 'cmd'
   | 'control_panel'
   | 'connectwise'
-  | 'notes';
+  | 'notes'
+  | 'network'
+  | 'vpn'
+  | 'printer';
 
 export type SimEventType =
   | 'sim_started'

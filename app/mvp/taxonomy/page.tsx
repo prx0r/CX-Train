@@ -119,7 +119,7 @@ export default function TaxonomyPage() {
               {selected ? (
                 <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 space-y-4">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-blue-900 text-blue-200 text-xs font-medium">{selected.type}</span>
+                    <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 text-xs font-medium">{selected.type}</span>
                     <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300 text-xs">{selected.sub_type}</span>
                     <span className="text-xs text-gray-500">ID: {selected.source_id || selected.id}</span>
                   </div>

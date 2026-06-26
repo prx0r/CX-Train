@@ -69,7 +69,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     actionFeedbackTimer.current = setTimeout(() => setActionFeedback(null), 4000);
   };
 
-  async function recordUiAction(actionId: string, label: string, eventType: 'action_performed' | 'tool_opened' | 'ticket_note_updated' = 'action_performed', text?: string) {
+  async function recordUiAction(actionId: string, label: string, eventType: 'action_performed' | 'tool_opened' | 'ticket_note_updated' | 'ui_interaction' = 'action_performed', text?: string) {
     try {
       await fetch(`/api/mvp/assessment/${token}/event`, {
         method: 'POST',
@@ -80,6 +80,22 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
           action_id: actionId,
           label,
           text,
+          started_at_ms: Date.now(),
+        }),
+      });
+    } catch {}
+  }
+
+  async function recordAppEvent(toolId: string, actionId: string, label: string, eventType = 'ui_interaction') {
+    try {
+      await fetch(`/api/mvp/assessment/${token}/event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_type: eventType,
+          tool_id: toolId,
+          action_id: actionId,
+          label,
           started_at_ms: Date.now(),
         }),
       });
@@ -276,27 +292,15 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
 
       {/* Main layout */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* ── REMOTED: split layout (ticket left, remote right) ── */}
+        {/* ── REMOTED: left panel (ticket + notes + transcript), right fills with remote desktop ── */}
         {phase === 'remote_active' && capabilities.remoteDesktop ? (
           <>
-            <TicketSidePanel
-              ticket={ticket}
-              notes={ticketText}
-              onNotesChange={setTicketText}
-            />
-            <div style={{ flex: 1, display: 'flex' }}>
-              <RemoteDesktopPane
-                actions={safeActions}
-                visibleState={visibleState as Record<string, unknown>}
-                onAction={handleAction}
-                disabled={false}
+            <div style={{ width: 380, background: '#fff', borderRight: '1px solid #b8b8b8', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+              <TicketSidePanel
+                ticket={ticket}
               />
-              <div style={{ width: 320, background: '#fff', borderLeft: '1px solid #b8b8b8', padding: 8, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto' }}>
-                <TranscriptToggle
-                  visible={showTranscript}
-                  onToggle={() => setShowTranscript(p => !p)}
-                  messages={messages}
-                />
+              <div style={{ borderTop: '1px solid #cfcfcf' }} />
+              <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto', flex: 1 }}>
                 <NotesPanel
                   internalNotes={internalNotes}
                   internalDraft={internalNoteDraft}
@@ -305,7 +309,21 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
                   liveNotes={ticketText}
                   onLiveNotesChange={setTicketText}
                 />
+                <TranscriptToggle
+                  visible={showTranscript}
+                  onToggle={() => setShowTranscript(p => !p)}
+                  messages={messages}
+                />
               </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex' }}>
+              <RemoteDesktopPane
+                actions={safeActions}
+                visibleState={visibleState as Record<string, unknown>}
+                onAction={handleAction}
+                onRecordInteraction={(id, label) => recordAppEvent('remote_desktop', id, label, 'ui_interaction')}
+                disabled={false}
+              />
             </div>
           </>
         ) : ticketListView ? (
@@ -595,25 +613,25 @@ function NotesPanel({ internalNotes, internalDraft, onInternalDraftChange, onPos
 
       {tab === 'internal' ? (
         <>
-          <div style={{ flex: 1, minHeight: 90, overflow: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ maxHeight: 160, overflow: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
             {internalNotes.map((note, index) => (
-              <div key={`${index}-${note.slice(0, 10)}`} style={{ borderLeft: '3px solid #111', background: '#f7f7f7', padding: '7px 9px' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#525252', textTransform: 'uppercase', marginBottom: 3 }}>
+              <div key={`${index}-${note.slice(0, 10)}`} style={{ borderLeft: '3px solid #111', background: '#f7f7f7', padding: '6px 8px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#525252', textTransform: 'uppercase', marginBottom: 2 }}>
                   Internal note {index + 1}
                 </div>
                 <div style={{ fontSize: 12, color: '#111', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{note}</div>
               </div>
             ))}
             {internalNotes.length === 0 && (
-              <div style={{ fontSize: 12, color: '#6f6f6f', fontStyle: 'italic' }}>No internal notes posted yet.</div>
+              <div style={{ fontSize: 12, color: '#6f6f6f', fontStyle: 'italic', padding: '8px 0' }}>No internal notes posted yet.</div>
             )}
           </div>
-          <div style={{ borderTop: '1px solid #cfcfcf', padding: 8, background: '#fff' }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', borderTop: '1px solid #cfcfcf', padding: 8, background: '#fff' }}>
             <textarea
               value={internalDraft}
               onChange={e => onInternalDraftChange(e.target.value)}
               placeholder="Questions to ask, facts to capture, things to check..."
-              rows={4}
+              rows={3}
               style={{
                 width: '100%', resize: 'none', border: '1px solid #b8b8b8', borderRadius: 3,
                 padding: 8, fontSize: 12, color: '#111', background: '#fff', lineHeight: 1.4,

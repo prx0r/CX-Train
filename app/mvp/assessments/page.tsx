@@ -32,7 +32,7 @@ export default function AssessmentsIndexPage() {
   }
 
   const statusColors: Record<string, string> = {
-    draft: 'text-yellow-400', invited: 'text-blue-400', in_progress: 'text-cyan-400',
+    draft: 'text-yellow-400', invited: 'text-cyan-400', in_progress: 'text-cyan-400',
     completed: 'text-green-400', analysed: 'text-emerald-300', reviewed: 'text-purple-400',
   };
 
@@ -69,7 +69,7 @@ export default function AssessmentsIndexPage() {
                 <td className="p-3 text-gray-400">{new Date(a.created_at).toLocaleDateString()}</td>
                 <td className="p-3">
                   <button
-                    className="text-blue-400 hover:text-blue-300 text-xs underline"
+                    className="text-cyan-400 hover:text-cyan-300 text-xs underline"
                     onClick={() => copyLink(`${window.location.origin}/mvp/assessment/${a.invite_token}`)}
                   >
                     Copy link

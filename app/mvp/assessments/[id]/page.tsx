@@ -167,7 +167,7 @@ export default function ManagerDetailPage() {
   const assignmentLabel = assignmentLabels[assignmentType] || assignmentType;
 
   const statusColors: Record<string, string> = {
-    draft: 'text-yellow-400', invited: 'text-blue-400', in_progress: 'text-cyan-400',
+    draft: 'text-yellow-400', invited: 'text-cyan-400', in_progress: 'text-cyan-400',
     completed: 'text-green-400', analysed: 'text-emerald-300', reviewed: 'text-purple-400',
   };
   const readinessColors: Record<string, string> = {
@@ -177,7 +177,7 @@ export default function ManagerDetailPage() {
   return (
     <ManagerShell>
     <div className="max-w-4xl">
-      <a href="/mvp" className="text-blue-400 text-sm hover:underline">&larr; Back to dashboard</a>
+      <a href="/mvp" className="text-cyan-400 text-sm hover:underline">&larr; Back to dashboard</a>
       <h1 className="text-2xl font-bold mt-2 mb-1">{assessment.candidate_name}</h1>
       <p className="text-sm text-gray-500 mb-4">
         {assessment.title} &middot;{' '}
@@ -190,7 +190,7 @@ export default function ManagerDetailPage() {
       {assessment.invite_token && (
         <div className="bg-gray-900 border border-gray-800 rounded p-3 mb-4 text-sm">
           <strong>Invite link:</strong>{' '}
-          <span className="text-blue-400">{typeof window !== 'undefined' ? `${window.location.origin}/mvp/assessment/${assessment.invite_token}` : `/mvp/assessment/${assessment.invite_token}`}</span>
+           <span className="text-cyan-400">{typeof window !== 'undefined' ? `${window.location.origin}/mvp/assessment/${assessment.invite_token}` : `/mvp/assessment/${assessment.invite_token}`}</span>
         </div>
       )}
 
@@ -234,7 +234,7 @@ export default function ManagerDetailPage() {
         {messages?.map((m: Message, i: number) => (
           <div key={i} className={`mb-2 ${m.role === 'candidate' ? 'text-right' : ''}`}>
             <span className={`inline-block rounded px-3 py-2 text-sm max-w-[85%] ${
-              m.role === 'candidate' ? 'bg-blue-600/30 text-blue-200' : 'bg-gray-800 text-gray-200'
+               m.role === 'candidate' ? 'bg-cyan-600/30 text-cyan-200' : 'bg-gray-800 text-gray-200'
             }`}>
               <span className="text-xs opacity-60 block mb-1">
                 {m.role === 'candidate' ? assessment.candidate_name : 'Caller (Sarah)'}
@@ -473,7 +473,7 @@ export default function ManagerDetailPage() {
 
                 {analysisResult.structured.narrative.ticket_feedback && (
                   <div className="mt-3 bg-gray-800 rounded p-3">
-                    <h4 className="text-sm text-blue-400 font-semibold mb-1">Ticket Feedback</h4>
+                    <h4 className="text-sm text-cyan-400 font-semibold mb-1">Ticket Feedback</h4>
                     <p className="text-sm text-gray-300">{analysisResult.structured.narrative.ticket_feedback}</p>
                   </div>
                 )}

@@ -87,7 +87,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
       },
     },
 
-    tools: ['customer_chat', 'ticket', 'outlook', 'browser', 'cmd', 'control_panel', 'connectwise', 'notes'],
+    tools: ['customer_chat', 'ticket', 'outlook', 'browser', 'cmd', 'control_panel', 'connectwise', 'notes', 'network', 'vpn', 'printer'],
 
     actions: [
       /* ── Call lifecycle ────────────────────────────── */

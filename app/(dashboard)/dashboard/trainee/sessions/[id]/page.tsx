@@ -39,7 +39,7 @@ export default async function TraineeSessionDetailPage({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Link href="/dashboard/trainee/history" className="text-blue-400 hover:text-blue-300 text-sm mb-6 inline-block">
+      <Link href="/dashboard/trainee/history" className="text-cyan-400 hover:text-cyan-300 text-sm mb-6 inline-block">
         ← Back to history
       </Link>
 

@@ -8,6 +8,7 @@ const ALLOWED_EVENT_TYPES = new Set<SessionEventType>([
   'tool_opened',
   'action_performed',
   'ticket_note_updated',
+  'ui_interaction',
 ]);
 
 export async function POST(
@@ -23,7 +24,7 @@ export async function POST(
     }
 
     const session = getSessionByAssessment(assessment.id);
-    if (!session || session.status !== 'in_progress') {
+    if (!session || (session.status !== 'in_progress' && session.status !== 'not_started')) {
       return NextResponse.json({ error: 'Session is not active' }, { status: 400 });
     }
 

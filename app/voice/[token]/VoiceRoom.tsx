@@ -178,7 +178,7 @@ export default function VoiceRoom({ voiceSessionId, assessmentSessionId, scenari
             {turns.length === 0 && <p className="text-gray-400 text-sm">Press and hold Talk to start the call.</p>}
             {turns.map((turn, i) => (
               <div key={i} className={`mb-2 ${turn.speaker === 'candidate' ? 'text-right' : 'text-left'}`}>
-                <span className={`inline-block px-3 py-1.5 rounded-lg text-sm max-w-xs ${turn.speaker === 'candidate' ? 'bg-blue-100' : 'bg-white border'}`}>
+                <span className={`inline-block px-3 py-1.5 rounded text-sm max-w-xs ${turn.speaker === 'candidate' ? 'bg-gray-200' : 'bg-white border'}`}>
                   <strong>{turn.speaker === 'candidate' ? 'You' : 'Client'}:</strong> {turn.text}
                 </span>
               </div>
@@ -193,7 +193,7 @@ export default function VoiceRoom({ voiceSessionId, assessmentSessionId, scenari
               onTouchStart={handleStartRecording}
               onTouchEnd={handleStopRecording}
               disabled={isProcessing}
-              className={`flex-1 py-3 rounded-lg font-medium text-white ${isRecording ? 'bg-red-500 animate-pulse' : isProcessing ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'}`}
+              className={`flex-1 py-3 rounded font-medium text-white ${isRecording ? 'bg-red-500 animate-pulse' : isProcessing ? 'bg-gray-400' : 'bg-gray-800 hover:bg-black'}`}
             >
               {isRecording ? '🔴 Recording... Release to send' : isProcessing ? 'Processing...' : '🎤 Talk'}
             </button>
@@ -233,7 +233,7 @@ export default function VoiceRoom({ voiceSessionId, assessmentSessionId, scenari
               disabled={isProcessing}
             />
             <div className="flex gap-2 mt-2">
-              <button type="submit" disabled={ticketText.length < 30 || isProcessing} className="px-6 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-40">
+              <button type="submit" disabled={ticketText.length < 30 || isProcessing} className="px-6 py-2 bg-gray-800 text-white rounded disabled:opacity-40">
                 {isProcessing ? 'Processing...' : 'Submit ticket'}
               </button>
               <span className="text-xs text-gray-400 self-center">{ticketText.length}/30 min</span>

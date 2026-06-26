@@ -45,11 +45,11 @@ export default function CandidatePage() {
   }, [token]);
 
   if (loading) {
-    return <div style={{ height: '100vh', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 14 }}>Loading...</div>;
+    return <div style={{ height: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6f6f6f', fontSize: 14 }}>Loading...</div>;
   }
 
   if (error || !assessmentData) {
-    return <div style={{ height: '100vh', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', fontSize: 14 }}>{error || 'Assessment not found'}</div>;
+    return <div style={{ height: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#842029', fontSize: 14 }}>{error || 'Assessment not found'}</div>;
   }
 
   const { assessment, assignment_runtime, ticket, messages } = assessmentData;
