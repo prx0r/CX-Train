@@ -4,7 +4,7 @@ import { makeId, getActiveScenario, getActiveCriteria, getManagerStandards } fro
 import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
 import { getPackById, getPackIdForMode } from '@/lib/mvp/sim/packRegistry';
-import { isAssignmentTypeValid, assignmentTypeToAssessmentMode, ASSIGNMENT_TYPES, ENABLED_TRAINING_DRILL_PACKS } from '@/lib/mvp/assignment-types';
+import { isAssignmentTypeValid, ASSIGNMENT_TYPES, ENABLED_TRAINING_DRILL_PACKS } from '@/lib/mvp/assignment-types';
 import { failWithCustomCode } from '@/lib/mvp/api/responses';
 
 export async function POST(request: NextRequest) {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     /* Map assignment type to internal mode */
-    const assessmentMode = assignmentTypeToAssessmentMode(assignmentType);
+    const assessmentMode = assignmentType === 'training_drill' ? 'dashboard_sim' : 'chat_call';
 
     const scenario = getActiveScenario();
     const criteria = getActiveCriteria();

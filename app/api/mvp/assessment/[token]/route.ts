@@ -5,6 +5,8 @@ import { getPackById } from '@/lib/mvp/sim/packRegistry';
 import { getVisibleActions, getVisibleState } from '@/lib/mvp/sim/safeProjection';
 import { buildTimeline } from '@/lib/mvp/sim/timeline';
 import { getSessionEvents } from '@/lib/mvp/events/eventLog';
+import { getCapabilitiesForType } from '@/lib/mvp/assignment-types';
+import { getOutlookWorkOfflinePack } from '@/lib/mvp/sim/packConfig';
 
 export async function GET(
   _request: NextRequest,
@@ -19,21 +21,60 @@ export async function GET(
 
     const assessmentMode = (full.assessment as any).assessment_mode || 'chat_call';
     const assignmentType = (full.assessment as any).assignment_type || 'hiring_exam';
+    const capabilities = getCapabilitiesForType(assignmentType);
 
-    const baseResponse: any = {
-      id: full.assessment.id,
-      title: full.assessment.title,
-      candidate_name: full.assessment.candidate_name,
-      status: full.assessment.status,
-      session_id: full.session?.id || null,
-      messages: full.messages.map(m => ({ role: m.role, content: m.content })),
-      has_ticket: !!full.ticket,
-      scenario_title: full.scenario?.title || null,
-      assessment_mode: assessmentMode,
-      assignment_type: assignmentType,
+    /* Build ticket data from scenario/pack info */
+    let ticketData: Record<string, unknown> = {
+      id: 'INC-' + (full.assessment.id?.slice(-6).toUpperCase() || '000000'),
+      title: full.scenario?.title || 'Support Request',
+      requester_name: full.scenario?.caller_persona?.split(',')[0]?.trim() || 'Customer',
+      company: '—',
+      department: '—',
+      severity: 'high',
+      status: full.assessment.status === 'invited' ? 'Open' : full.assessment.status,
+      description: full.messages?.[0]?.content || 'No description available',
     };
 
-    if (assignmentType === 'training_drill') {
+    /* Try to get richer ticket data from pack */
+    try {
+      const packId = (full.assessment as any).assessment_pack_id;
+      if (packId) {
+        const pack = getPackById(packId);
+        ticketData.requester_name = pack.customer.name;
+        ticketData.company = pack.customer.company;
+        ticketData.department = pack.customer.role;
+        ticketData.description = pack.customer.openingLine;
+      }
+    } catch {}
+
+    const baseResponse: any = {
+      ok: true,
+      data: {
+        assessment: {
+          id: full.assessment.id,
+          title: full.assessment.title,
+          candidate_name: full.assessment.candidate_name,
+          status: full.assessment.status,
+          assignment_type: assignmentType,
+          created_at: full.assessment.created_at,
+        },
+        assignment_runtime: {
+          shell: 'service_desk',
+          mode_label: assignmentType === 'hiring_exam' ? 'Hiring Exam' : assignmentType === 'training_drill' ? 'Training Drill' : 'Assessment',
+          capabilities: capabilities || { call: true, voice: true, textFallback: true, ticketPanel: true, remoteDesktop: false, tools: [], ticketComposer: true },
+        },
+        ticket: ticketData,
+        call: {
+          status: 'not_started',
+          caller_name: (ticketData.requester_name as string) || 'Customer',
+          caller_company: (ticketData.company as string) || '',
+        },
+        session_id: full.session?.id || null,
+        messages: full.messages.map(m => ({ role: m.role, content: m.content })),
+      },
+    };
+
+    if (capabilities?.remoteDesktop) {
       const packId = (full.assessment as any).assessment_pack_id || 'pack-outlook-sim-v2';
       const pack = getPackById(packId);
 

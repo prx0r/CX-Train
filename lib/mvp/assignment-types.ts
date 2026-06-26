@@ -1,11 +1,21 @@
 export type AssignmentType = 'hiring_exam' | 'training_drill' | 'training_shift';
 
+export interface SimulatorCapabilities {
+  call: boolean;
+  voice: boolean;
+  textFallback: boolean;
+  ticketPanel: boolean;
+  remoteDesktop: boolean;
+  tools: string[];
+  ticketComposer: boolean;
+}
+
 export interface AssignmentTypeConfig {
   label: string;
   description: string;
   enabled: boolean;
-  assessmentMode: string | null;
   comingSoon?: boolean;
+  capabilities: SimulatorCapabilities;
 }
 
 export const ASSIGNMENT_TYPES: Record<AssignmentType, AssignmentTypeConfig> = {
@@ -13,20 +23,44 @@ export const ASSIGNMENT_TYPES: Record<AssignmentType, AssignmentTypeConfig> = {
     label: 'Hiring Exam',
     description: 'Best for candidates or new starters. One controlled call and ticket.',
     enabled: true,
-    assessmentMode: 'chat_call',
+    capabilities: {
+      call: true,
+      voice: true,
+      textFallback: true,
+      ticketPanel: true,
+      remoteDesktop: false,
+      tools: [],
+      ticketComposer: true,
+    },
   },
   training_drill: {
     label: 'Training Drill',
     description: 'Best for practising one ticket type. One simulated ticket/call with optional remote tools.',
     enabled: true,
-    assessmentMode: 'dashboard_sim',
+    capabilities: {
+      call: true,
+      voice: true,
+      textFallback: true,
+      ticketPanel: true,
+      remoteDesktop: true,
+      tools: ['outlook', 'browser', 'cmd'],
+      ticketComposer: true,
+    },
   },
   training_shift: {
     label: 'Training Shift',
     description: 'Coming soon. Simulated queue across a time block.',
     enabled: false,
-    assessmentMode: null,
     comingSoon: true,
+    capabilities: {
+      call: true,
+      voice: true,
+      textFallback: true,
+      ticketPanel: true,
+      remoteDesktop: true,
+      tools: ['outlook', 'browser', 'cmd'],
+      ticketComposer: true,
+    },
   },
 };
 
@@ -38,9 +72,9 @@ export function getAssignmentTypeConfig(t: string): AssignmentTypeConfig | null 
   return ASSIGNMENT_TYPES[t as AssignmentType] || null;
 }
 
-export function assignmentTypeToAssessmentMode(t: string): string {
+export function getCapabilitiesForType(t: string): SimulatorCapabilities | null {
   const config = getAssignmentTypeConfig(t);
-  return config?.assessmentMode || 'chat_call';
+  return config?.capabilities || null;
 }
 
 export function isAssignmentTypeValid(t: string): t is AssignmentType {
