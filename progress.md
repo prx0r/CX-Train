@@ -895,3 +895,23 @@ node scripts/test-voice.mjs            # 20 passed
 npx tsc --noEmit                       # compiles clean
 npm run build                          # 55 static pages generated
 ```
+
+---
+
+## Session 2026-06-26 — Auto-Analysis Spec, Triage UX Fixes, Subcategory Type Filter
+
+### Changes
+
+**Type → Subcategory filtering** — subcategory options now filter by the selected type. Selecting "Incident" shows only Incident subcategories; selecting "Request" shows only Request subcategories. Changing type resets subcategory/item selections.
+
+**Collapsible triage panel** — after all triage fields are filled and submitted, the panel collapses to a summary view showing Status/Board/Type/Subcategory/Priority. Click "▼ Edit" to reopen. Partial submissions don't auto-collapse.
+
+**Submit for Review button** — added to the ticket queue page when the call has ended (phase=ticketing). Includes a textarea for the final ticket summary. Also accessible from the ticket detail header's "Submit Ticket" button.
+
+**End call fix** — call status now correctly transitions to `'ended'` when the remote desktop path calls `end_call`, so the End Call button in CallBar disappears.
+
+**Triage info on queue row** — the ticket queue table row now shows the triage selections (Tier, Type, Priority) inline below the ticket title.
+
+### New Document
+
+`automate.md` — detailed spec for post-submission auto-analysis, candidate-facing results walkthrough, retake flow, learning walkthrough (ideal diagnostic path vs actual), and manager AI assistant. Covers architecture, data flow, implementation order (6 phases), and guardrails.
