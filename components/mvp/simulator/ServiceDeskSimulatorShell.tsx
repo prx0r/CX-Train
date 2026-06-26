@@ -161,6 +161,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
         }
         if (actionId === 'end_call') {
           setPhase('ticketing');
+          setCallStatus('ended');
         }
         if (actionId === 'remote_disconnect') {
           setTicketListView(false);
@@ -272,8 +273,8 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     if (update.typeId !== undefined && update.typeId !== oldState.typeId) {
       recordTriageEvent('ticket_type_set', 'type', oldState.typeId, update.typeId);
     }
-    if (update.categoryId !== undefined && update.categoryId !== oldState.categoryId) {
-      recordTriageEvent('ticket_category_set', 'category', oldState.categoryId, update.categoryId);
+    if (update.boardId !== undefined && update.boardId !== oldState.boardId) {
+      recordTriageEvent('ticket_board_set', 'board', oldState.boardId, update.boardId);
     }
     if (update.subcategoryId !== undefined && update.subcategoryId !== oldState.subcategoryId) {
       recordTriageEvent('ticket_subcategory_set', 'subcategory', oldState.subcategoryId, update.subcategoryId);
@@ -281,24 +282,17 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     if (update.itemId !== undefined && update.itemId !== oldState.itemId) {
       recordTriageEvent('ticket_item_set', 'item', oldState.itemId, update.itemId);
     }
-    if (update.impactId !== undefined && update.impactId !== oldState.impactId) {
-      recordTriageEvent('ticket_impact_set', 'impact', oldState.impactId, update.impactId);
-    }
-    if (update.urgencyId !== undefined && update.urgencyId !== oldState.urgencyId) {
-      recordTriageEvent('ticket_urgency_set', 'urgency', oldState.urgencyId, update.urgencyId);
-    }
     if (update.priorityId !== undefined && update.priorityId !== oldState.priorityId) {
       recordTriageEvent('ticket_priority_set', 'priority', oldState.priorityId, update.priorityId);
     }
   }
 
   async function handleTriageSubmit() {
-    setTriageState(s => ({ ...s, submittedAt: new Date().toISOString() }));
     await recordUiAction('submit_triage', 'Submit ticket triage', 'ticket_triage_submitted', undefined, {
       triage: triageState,
-      taxonomy_tags: ['ticket.triage_submitted', 'ticket.classification_completed', 'ticket.priority_set', 'ticket.urgency_set'],
+      taxonomy_tags: ['ticket.triage_submitted', 'ticket.classification_completed'],
     });
-    showFeedback('Triage submitted', true);
+    showFeedback('Triage updated', true);
   }
 
   const handleTtsEnded = useCallback(() => {
@@ -447,10 +441,16 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
                   <div style={{ fontSize: 13, color: '#111', fontWeight: 700, marginBottom: 2 }}>
                     {ticket.title}
                   </div>
-                  <div style={{ fontSize: 11, color: '#525252' }}>Board: Help Desk · Type: Service Request</div>
+                  <div style={{ fontSize: 11, color: '#525252' }}>
+                    {triageState.boardId && taxonomy.boardOptions?.find(b => b.id === triageState.boardId)?.label || ''}
+                    {triageState.boardId && taxonomy.boardOptions?.find(b => b.id === triageState.boardId)?.label ? ' · ' : ''}
+                    {triageState.typeId && taxonomy.typeOptions.find(t => t.id === triageState.typeId)?.label || ''}
+                    {triageState.typeId && taxonomy.typeOptions.find(t => t.id === triageState.typeId)?.label ? ' · ' : ''}
+                    {triageState.priorityId && taxonomy.priorityOptions.find(p => p.id === triageState.priorityId)?.label || 'Select triage options'}
+                  </div>
                 </div>
                 <span style={{ fontSize: 12, color: '#222' }}>{ticket.requesterName}</span>
-                <span style={{ fontSize: 12, color: '#222' }}>{claimed ? 'In Progress' : ticket.status}</span>
+                <span style={{ fontSize: 12, color: '#222' }}>{triageState.status === 'in_progress' ? 'In Progress' : triageState.status === 'open' ? (claimed ? 'Claimed' : 'Open') : ticket.status}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: claimed ? '#111' : '#6f6f6f' }}>
                   {claimed ? 'Trainee' : 'Unassigned'}
                 </span>
@@ -460,6 +460,39 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
             <div style={{ marginTop: 10, fontSize: 12, color: '#525252' }}>
               Select the ticket to claim it, review the requester context, and begin work.
             </div>
+
+            {phase === 'ticketing' && (
+              <div style={{ marginTop: 16, padding: 14, background: '#fff', border: '1px solid #b8b8b8', borderRadius: 3 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 4 }}>Ready to submit?</div>
+                <div style={{ fontSize: 12, color: '#525252', marginBottom: 10 }}>
+                  Review your notes and triage, then submit for assessment when ready.
+                </div>
+                <textarea
+                  value={ticketText}
+                  onChange={e => setTicketText(e.target.value)}
+                  placeholder="Summarize the issue, steps taken, root cause, and next steps for the ticket..."
+                  rows={4}
+                  style={{
+                    width: '100%', padding: 8, border: '1px solid #b8b8b8', borderRadius: 3,
+                    fontSize: 12, color: '#111', background: '#fff', resize: 'none',
+                    fontFamily: 'monospace', lineHeight: 1.5, boxSizing: 'border-box',
+                  }}
+                />
+                <button
+                  onClick={submitTicket}
+                  disabled={!ticketText.trim() || ticketSubmitted}
+                  style={{
+                    marginTop: 8, padding: '8px 20px', borderRadius: 3, border: '1px solid #111',
+                    background: ticketText.trim() && !ticketSubmitted ? '#111' : '#efefef',
+                    color: ticketText.trim() && !ticketSubmitted ? '#fff' : '#525252',
+                    fontSize: 13, fontWeight: 700,
+                    cursor: ticketText.trim() && !ticketSubmitted ? 'pointer' : 'default',
+                  }}
+                >
+                  {ticketSubmitted ? 'Submitted' : 'Submit for Review'}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           /* ── TICKET DETAIL (two-column layout) ── */

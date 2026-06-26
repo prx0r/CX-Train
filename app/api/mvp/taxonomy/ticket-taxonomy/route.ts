@@ -57,6 +57,7 @@ export async function GET() {
   return NextResponse.json({
     typeOptions,
     categoryTree,
+    boardOptions: DEFAULT_TICKET_TAXONOMY.boardOptions,
     impactOptions: DEFAULT_TICKET_TAXONOMY.impactOptions,
     urgencyOptions: DEFAULT_TICKET_TAXONOMY.urgencyOptions,
     priorityOptions: DEFAULT_TICKET_TAXONOMY.priorityOptions,

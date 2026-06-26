@@ -18,6 +18,7 @@ export interface CategoryNode {
 }
 
 export interface ManagerTicketTaxonomy {
+  boardOptions?: TaxonomyOption[];
   typeOptions: TaxonomyOption[];
   categoryTree: CategoryNode[];
   impactOptions: TaxonomyOption[];
@@ -29,6 +30,11 @@ export interface ManagerTicketTaxonomy {
 }
 
 export const DEFAULT_TICKET_TAXONOMY: ManagerTicketTaxonomy = {
+  boardOptions: [
+    { id: 'tier_1', label: 'Tier 1 — Service Desk', description: 'Front-line support, initial triage and resolution', scoringTags: ['ticket.board.tier1'] },
+    { id: 'tier_2', label: 'Tier 2 — Technical Support', description: 'Escalated technical issues requiring deeper expertise', scoringTags: ['ticket.board.tier2'] },
+    { id: 'tier_3', label: 'Tier 3 — Engineering / Specialist', description: 'Advanced issues, infrastructure, or vendor escalation', scoringTags: ['ticket.board.tier3'] },
+  ],
   typeOptions: [
     { id: 'incident', label: 'Incident', description: 'Service interruption or quality reduction', scoringTags: ['ticket.type.incident'] },
     { id: 'service_request', label: 'Service Request', description: 'Standard request for service or access', scoringTags: ['ticket.type.service_request'] },

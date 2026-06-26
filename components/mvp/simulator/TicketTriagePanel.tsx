@@ -5,19 +5,18 @@ import { useState } from 'react';
 export interface TicketTriageState {
   claimed: boolean;
   status: 'open' | 'in_progress' | 'waiting_customer' | 'resolved' | 'escalated';
+  boardId?: string;
   typeId?: string;
-  categoryId?: string;
   subcategoryId?: string;
   itemId?: string;
-  impactId?: string;
-  urgencyId?: string;
   priorityId?: string;
   submittedAt?: string;
 }
 
 export interface ManagerTicketTaxonomy {
+  boardOptions?: { id: string; label: string; description?: string }[];
   typeOptions: { id: string; label: string; description?: string }[];
-  categoryTree: { id: string; label: string; subcategories: { id: string; label: string; items?: { id: string; label: string }[] }[] }[];
+  categoryTree: { id: string; label: string; subcategories: { id: string; label: string; items?: { id: string; label: string }[]; escalationGuidance?: string[] }[] }[];
   impactOptions: { id: string; label: string; description?: string }[];
   urgencyOptions: { id: string; label: string; description?: string }[];
   priorityOptions: { id: string; label: string; description?: string }[];
@@ -30,142 +29,92 @@ export default function TicketTriagePanel({ taxonomy, triageState, onTriageChang
   onSubmit: () => void;
   disabled?: boolean;
 }) {
-  const submitted = !!triageState.submittedAt;
-  const selectedCategory = taxonomy.categoryTree.find(c => c.id === triageState.categoryId);
-  const selectedSubcategory = selectedCategory?.subcategories.find(s => s.id === triageState.subcategoryId);
+  const [collapsed, setCollapsed] = useState(false);
+  const selectedTypeNode = taxonomy.categoryTree.find(c => c.id === triageState.typeId);
+  const selectedSubcat = selectedTypeNode?.subcategories.find(s => s.id === triageState.subcategoryId);
+  const boardOptions = taxonomy.boardOptions || [];
+  const hasAnyValue = triageState.status !== 'open' || triageState.boardId || triageState.typeId || triageState.subcategoryId || triageState.itemId || triageState.priorityId;
+  const allFilled = triageState.status !== 'open' && triageState.boardId && triageState.typeId && triageState.subcategoryId && triageState.priorityId;
 
-  if (submitted) {
-    return (
-      <div style={{ padding: '10px 14px', background: '#fff', borderBottom: '1px solid #cfcfcf' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#0f5132', marginBottom: 6 }}>
-          Triage Submitted
-        </div>
-        <div style={{ fontSize: 12, color: '#525252', display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <div><strong>Status:</strong> {triageState.status}</div>
-          <div><strong>Type:</strong> {taxonomy.typeOptions.find(t => t.id === triageState.typeId)?.label || triageState.typeId}</div>
-          <div><strong>Category:</strong> {selectedCategory?.label} / {selectedSubcategory?.label}</div>
-          {triageState.itemId && <div><strong>Item:</strong> {selectedSubcategory?.items?.find(i => i.id === triageState.itemId)?.label}</div>}
-          <div><strong>Impact:</strong> {taxonomy.impactOptions.find(i => i.id === triageState.impactId)?.label}</div>
-          <div><strong>Urgency:</strong> {taxonomy.urgencyOptions.find(u => u.id === triageState.urgencyId)?.label}</div>
-          <div><strong>Priority:</strong> {taxonomy.priorityOptions.find(p => p.id === triageState.priorityId)?.label}</div>
-        </div>
-      </div>
-    );
-  }
+  const handleSubmit = () => {
+    if (allFilled) setCollapsed(true);
+    onSubmit();
+  };
 
   return (
     <div style={{ padding: '10px 14px', background: '#fff', borderBottom: '1px solid #cfcfcf' }}>
-      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#525252', marginBottom: 8 }}>
-        Triage Ticket
-      </div>
+      <button
+        onClick={() => setCollapsed(p => !p)}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', textAlign: 'left' }}
+      >
+        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#525252', marginBottom: collapsed ? 0 : 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{collapsed ? 'Triage Summary' : 'Triage Ticket'}</span>
+          <span style={{ fontSize: 12 }}>{collapsed ? '▼ Edit' : '▲'}</span>
+        </div>
+      </button>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Status */}
-        <SelectField
-          label="Status"
-          value={triageState.status}
-          onChange={v => onTriageChange({ status: v as any })}
-          options={[
-            { value: 'open', label: 'Open' },
-            { value: 'in_progress', label: 'In Progress' },
-            { value: 'waiting_customer', label: 'Waiting Customer' },
-            { value: 'resolved', label: 'Resolved' },
-            { value: 'escalated', label: 'Escalated' },
-          ]}
-          disabled={disabled}
-        />
+      {collapsed && allFilled && (
+        <div style={{ fontSize: 12, color: '#525252', display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
+          <div><strong>Status:</strong> {triageState.status.replace('_', ' ')}</div>
+          {triageState.boardId && <div><strong>Board:</strong> {boardOptions.find(b => b.id === triageState.boardId)?.label}</div>}
+          {triageState.typeId && <div><strong>Type:</strong> {taxonomy.typeOptions.find(t => t.id === triageState.typeId)?.label}</div>}
+          {triageState.subcategoryId && <div><strong>Subcategory:</strong> {selectedSubcat?.label || triageState.subcategoryId}</div>}
+          {triageState.priorityId && <div><strong>Priority:</strong> {taxonomy.priorityOptions.find(p => p.id === triageState.priorityId)?.label}</div>}
+        </div>
+      )}
 
-        {/* Type */}
-        <SelectField
-          label="Type"
-          value={triageState.typeId || ''}
-          onChange={v => onTriageChange({ typeId: v })}
-          options={taxonomy.typeOptions.map(t => ({ value: t.id, label: t.label }))}
-          placeholder="Select type..."
-          disabled={disabled}
-        />
-
-        {/* Category */}
-        <SelectField
-          label="Category"
-          value={triageState.categoryId || ''}
-          onChange={v => {
-            onTriageChange({ categoryId: v, subcategoryId: undefined, itemId: undefined });
-          }}
-          options={taxonomy.categoryTree.map(c => ({ value: c.id, label: c.label }))}
-          placeholder="Select category..."
-          disabled={disabled}
-        />
-
-        {/* Subcategory */}
-        {selectedCategory && (
-          <SelectField
-            label="Subcategory"
-            value={triageState.subcategoryId || ''}
-            onChange={v => {
-              onTriageChange({ subcategoryId: v, itemId: undefined });
+      {!collapsed && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <SelectField label="Status" value={triageState.status} onChange={v => onTriageChange({ status: v as any })}
+            options={[
+              { value: 'open', label: 'Open' },
+              { value: 'in_progress', label: 'In Progress' },
+              { value: 'waiting_customer', label: 'Waiting Customer' },
+              { value: 'resolved', label: 'Resolved' },
+              { value: 'escalated', label: 'Escalated' },
+            ]}
+            disabled={disabled}
+          />
+          {boardOptions.length > 0 && (
+            <SelectField label="Board" value={triageState.boardId || ''} onChange={v => onTriageChange({ boardId: v })}
+              options={boardOptions.map(b => ({ value: b.id, label: b.label }))}
+              placeholder="Select board..." disabled={disabled}
+            />
+          )}
+          <SelectField label="Type" value={triageState.typeId || ''} onChange={v => onTriageChange({ typeId: v, subcategoryId: undefined, itemId: undefined })}
+            options={taxonomy.typeOptions.map(t => ({ value: t.id, label: t.label }))}
+            placeholder="Select type..." disabled={disabled}
+          />
+          <SelectField label="Subcategory" value={triageState.subcategoryId || ''} onChange={v => onTriageChange({ subcategoryId: v, itemId: undefined })}
+            options={selectedTypeNode ? selectedTypeNode.subcategories.map(s => ({ value: s.id, label: `${s.label}` })) : []}
+            placeholder={selectedTypeNode ? 'Select subcategory...' : 'Select a type first...'}
+            disabled={disabled || !selectedTypeNode}
+          />
+          {selectedSubcat && selectedSubcat.items && selectedSubcat.items.length > 0 && (
+            <SelectField label="Item / Service" value={triageState.itemId || ''} onChange={v => onTriageChange({ itemId: v })}
+              options={selectedSubcat.items.map(i => ({ value: i.id, label: i.label }))}
+              placeholder="Select item..." disabled={disabled}
+            />
+          )}
+          <SelectField label="Priority" value={triageState.priorityId || ''} onChange={v => onTriageChange({ priorityId: v })}
+            options={taxonomy.priorityOptions.map(p => ({ value: p.id, label: p.label }))}
+            placeholder="Select priority..." disabled={disabled}
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={disabled || !hasAnyValue}
+            style={{
+              marginTop: 4, padding: '7px 14px', borderRadius: 3, border: '1px solid #111',
+              background: hasAnyValue && !disabled ? '#111' : '#efefef',
+              color: hasAnyValue && !disabled ? '#fff' : '#525252',
+              fontSize: 12, fontWeight: 700,
+              cursor: hasAnyValue && !disabled ? 'pointer' : 'default', width: '100%',
             }}
-            options={selectedCategory.subcategories.map(s => ({ value: s.id, label: s.label }))}
-            placeholder="Select subcategory..."
-            disabled={disabled}
-          />
-        )}
-
-        {/* Item */}
-        {selectedSubcategory?.items && selectedSubcategory.items.length > 0 && (
-          <SelectField
-            label="Item / Service"
-            value={triageState.itemId || ''}
-            onChange={v => onTriageChange({ itemId: v })}
-            options={selectedSubcategory.items.map(i => ({ value: i.id, label: i.label }))}
-            placeholder="Select item..."
-            disabled={disabled}
-          />
-        )}
-
-        {/* Impact */}
-        <SelectField
-          label="Impact"
-          value={triageState.impactId || ''}
-          onChange={v => onTriageChange({ impactId: v })}
-          options={taxonomy.impactOptions.map(i => ({ value: i.id, label: i.label }))}
-          placeholder="Select impact..."
-          disabled={disabled}
-        />
-
-        {/* Urgency */}
-        <SelectField
-          label="Urgency"
-          value={triageState.urgencyId || ''}
-          onChange={v => onTriageChange({ urgencyId: v })}
-          options={taxonomy.urgencyOptions.map(u => ({ value: u.id, label: u.label }))}
-          placeholder="Select urgency..."
-          disabled={disabled}
-        />
-
-        {/* Priority */}
-        <SelectField
-          label="Priority"
-          value={triageState.priorityId || ''}
-          onChange={v => onTriageChange({ priorityId: v })}
-          options={taxonomy.priorityOptions.map(p => ({ value: p.id, label: p.label }))}
-          placeholder="Select priority..."
-          disabled={disabled}
-        />
-
-        {/* Submit */}
-        <button
-          onClick={onSubmit}
-          disabled={disabled || !triageState.typeId || !triageState.categoryId || !triageState.subcategoryId || !triageState.impactId || !triageState.urgencyId || !triageState.priorityId}
-          style={{
-            marginTop: 4, padding: '7px 14px', borderRadius: 3, border: '1px solid #111',
-            background: '#111', color: '#fff', fontSize: 12, fontWeight: 700,
-            cursor: 'pointer', width: '100%',
-          }}
-        >
-          Submit Triage
-        </button>
-      </div>
+          >
+            Submit Triage
+          </button>
+        </div>
+      )}
     </div>
   );
 }
