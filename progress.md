@@ -604,4 +604,19 @@ function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }
 | `ControlPanel` (extract from RemoteDesktopPane) | Extract + enhance, ~150 lines | Small |
 
 Total estimated additions: ~800-1000 lines of new React code, zero new dependencies, zero backend changes.
+
+---
+
+## Session 2026-06-26 (continued) — Remote Desktop Build Plan
+
+Full interactive Win11 desktop plan written to `remotedesktop.md`. Key decisions:
+
+- **Approach D selected**: React window frames (no drag/resize) with local state per app and backend only for scoring actions — zero CPU/GPU cost.
+- Desktop state managed by `useReducer` — open windows, z-ordering, preset tiling positions.
+- Each app is a fully interactive React component: Outlook with clickable folders/ribbon tabs/right-click/reading pane, CMD with typed commands and history, Browser with tabs/address bar/OWA simulation, Control Panel with category navigation.
+- Every interaction (local or backend) is recorded to `session_events` via the event route. New `ui_interaction` event type proposed for fine-grained logging.
+- TranscriptToggle extended to show system events alongside messages.
+- 7-phase implementation plan, 12-18 hour estimate, 11 bugs identified for fixing.
+
+See `remotedesktop.md` for full architecture, per-app specs, event recording, performance strategy, and testing plan.
 ```
