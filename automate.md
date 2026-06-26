@@ -310,34 +310,56 @@ POST /api/mvp/assessment/[token]/ticket
   → return { status, analysis, candidate_analysis }
 ```
 
-### Phase 2: Candidate-Facing Results Page — COMPLETE
+### Phase 2: Candidate-Facing Results Page — COMPLETE (redesigned 2026-06-26)
 
 **Files created/changed:**
 
 | File | Change |
 |---|---|
-| `components/mvp/results/AssessmentResults.tsx` | New component. Shows: score (large number), readiness label (colored badge), diagnostic checklist (✓/✗ per criterion), strengths, improvements, ticket feedback, coaching focus. ConnectWise-style dense layout. Accepts `CandidateAnalysisResult` type |
-| `components/mvp/simulator/ServiceDeskSimulatorShell.tsx` | Updated `submitTicket()` to receive analysis from response, set `analysing` state. Shows "Analyzing your performance..." loading screen while LLM processes. On completion, renders `<AssessmentResults>` instead of simple completion screen |
-| `app/mvp/assessment/[token]/page.tsx` | Passes `initialAnalysis` from GET route to shell for reload persistence |
+| `components/mvp/results/AssessmentResults.tsx` | **Redesigned.** Two-column layout. Left: "What cost you the most points" (failures sorted first), "What to do differently", "Coaching focus". Right: "What went well", compact all-criteria grid, ticket feedback. ConnectWise-style dense UI. |
+| `app/mvp/results/page.tsx` | **NEW.** Standalone prototype page at `/mvp/results` with realistic mock data. Enables rapid iteration on the results view without running through the full assessment flow. |
 
-**States:**
-1. "Analyzing your performance..." — while LLM runs (2-10s)
-2. Results view — score, checklist, strengths, improvements, coaching
+**Layout:**
 
-### Verified
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Connexion PSA | Training Drill | Assessment Results [Retake]│
+├──────────────────────────────────────────────────────────────┤
+│  42  │ Not Ready │ Summary text...                          │
+├─────────────────────────────┬────────────────────────────────┤
+│ What cost you the most pts  │ What went well                 │
+│ ✗ Asked about impact        │ ✓ Identified Outlook           │
+│ ✗ Verified fix w/ customer  │ ✓ Disabled Work Offline       │
+│ ✗ Asked about scope         │                                │
+│                             │ All criteria                   │
+│ What to do differently      │ ✓ Confirmed user   ✓ Tone      │
+│ → Did not ask impact...     │ ✓ Safety           ✓ Conduct  │
+│ → Did not verify fix...     │                                │
+│                             │ Ticket notes                   │
+│ Coaching focus              │ ...feedback text...            │
+│ ● Always ask about impact   │                                │
+└─────────────────────────────┴────────────────────────────────┘
+```
 
-- End-to-end test: created training_drill, performed sim actions (start call → remote → outlook → disable work offline → send test email → end call), submitted ticket with summary. Analysis triggered automatically and returned results with score, breakdown, narrative.
-- GET route returns `candidate_analysis` on reload (page refresh preserves results)
-- All 109 tests pass (5 suites)
-- TypeScript compiles clean
-- Build: 55 static pages
+**Key design decisions:**
+- Failures shown before passes — the candidate sees what they missed first
+- "What cost you the most" — priorities the most impactful misses
+- Compact score bar with inline summary — no giant centered card
+- All-criteria two-column grid for passes — dense and skimmable
+- Standalone `/mvp/results` prototype for rapid iteration
+
+### Verification
+
+- `/mvp/results` loads with mock data at `http://localhost:3000/mvp/results`
+- Real post-submission flow uses the same `AssessmentResults` component
+- Mock data editable in `app/mvp/results/page.tsx`
 
 ### Remaining Phases
 
 | Phase | What | Status |
 |---|---|---|
 | 1 | Auto-trigger analysis on ticket submission | **DONE** |
-| 2 | Candidate-facing results page | **DONE** |
+| 2 | Candidate-facing results page | **DONE** (redesigned) |
 | 3 | Retake flow (clone assessment + fresh start) | Next |
 | 4 | Learning walkthrough (pack diagnosticChecklist vs actual) | Next |
 | 5 | Manager AI assistant | Later |
