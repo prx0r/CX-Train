@@ -443,12 +443,165 @@ npm run build                      # compiles clean
 Current dev server command:
 
 ```bash
-npx next dev -H 0.0.0.0 -p 3003
+npx next dev -H 0.0.0.0 -p 3000
 ```
 
 Current URLs:
 
 ```text
-http://138.199.223.35:3003/mvp                        # Manager dashboard
-http://138.199.223.35:3003/mvp/assessment/<token>     # Candidate assessment
+http://138.199.223.35:3000/mvp                        # Manager dashboard
+http://138.199.223.35:3000/mvp/assessment/<token>     # Candidate assessment
+
+---
+
+## Next Work: Interactive App Surfaces
+
+### Problem
+
+The remote desktop apps (Outlook, Browser, CMD, Control Panel) currently have limited interactivity — clicking an app mostly triggers a backend sim action. The user wants to actually interact with the apps: click folders, right-click items, switch ribbon tabs, type commands, navigate pages — without triggering a backend call for every trivial UI action.
+
+### Constraints
+
+- **No heavy CPU/GPU** — this runs in a browser on unknown hardware. No canvas-based rendering, no VM-in-browser, no full OS simulation.
+- **No window manager** — per `cohesion.md`, no drag/resize/minimize/z-index management.
+- **Scoring-relevant actions still hit backend** — actions like "disable Work Offline", "send test email", "reinstall Outlook" must still be logged to `session_events` via `POST /api/mvp/assessment/[token]/sim/action`.
+- **Local UI state is free** — folder selection, right-click menus, tab switching, hover states, scroll positions — all frontend-only, zero backend cost.
+
+### Recommended Approach: Rich React Components + Local State + Selective Backend
+
+Each app component becomes a rich interactive surface. Interactions split into two categories:
+
+| Interaction | Handling | Example |
+|---|---|---|
+| UI navigation (click folder, switch ribbon tab, right-click menu, scroll) | Local React state, `useState` | Clicking Inbox folder just sets `selectedFolder: 'inbox'` |
+| Scoring-relevant action | Backend `POST /sim/action` | Clicking "Disable Work Offline" sends action |
+| UI state that reflects sim state | Polled from `simData.visible_state` via existing 10s interval | Outbox count, work offline status |
+
+This approach costs near-zero CPU (React re-renders only the changed subtree) while making the apps feel real.
+
+### Outlook Interactive Plan
+
+Target file: `components/mvp/simulator/OutlookPanel.tsx`
+
+**Folder navigation** (local state):
+- Clicking any folder in the left sidebar sets `selectedFolder` and shows its contents
+- Inbox shows real-looking email list (mock data)
+- Drafts, Sent Items, Deleted Items show appropriate mock content
+- Outbox reflects real `outboxCount` from sim state
+- Folders show unread count badges
+
+**Ribbon tabs** (local state):
+- Clickable tabs: File, Home, Send/Receive, Folder, View
+- Each tab shows different ribbon buttons (greyed out if not applicable)
+- Home tab: New Email, Reply, Reply All, Forward, Delete
+- Send/Receive tab: Send/Receive All (hits backend), Work Offline toggle (hits backend), Update Folder
+
+**Email list interactivity** (local state):
+- Click an email to select it (highlight)
+- Double-click opens reading pane below
+- Right-click context menu: Mark as Read, Mark as Unread, Delete, Print
+- Reading pane shows sender, subject, body
+
+**Status bar** (from sim state + local):
+- Always visible: Connected/Work Offline status, outbox count, server info
+- Clicking status area triggers connection status check (hits backend)
+
+**Right-click context menu** (local state):
+- Custom `useContextMenu` hook
+- Menu appears at cursor position
+- Dismisses on click outside or menu action
+
+### Browser Interactive Plan
+
+Target file: `components/mvp/simulator/BrowserPanel.tsx`
+
+**Address bar** (local state):
+- Editable URL bar at top
+- Shows current "page"
+- Clicking "Check Outlook Web App" navigates to OWA page
+
+**Tab bar** (local state):
+- Multiple tabs (New Tab, OWA, etc.)
+- Click to switch, close button on each tab
+
+**Page content** (local state):
+- OWA page shows a simulated Outlook Web App login/page
+- Search engine shows a mock search results page
+- Pages can have clickable links
+
+**Right-click** (local state):
+- Context menu: Open in new tab, Copy link address, etc.
+
+### Command Prompt Interactive Plan
+
+Target file: `components/mvp/simulator/CommandPromptPanel.tsx`
+
+**Text input** (local state):
+- Editable command line at bottom
+- User types commands and presses Enter
+- Command history (up/down arrow)
+
+**Known commands** (local state, not backend):
+- `help` — list available commands
+- `ipconfig` — show mock network config (also hits backend for scoring)
+- `ping outlook.office365.com` — show mock ping output (also hits backend)
+- `cls` / `clear` — clear screen
+- `whoami` — show user
+- Unknown commands show "command not recognized"
+
+**Output area** (local state):
+- Scrollable output showing command history + results
+- Mock output looks like real CMD
+
+### Control Panel Interactive Plan
+
+Target file: currently inline in `RemoteDesktopPane.tsx`
+
+**Category navigation** (local state):
+- Clickable left sidebar categories: Programs, Mail, Network and Internet, System
+- Each shows different content in the main area
+
+**Programs view**:
+- "Repair Microsoft 365 Apps" button (hits backend for red flag)
+- "Reinstall Outlook" button (hits backend, red flag)
+- "Delete mail profile" button (hits backend, red flag)
+
+### Shared Infrastructure
+
+```tsx
+// Hook for right-click context menu
+function useContextMenu() {
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const show = (e: React.MouseEvent, items: MenuItem[]) => { ... };
+  const hide = () => setMenu(null);
+  return { menu, show, hide };
+}
+
+// Global ContextMenuRenderer component
+function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
+  // Renders at fixed position, dark theme, closes on click outside
+}
+```
+
+### Non-Goals
+
+- Do not build a real terminal emulator or shell
+- Do not build a real web browser
+- Do not add drag/resize to app panels
+- Do not render full desktop backgrounds or window chrome for each app
+- Do not add animations that consume CPU (no CSS transitions on heavy elements)
+- Do not replace the tab-based sandbox layout
+
+### Effort Estimate
+
+| Component | Changes | Est. size |
+|---|---|---|
+| `useContextMenu` hook | New file, ~60 lines | Small |
+| `ContextMenu` component | New file, ~80 lines | Small |
+| `OutlookPanel` | Major rewrite, ~400 lines | Medium |
+| `BrowserPanel` | Moderate rewrite, ~200 lines | Medium |
+| `CommandPromptPanel` | Significant rewrite, ~250 lines | Medium |
+| `ControlPanel` (extract from RemoteDesktopPane) | Extract + enhance, ~150 lines | Small |
+
+Total estimated additions: ~800-1000 lines of new React code, zero new dependencies, zero backend changes.
 ```
