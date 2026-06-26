@@ -34,6 +34,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const [ttsPlaying, setTtsPlaying] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{ text: string; ok: boolean } | null>(null);
+  const [ticketListView, setTicketListView] = useState(true);
   const actionFeedbackTimer = useRef<ReturnType<typeof setTimeout>>();
   const { speak, setOnPlaying, autoplayBlocked } = useCustomerAudio(token);
 
@@ -249,11 +250,71 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
               </div>
             </div>
           </>
+        ) : ticketListView ? (
+          /* ── TICKET QUEUE (landing page) ── */
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 24 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0', marginBottom: 16 }}>
+              Service Desk — Open Tickets
+            </div>
+            <div style={{
+              background: '#1e293b', border: '1px solid #334155', borderRadius: 8, overflow: 'hidden',
+            }}>
+              {/* Table header */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '100px 1fr 120px 100px',
+                padding: '10px 16px', borderBottom: '1px solid #334155',
+                fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase',
+              }}>
+                <span>Ticket</span>
+                <span>Subject</span>
+                <span>Status</span>
+                <span>Priority</span>
+              </div>
+              {/* Ticket row */}
+              <button
+                onClick={() => setTicketListView(false)}
+                style={{
+                  width: '100%', display: 'grid', gridTemplateColumns: '100px 1fr 120px 100px',
+                  padding: '12px 16px', border: 'none', borderBottom: '1px solid #1e293b',
+                  background: 'transparent', cursor: 'pointer', textAlign: 'left',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#334155'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#60a5fa', fontWeight: 600 }}>
+                  {ticket.id}
+                </span>
+                <div>
+                  <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 500, marginBottom: 2 }}>
+                    {ticket.title}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>
+                    {ticket.requesterName} · {ticket.company}
+                  </div>
+                </div>
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>{ticket.status}</span>
+                <span style={{
+                  fontSize: 12, fontWeight: 600,
+                  color: ticket.severity === 'high' || ticket.severity === 'critical' ? '#f87171' : '#eab308',
+                }}>
+                  {ticket.severity.toUpperCase()}
+                </span>
+              </button>
+            </div>
+            <div style={{ marginTop: 24, fontSize: 12, color: '#64748b', textAlign: 'center' }}>
+              Click a ticket to view details and start working.
+            </div>
+          </div>
         ) : (
-          /* ── NOT REMOTED: full-width ticket view ── */
+          /* ── NOT REMOTED: full-width ticket detail ── */
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Ticket detail header */}
+            {/* Ticket detail header with back button */}
             <div style={{ padding: '16px 24px 12px', borderBottom: '1px solid #1e293b', flexShrink: 0 }}>
+              <button onClick={() => setTicketListView(true)}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12, padding: 0, marginBottom: 8, display: 'block' }}>
+                ← Back to ticket list
+              </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', fontFamily: 'monospace' }}>
                   {ticket.id}
@@ -336,7 +397,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
               )}
             </WorkArea>
 
-            {/* Notes / ticket draft area (always visible when not remoted) */}
+            {/* Notes / ticket draft area */}
             {phase !== 'ticketing' && phase !== 'submitted' && (
               <div style={{ flexShrink: 0, padding: '12px 24px 16px', borderTop: '1px solid #1e293b', background: '#0f172a' }}>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: '#64748b', marginBottom: 4 }}>

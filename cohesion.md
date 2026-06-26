@@ -118,6 +118,88 @@ The hiring exam page's auto-play useEffect fired even for training drill mode be
 - No changes needed to analysis, scoring, or DB
 - The unified shell is purely a frontend architectural change
 
+## ConnectWise / PSA Dashboard Layout Research
+
+Reference: ConnectWise Manage, HaloPSA, Autotask service desk dashboards.
+
+### Common Layout Pattern
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Top bar: Logo / Search / Quick actions / Profile               │
+├──────────────────────────────────────────────────────────────────┤
+│  CALL BAR: Incoming call · On call · Thinking · Speaking        │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  DEFAULT LANDING: Ticket Queue (table)                          │
+│  ┌──────┬────────┬────────────┬────────┬─────────┬──────────┐   │
+│  │ INC  │ Client │ Subject     │ Status │ Priority│ Assigned │   │
+│  ├──────┼────────┼────────────┼────────┼─────────┼──────────┤   │
+│  │ 2847 │ Connex │ Outlook    │ Open   │ HIGH    │ You      │   │
+│  │      │ -ion   │ not sending│        │         │          │   │
+│  └──────┴────────┴────────────┴────────┴─────────┴──────────┘   │
+│                                                                  │
+│  Click row → Ticket Detail (full screen)                        │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │  INC-002847  🔴 HIGH  ● Open                             │    │
+│  │  Outlook cannot send emails                               │    │
+│  │  Sarah Thompson · Connexion Dental · Accounts             │    │
+│  │                                                           │    │
+│  │  Customer Description (from initial message)              │    │
+│  │                                                           │    │
+│  │  ┌──────────────────────────────────────────────────────┐ │    │
+│  │  │  Ticket Notes / Draft                                │ │    │
+│  │  │  [textarea]                                          │ │    │
+│  │  └──────────────────────────────────────────────────────┘ │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  REMOTE ACTIVE: split layout                                    │
+│  ┌──────────────┬───────────────────────────────────────────┐    │
+│  │ Ticket panel │ Remote sandbox (tabbed tools)             │    │
+│  │ (narrow,     │ Outlook │ Browser │ CMD                   │    │
+│  │  still has   │ ┌─────────────────────────────────────┐   │    │
+│  │  notes +     │ │ Tool output / actions               │   │    │
+│  │  submit)     │ └─────────────────────────────────────┘   │    │
+│  └──────────────┴───────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Key Behaviors
+
+1. **Landing page is always the ticket queue.** Even with one ticket. The candidate sees a table with their ticket(s). This makes it feel like a real service desk, not a custom assessment tool.
+
+2. **Click a row → ticket detail opens full-screen.** The detail shows: header (ID, severity, status), requester info, description, and a notes/draft area. No left panel when not remoted.
+
+3. **Call bar sits at the top across both views.** It shows the call state (incoming, active, thinking, speaking, ended). Mic button and end-call button live here. The call bar does NOT go away when switching between queue and detail views.
+
+4. **Remote desktop mode is the only time the layout splits.** When the user remotes in, the ticket detail narrows to a left panel. The remote sandbox fills the right. When the remote session ends, the ticket goes back to full-screen.
+
+5. **No chat bubbles, no send buttons for conversation.** Voice is the primary interaction. The status bar shows what's happening. The transcript exists backend-side but is not rendered as a chat UI.
+
+6. **Ticket notes textarea is always visible** (in both full and split modes). The candidate can type notes at any time. Submit button appears when ready.
+
+### What Real PSA Dashboards Look Like
+
+- **ConnectWise Manage**: Left sidebar with modules (Service Desk, Sales, Projects, etc.). Main area shows a ticket grid with columns: Company, Contact, Summary, Status, Priority, Board, Assigned. Clicking opens a ticket in a detail view with tabs (Details, Time Entry, Notes, etc.).
+
+- **HaloPSA**: Top navigation bar. Main area defaults to a ticket list view with filters and columns. Clicking a ticket opens a split view — ticket details on the left, conversation/updates on the right.
+
+- **Autotask**: Left sidebar navigation. Ticket list as the default service desk view with configurable columns. Ticket detail has tabs for Notes, Time Entries, Attachments, etc.
+
+### What CallCallum Should Borrow
+
+- The **ticket queue as landing** — makes it feel like a real PSA
+- The **call bar as persistent top element** — phone system metaphor
+- The **full-screen ticket detail** — focus on the ticket
+- The **split layout only when remoted** — ticket stays visible, tools get space
+- The **notes always available** — techs type notes throughout the call
+
+### What CallCallum Should Skip
+
+- Complex left sidebar with modules (unnecessary for single-ticket scenarios)
+- Ticket tabs (Details / Time / Notes) — keep it simple with a single scrollable view
+- Multi-user assignment, SLA tracking, billing — not relevant for training
+
 ## Action Items
 
 1. Build unified `CandidateShell` component that replaces both the hiring exam page and ItsmCandidateShell
