@@ -146,17 +146,20 @@ function findEvidence(
     return { status: 'verified', quote: '', foundBy: 'validator' };
   }
 
-  /* Step 3: Validator searches transcript using criterion's expected patterns */
+    /* Step 3: Validator searches transcript using criterion's expected patterns */
   const patterns = EVIDENCE_PATTERNS[criterionId];
   if (patterns) {
     for (const pattern of patterns) {
       const idx = lowerTranscript.indexOf(pattern);
       if (idx !== -1) {
-        // Extract a window around the match (50 chars before, 80 chars after)
-        const start = Math.max(0, idx - 50);
-        const end = Math.min(transcriptText.length, idx + 80);
-        let snippet = transcriptText.slice(start, end).replace(/\n/g, ' ').trim();
-        if (snippet.length > 100) snippet = snippet.substring(0, 100) + '...';
+        // Snap to line start, extract a complete utterance
+        const lineStart = transcriptText.lastIndexOf('\n', idx) + 1;
+        const lineEnd = transcriptText.indexOf('\n', idx + pattern.length);
+        const snippet = transcriptText.slice(
+          lineStart,
+          lineEnd !== -1 ? lineEnd : transcriptText.length
+        ).trim();
+        // Store the FULL line — only truncate for display
         return { status: 'verified', quote: snippet, foundBy: 'validator' };
       }
     }
@@ -172,10 +175,12 @@ function findEvidence(
   for (const word of words) {
     const idx = lowerTranscript.indexOf(word);
     if (idx !== -1) {
-      const start = Math.max(0, idx - 40);
-      const end = Math.min(transcriptText.length, idx + 70);
-      let snippet = transcriptText.slice(start, end).replace(/\n/g, ' ').trim();
-      if (snippet.length > 90) snippet = snippet.substring(0, 90) + '...';
+      const lineStart = transcriptText.lastIndexOf('\n', idx) + 1;
+      const lineEnd = transcriptText.indexOf('\n', idx + word.length);
+      const snippet = transcriptText.slice(
+        lineStart,
+        lineEnd !== -1 ? lineEnd : transcriptText.length
+      ).trim();
       return { status: 'verified', quote: snippet, foundBy: 'validator' };
     }
   }
