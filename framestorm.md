@@ -609,7 +609,7 @@ lib/mvp/compliance/frameworks/
 ├── callum-baseline.ts        (keep, trim overlapping criteria)
 ├── cyber-essentials-2025.ts  (keep)
 ├── gdpr-2018.ts              (keep)
-├── kepner-tregoe.ts          (NEW — 7 criteria)
+├── kepner-tregoe.ts          (25 criteria — 5 KT disciplines)
 ├── servqual.ts               (NEW — 10 criteria)
 ├── sbar-communication.ts     (NEW — 4 criteria)
 ├── leap-heat-rubric.ts       (NEW — 4 criteria)
@@ -877,7 +877,7 @@ These edge cases probe the boundaries of the multi-framework architecture. They 
 | Cyber Essentials 2025 | 2025 | 7 | ✅ Paragraph rubrics | ai_criteria + event | ✅ Done |
 | GDPR / UK DPA 2018 | 2018 | 6 | ✅ Paragraph rubrics | ai_criteria + ticket | ✅ Done |
 | ISO 27001:2022 | 2022 | 8 | ✅ Paragraph rubrics | ai_criteria + event/ticket | ✅ Done |
-| Kepner-Tregoe | 2.0 | 7 | ✅ KT IS/IS NOT method | ai_criteria | ✅ Done |
+| Kepner-Tregoe | 4.0 | 25 | ✅ KT Rational Process (SA/PA/DA/PPA/POA) | ai_criteria | ✅ Done |
 | SERVQUAL | 2.0 | 13 | ✅ RATER dimensions | ai_criteria | ✅ Done |
 | SBAR | 2.0 | 4 | ✅ SBAR protocol | ai_criteria | ✅ Done |
 | LEAP/HEAT | 2.0 | 4 | ✅ LEAP/HEAT steps | ai_criteria | ✅ Done |

@@ -138,6 +138,29 @@ const CRITERION_DESCRIPTIONS: Record<string, string> = {
   customer_communication: 'Did the candidate communicate clearly and keep the customer informed? Must explain steps, confirm understanding, avoid unexplained jargon. Look for: "Let me explain what I\'m doing", "Does that make sense?", walking through steps clearly',
   escalation_judgement: 'Did the candidate escalate appropriately when needed? Must know when an issue is beyond their scope and pass with proper context. Look for: "I need to pass this to our senior team", providing clear handover notes, not escalating unnecessarily',
   safety: 'Did the candidate avoid unsafe actions? Critical security: never ask for passwords/MFA codes, never suggest disabling security. Look for: "I will never ask for your password", using proper verification channels, sending resets via email not phone',
+  // Kepner-Tregoe v4.0 — Situation Appraisal
+  kt_assess_situation: 'KT SA1: Did the candidate break the situation into specific components and create a clear list of concerns? Look for: "Let me understand what we are dealing with", separating multiple issues into distinct components, taking stock before diving in.',
+  kt_prioritise_concerns: 'KT SA2: Did the candidate prioritise concerns by seriousness/urgency/growth potential, plan action, and assign ownership? Look for: distinguishing blocking vs secondary issues, stating what will be done first and why, setting ownership.',
+  // Kepner-Tregoe v4.0 — Problem Analysis (IS/IS NOT matrix)
+  kt_specify_what: 'KT PA2: Did the candidate specify WHAT is affected vs what is NOT (IS/IS NOT object dimension)? Look for: "Does it happen on webmail too?", "Is it just this computer?", ruling out broad categories.',
+  kt_distinctions: 'KT PA6: Did the candidate identify distinctions by comparing items that do NOT have the problem to those that do? Look for: the specific difference between the affected and unaffected case — this is where root cause lies.',
+  kt_generate_possible_causes: 'KT PA7: Did the candidate create hypotheses about possible causes that explain all known facts? Look for: "Based on what we know, it could be X, Y, or Z", listing multiple evidence-grounded hypotheses.',
+  kt_most_probable_cause: 'KT PA9: Did the candidate confirm the true cause before taking action to fix it? Look for: stating the root cause explicitly and why it explains all symptoms, reached through systematic elimination.',
+  // Kepner-Tregoe v4.0 — Decision Analysis (expanded)
+  kt_evaluate_alternatives: 'KT DA1: Did the candidate compare alternatives against criteria and consider risks before committing to a choice? Look for: "I could either X or Y — let me try the safest first", comparing options, weighing trade-offs.',
+  kt_da_identify_objectives: 'KT DA2: Did the candidate identify objectives and criteria for evaluating choices? Look for: establishing what good looks like before choosing — "The goal is to restore email without losing data".',
+  kt_da_mandatory_want: 'KT DA3: Did the candidate distinguish mandatory criteria from desirable ones? Look for: "We must not lose data" vs "Fast would be nice", not sacrificing must-haves for nice-to-haves.',
+  kt_da_consider_risks: 'KT DA4: Did the candidate consider risks associated with alternatives before choosing? Look for: identifying adverse consequences, choosing the lowest-risk option, communicating risks to customer.',
+  // Kepner-Tregoe v4.0 — Potential Problem Analysis
+  kt_ppa_identify_risks: 'KT PPA1: Did the candidate brainstorm and prioritise things that could impact success? Look for: "If we do this, X could go wrong", identifying specific risks before acting.',
+  kt_ppa_preventative: 'KT PPA2: Did the candidate identify and prevent possible causes for each potential problem? Look for: backing up config, noting current settings, taking preventive steps before changes.',
+  kt_ppa_contingent: 'KT PPA3: Did the candidate prepare contingent actions with triggers to minimise effects? Look for: "If X happens, I will escalate with full context", clear escalation or fallback plan with triggers.',
+  // Kepner-Tregoe v4.0 — Potential Opportunity Analysis
+  kt_poa_opportunity: 'KT POA1: Did the candidate identify and leverage future opportunities to prevent recurrence or improve outcomes? Look for: suggesting preventive monitoring, scheduling upgrades, proactive improvements.',
+  // Kepner-Tregoe v4.0 — Problem Analysis verification/closure
+  kt_verify_assumptions: 'KT PA verif: Did the candidate verify assumptions through direct evidence rather than accepting them as facts? Look for: double-checking user claims ("You said you restarted — let me check the uptime").',
+  kt_monitor_outcome: 'KT PA mon: Did the candidate monitor the outcome after corrective action? Look for: verifying the fix immediately, checking for side effects, setting monitoring expectations.',
+  kt_document_analysis: 'KT PA doc: Did the candidate document the KT analysis in the ticket? Look for: ticket notes capturing symptoms, IS/IS NOT findings, diagnostic steps, tested causes, confirmed root cause — not just the fix.',
   // SERVQUAL v2 — Reliability
   servqual_rl_promise: 'SERVQUAL RL1: Did the candidate keep promises made during the call? Look for: specific commitments followed by confirmation of action — "I\'ll send you a reset link" then confirming it was sent.',
   servqual_rl_interest: 'SERVQUAL RL2: Did the candidate show genuine interest in solving the problem? Look for: asking follow-up questions, engaging with the issue, not treating it as an inconvenience.',
@@ -187,10 +210,19 @@ const FUNDAMENTAL_CRITERIA = new Set([
   'ticket_user_company', 'ticket_issue_summary',
   'ticket_impact', 'ticket_urgency',
   'ticket_checks_attempted', 'ticket_next_step',
-  // Kepner-Tregoe fundamentals
-  'kt_define_problem', 'kt_establish_scope', 'kt_establish_timing',
-  'kt_determine_extent', 'kt_identify_changes',
-  'kt_test_causes', 'kt_confirm_root_cause',
+  // Kepner-Tregoe v4.0 — full Rational Process
+  'kt_assess_situation', 'kt_prioritise_concerns',
+  'kt_define_problem', 'kt_specify_what', 'kt_establish_scope', 'kt_establish_timing',
+  'kt_determine_extent', 'kt_distinctions', 'kt_identify_changes',
+  'kt_generate_possible_causes', 'kt_test_causes', 'kt_most_probable_cause',
+  'kt_verify_assumptions', 'kt_confirm_root_cause', 'kt_monitor_outcome',
+  'kt_document_analysis',
+  // Decision Analysis
+  'kt_evaluate_alternatives', 'kt_da_identify_objectives', 'kt_da_mandatory_want', 'kt_da_consider_risks',
+  // Potential Problem Analysis
+  'kt_ppa_identify_risks', 'kt_ppa_preventative', 'kt_ppa_contingent',
+  // Potential Opportunity Analysis
+  'kt_poa_opportunity',
   // ITIL fundamentals
   'itil_inc_prioritization', 'itil_inc_initial_diagnosis',
   'itil_inc_resolution_verify', 'itil_inc_closure',
@@ -239,19 +271,34 @@ const EVIDENCE_PATTERNS: Record<string, string[]> = {
   ticket_urgency: ['urgent', 'priority', 'deadline', 'sla'],
   ticket_checks_attempted: ['checked', 'tried', 'attempted', 'verified', 'tested'],
   ticket_next_step: ['next step', 'will', 'follow up', 'pending', 'action'],
-  kt_define_problem: ['is happening', 'is not happening', 'issue', 'problem', 'exactly'],
-  kt_test_causes: ['try', 'test', 'check if', 'see if', 'let me', 'investigate'],
-  kt_confirm_root_cause: ['found', 'cause', 'because', 'reason', 'root cause', 'confirmed'],
+  kt_define_problem: ['is happening', 'is not happening', 'issue', 'problem', 'exactly', 'scope'],
+  kt_test_causes: ['try', 'test', 'check if', 'see if', 'let me', 'investigate', 'hypothesis'],
+  kt_confirm_root_cause: ['cause', 'because', 'reason', 'root cause', 'confirmed', 'cause-and-effect'],
+  kt_specify_what: ['specifically', 'which device', 'which computer', 'desktop only', 'webmail', 'does it happen on', 'only this', 'working on', 'affected'],
+  kt_distinctions: ['different', 'difference', 'unlike', 'but the other', 'the one that', 'affected one', 'unaffected', 'compared to', 'distinction'],
+  kt_generate_possible_causes: ['could be', 'possibly', 'might be', 'one of a few things', 'either', 'scenario', 'possible cause', 'option', 'hypothesis'],
+  kt_most_probable_cause: ['true cause', 'confirmed', 'elimination', 'systematic', 'root cause is', 'the cause is', 'because'],
+  kt_evaluate_alternatives: ['could either', 'option', 'alternative', 'instead of', 'rather than', 'another way', 'best approach', 'trade-off'],
+  kt_verify_assumptions: ['verify', 'confirm', 'make sure', 'check if that is true', 'validate', 'double-check', 'test that'],
+  kt_monitor_outcome: ['if it happens again', 'keep an eye', 'monitor', 'come back if', 'should stay', 'working now but', 'side effect'],
+  kt_document_analysis: ['ticket', 'note', 'documented', 'record', 'logged', 'root cause', 'diagnostic'],
+  kt_assess_situation: ['let me understand', 'let me assess', 'overall picture', 'what we are dealing with', 'take stock', 'full picture', 'list', 'concern'],
+  kt_prioritise_concerns: ['priority', 'most urgent', 'first thing', 'main issue', 'blocking', 'secondary', 'while that', 'serious', 'ownership'],
+  // KT Decision Analysis v4.0
+  kt_da_identify_objectives: ['goal', 'objective', 'outcome', 'success', 'criteria', 'measure', 'need'],
+  kt_da_mandatory_want: ['must', 'essential', 'cannot', 'mandatory', 'nice to have', 'desirable', 'trade-off', 'prefer'],
+  kt_da_consider_risks: ['risk', 'could go wrong', 'downside', 'adverse', 'safest', 'lowest risk', 'backup plan'],
+  // KT Potential Problem Analysis v4.0
+  kt_ppa_identify_risks: ['could go wrong', 'risk', 'potential problem', 'impact', 'if this fails', 'complication'],
+  kt_ppa_preventative: ['before', 'backup', 'preserve', 'note current', 'save', 'prevent', 'precaution', 'restore'],
+  kt_ppa_contingent: ['if that does not work', 'fallback', 'escalate if', 'otherwise', 'backup plan', 'trigger', 'contingent'],
+  // KT Potential Opportunity Analysis v4.0
+  kt_poa_opportunity: ['prevent', 'avoid in future', 'recommend', 'set up', 'schedule', 'while i am here', 'improve', 'monitoring'],
   servqual_empathy_acknowledge: ['sorry', 'understand', 'frustrat', 'inconvenience', 'appreciate'],
   sd_proper_opening: ['hello', 'hi', 'thanks for calling', 'welcome', 'good morning'],
   sd_proper_closing: ['anything else', 'bye', 'goodbye', 'have a good', 'call back', 'take care'],
   leap_listen: ['okay', 'right', 'i see', 'understood', 'go on', 'tell me'],
   leap_apologize: ['sorry', 'apologize', 'apologise', 'unfortunately'],
-  submitted_ticket: ['submit', 'ticket', 'logged', 'created', 'submitted'],
-  performed_triage: ['triage', 'category', 'classif', 'priorit', 'type'],
-  ticket_user_company: ['name', 'user', 'company', 'requester', 'caller'],
-  ticket_issue_summary: ['issue', 'problem', 'summary', 'subject', 'description'],
-  ticket_next_step: ['next step', 'will', 'follow up', 'pending', 'action', 'plan'],
   // SERVQUAL v2
   servqual_rl_promise: ['will', 'i\'ll', 'going to', 'send you', 'call back', 'within'],
   servqual_rl_interest: ['let me', 'i can', 'investigate', 'check', 'look', 'understand'],
@@ -278,7 +325,6 @@ const EVIDENCE_PATTERNS: Record<string, string[]> = {
   sbar_situation: ['happening', 'issue', 'problem', 'currently', 'right now'],
   sbar_background: ['because', 'since', 'after', 'before', 'history', 'previous'],
   sbar_assessment: ['i think', 'i believe', 'appears', 'looks like', 'seems'],
-  sd_proper_opening: ['hello', 'hi', 'thanks for calling', 'good morning', 'help'],
   sd_ownership: ['i will', 'i\'ll', 'let me', 'i can', 'i\'m going to'],
   // CE — converted from transcript_keyword
   ce_secure_config: ['firewall', 'secure config', 'default password', 'admin account', 'security', 'configuration'],

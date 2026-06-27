@@ -18,6 +18,7 @@ function ensureAudioContext() {
 export function useCustomerAudio(token: string) {
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const onPlayingRef = useRef<((playing: boolean) => void) | null>(null);
+  const onTtsEndRef = useRef<((endedAtMs: number) => void) | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   useEffect(() => {
@@ -59,12 +60,14 @@ export function useCustomerAudio(token: string) {
         URL.revokeObjectURL(url);
         if (currentAudioRef.current === audio) currentAudioRef.current = null;
         onPlayingRef.current?.(false);
+        onTtsEndRef.current?.(Date.now());
       };
 
       audio.onerror = () => {
         URL.revokeObjectURL(url);
         if (currentAudioRef.current === audio) currentAudioRef.current = null;
         onPlayingRef.current?.(false);
+        onTtsEndRef.current?.(Date.now());
       };
 
       /* Try to play — handle autoplay blocking */
@@ -97,5 +100,11 @@ export function useCustomerAudio(token: string) {
     }
   }, []);
 
-  return { speak, stop, autoplayBlocked, setOnPlaying: (cb: (playing: boolean) => void) => { onPlayingRef.current = cb; } };
+  return {
+    speak,
+    stop,
+    autoplayBlocked,
+    setOnPlaying: (cb: (playing: boolean) => void) => { onPlayingRef.current = cb; },
+    setOnTtsEnd: (cb: (endedAtMs: number) => void) => { onTtsEndRef.current = cb; },
+  };
 }

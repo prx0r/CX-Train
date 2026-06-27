@@ -247,7 +247,7 @@ T5 Ambiguous PII       | 77 ✓    | 52 ✗     | 48 ✗ | 92 ✓| 80 ✓    | 5
 |----------|---------|
 | `scripts/test-e2e-ai.ts` | End-to-end test harness with real AI calls |
 | `tests/fixtures/analysis-engine/tricky-*.json` | 4 edge-case test transcripts |
-| `lib/mvp/compliance/frameworks/kepner-tregoe.ts` | Kepner-Tregoe framework (7 criteria) |
+| `lib/mvp/compliance/frameworks/kepner-tregoe.ts` | Kepner-Tregoe framework v4.0 (25 criteria, 5 KT disciplines) |
 | `lib/mvp/compliance/frameworks/servqual.ts` | SERVQUAL framework (10 criteria) |
 | `lib/mvp/compliance/frameworks/sbar-communication.ts` | SBAR framework (4 criteria) |
 | `lib/mvp/compliance/frameworks/leap-heat-rubric.ts` | LEAP/HEAT framework (4 criteria) |

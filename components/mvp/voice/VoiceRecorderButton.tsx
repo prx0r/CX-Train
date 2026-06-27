@@ -20,6 +20,14 @@ type Props = {
   disabled?: boolean;
   /** When true, clicks toggle recording on/off instead of hold-to-talk */
   clickToToggle?: boolean;
+  /** When incremented, auto-starts recording */
+  autoRecordTrigger?: number;
+  /** Called with timestamp when recording actually started (for latency tracking) */
+  onRecordingStarted?: (startedAtMs: number) => void;
+  /** When incremented, flushes the full call recording blob to onFullRecording */
+  flushRecordingTrigger?: number;
+  /** Called with the full call recording blob when flushRecordingTrigger fires */
+  onFullRecording?: (blob: Blob, mimeType: string) => void;
 };
 
 function chooseRecorderMimeType(): string | undefined {
@@ -39,13 +47,39 @@ function audioExtension(mimeType: string): string {
   return 'webm';
 }
 
-export function VoiceRecorderButton({ token, onTranscript, disabled, clickToToggle }: Props) {
+export function VoiceRecorderButton({ token, onTranscript, disabled, clickToToggle, autoRecordTrigger, onRecordingStarted, flushRecordingTrigger, onFullRecording }: Props) {
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState('');
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const fullCallChunksRef = useRef<Blob[]>([]);
   const startTimeRef = useRef<number>(0);
+  const autoTriggerRef = useRef<number>(0);
 
+  /* Auto-record when trigger increments */
+  useEffect(() => {
+    if (autoRecordTrigger !== undefined && autoRecordTrigger > autoTriggerRef.current) {
+      autoTriggerRef.current = autoRecordTrigger;
+      if (!disabled && !recording) {
+        startRecording();
+      }
+    }
+  }, [autoRecordTrigger, disabled, recording]);
+
+  /* Flush full recording when trigger increments */
+  const flushTriggerRef = useRef<number>(0);
+  useEffect(() => {
+    if (flushRecordingTrigger !== undefined && flushRecordingTrigger > flushTriggerRef.current) {
+      flushTriggerRef.current = flushRecordingTrigger;
+      if (fullCallChunksRef.current.length > 0 && onFullRecording) {
+        const mimeType = recorderRef.current?.mimeType || 'audio/webm';
+        const blob = new Blob(fullCallChunksRef.current, { type: mimeType });
+        onFullRecording(blob, mimeType);
+      }
+    }
+  }, [flushRecordingTrigger, onFullRecording]);
+
+  /* Cleanup on unmount */
   useEffect(() => {
     return () => {
       recorderRef.current?.stream?.getTracks().forEach(t => t.stop());
@@ -76,6 +110,7 @@ export function VoiceRecorderButton({ token, onTranscript, disabled, clickToTogg
 
       chunksRef.current = [];
       startTimeRef.current = Date.now();
+      onRecordingStarted?.(startTimeRef.current);
 
       const requestedMimeType = chooseRecorderMimeType();
 
@@ -84,7 +119,10 @@ export function VoiceRecorderButton({ token, onTranscript, disabled, clickToTogg
         : new MediaRecorder(stream);
 
       recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data);
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+          fullCallChunksRef.current.push(event.data);
+        }
       };
 
       recorder.onstop = async () => {

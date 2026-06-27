@@ -60,12 +60,24 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   const [showTranscript, setShowTranscript] = useState(false);
   const [triageState, setTriageState] = useState<TicketTriageState>(initialTriageState);
   const actionFeedbackTimer = useRef<ReturnType<typeof setTimeout>>();
-  const { speak, setOnPlaying, autoplayBlocked } = useCustomerAudio(token);
+  const { speak, setOnPlaying, setOnTtsEnd, autoplayBlocked } = useCustomerAudio(token);
   const [taxonomy, setTaxonomy] = useState<ManagerTicketTaxonomy>(DEFAULT_TICKET_TAXONOMY);
+  const [autoRecordTrigger, setAutoRecordTrigger] = useState(0);
+  const [flushRecordingTrigger, setFlushRecordingTrigger] = useState(0);
+  const ttsEndedAtRef = useRef<number | null>(null);
+  const responseStartedAtRef = useRef<number | null>(null);
 
   const triageSubmitted = !!triageState.submittedAt;
 
   useEffect(() => { setOnPlaying(setTtsPlaying); }, [setOnPlaying]);
+
+  useEffect(() => {
+    setOnTtsEnd((endedAtMs: number) => {
+      ttsEndedAtRef.current = endedAtMs;
+      responseStartedAtRef.current = null;
+      setAutoRecordTrigger(n => n + 1);
+    });
+  }, [setOnTtsEnd]);
 
   const loadSim = useCallback(async () => {
     try {
@@ -198,6 +210,8 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     setCallStatus('thinking');
     const endedAtMs = Date.now();
     const startedAtMs = voice?.durationMs ? Math.max(0, endedAtMs - voice.durationMs) : endedAtMs;
+    const ttsEndedAtMs = ttsEndedAtRef.current;
+    const responseStartedMs = responseStartedAtRef.current;
     try {
       const res = await fetch(`/api/mvp/assessment/${token}/message`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -205,6 +219,8 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
           message: msg, input_source: 'voice',
           started_at_ms: startedAtMs, ended_at_ms: endedAtMs,
           duration_ms: voice?.durationMs, audio_metadata: voice?.metadata,
+          tts_ended_at_ms: ttsEndedAtMs,
+          response_started_at_ms: responseStartedMs,
         }),
       });
       const d = await res.json();
@@ -219,6 +235,18 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
 
   async function handleVoiceTranscript(result: VoiceTranscriptResult) {
     await sendMessage(result.text, result);
+  }
+
+  async function handleFullRecording(blob: Blob, mimeType: string) {
+    const durationMs = Date.now() - (document.querySelector('[data-call-start]')?.getAttribute('data-call-start') ? parseInt(document.querySelector('[data-call-start]')!.getAttribute('data-call-start')!) : Date.now());
+    const formData = new FormData();
+    formData.append('audio', blob, `call.${mimeType.includes('webm') ? 'webm' : 'wav'}`);
+    formData.append('duration_ms', String(durationMs));
+    try {
+      await fetch(`/api/mvp/assessment/${token}/recording`, { method: 'POST', body: formData });
+    } catch (err) {
+      console.warn('[Recording] Upload failed:', err);
+    }
   }
 
   async function postActiveNote() {
@@ -255,6 +283,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     recordUiAction('end_call', 'End customer call', 'tool_opened');
     setCallStatus('ended');
     setPhase('ticketing');
+    setFlushRecordingTrigger(n => n + 1);
   }
 
   function openRemoteDesktop() {
@@ -407,7 +436,16 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
           onStartCall={answerCall}
           onEndCall={endCall}
           micButton={capabilities.voice ? (
-            <VoiceRecorderButton token={token} onTranscript={handleVoiceTranscript} disabled={callStatus !== 'active' || ttsPlaying || sending} clickToToggle />
+            <VoiceRecorderButton
+              token={token}
+              onTranscript={handleVoiceTranscript}
+              disabled={callStatus !== 'active' || ttsPlaying || sending}
+              clickToToggle
+              autoRecordTrigger={autoRecordTrigger}
+              flushRecordingTrigger={flushRecordingTrigger}
+              onRecordingStarted={(ms) => { responseStartedAtRef.current = ms; }}
+              onFullRecording={handleFullRecording}
+            />
           ) : null}
         />
       )}

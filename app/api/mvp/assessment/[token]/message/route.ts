@@ -35,6 +35,12 @@ export async function POST(
     const endedAtMs = body.ended_at_ms || Date.now();
     const inputSource = body.input_source || 'text';
     const audioMetadata = body.audio_metadata || null;
+    const responseStartedAtMs = body.response_started_at_ms || null;
+    const ttsEndedAtMs = body.tts_ended_at_ms || null;
+
+    const payload: Record<string, unknown> = {};
+    if (responseStartedAtMs != null) payload.response_started_at_ms = responseStartedAtMs;
+    if (ttsEndedAtMs != null) payload.tts_ended_at_ms = ttsEndedAtMs;
 
     const db = getDb();
 
@@ -52,6 +58,7 @@ export async function POST(
       ended_at_ms: endedAtMs,
       input_source: inputSource as any,
       audio_metadata: audioMetadata,
+      payload: Object.keys(payload).length > 0 ? payload : undefined,
     });
 
     /* Build conversation history */

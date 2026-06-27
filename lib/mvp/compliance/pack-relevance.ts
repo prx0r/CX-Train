@@ -43,6 +43,17 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'iso_escalation',
       'iso_classification',
     ],
+    kepner_tregoe: [
+      'kt_assess_situation', 'kt_prioritise_concerns',
+      'kt_define_problem', 'kt_specify_what', 'kt_establish_scope', 'kt_establish_timing',
+      'kt_determine_extent', 'kt_distinctions', 'kt_identify_changes',
+      'kt_generate_possible_causes', 'kt_test_causes', 'kt_most_probable_cause',
+      'kt_verify_assumptions', 'kt_confirm_root_cause', 'kt_monitor_outcome',
+      'kt_document_analysis',
+      'kt_evaluate_alternatives', 'kt_da_identify_objectives', 'kt_da_mandatory_want', 'kt_da_consider_risks',
+      'kt_ppa_identify_risks', 'kt_ppa_preventative', 'kt_ppa_contingent',
+      'kt_poa_opportunity',
+    ],
   },
 
   'pack-password-reset-v1': {
@@ -75,6 +86,17 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'iso_classification',
       'iso_records_protection',
     ],
+    kepner_tregoe: [
+      'kt_assess_situation', 'kt_prioritise_concerns',
+      'kt_define_problem', 'kt_specify_what', 'kt_establish_scope', 'kt_establish_timing',
+      'kt_determine_extent', 'kt_distinctions', 'kt_identify_changes',
+      'kt_generate_possible_causes', 'kt_test_causes', 'kt_most_probable_cause',
+      'kt_verify_assumptions', 'kt_confirm_root_cause', 'kt_monitor_outcome',
+      'kt_document_analysis',
+      'kt_evaluate_alternatives', 'kt_da_identify_objectives', 'kt_da_mandatory_want', 'kt_da_consider_risks',
+      'kt_ppa_identify_risks', 'kt_ppa_preventative', 'kt_ppa_contingent',
+      'kt_poa_opportunity',
+    ],
   },
 
   'pack-new-starter-v1': {
@@ -102,6 +124,17 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'iso_incident_management',
       'iso_classification',
       'iso_records_protection',
+    ],
+    kepner_tregoe: [
+      'kt_assess_situation', 'kt_prioritise_concerns',
+      'kt_define_problem', 'kt_specify_what', 'kt_establish_scope', 'kt_establish_timing',
+      'kt_determine_extent', 'kt_distinctions', 'kt_identify_changes',
+      'kt_generate_possible_causes', 'kt_test_causes', 'kt_most_probable_cause',
+      'kt_verify_assumptions', 'kt_confirm_root_cause', 'kt_monitor_outcome',
+      'kt_document_analysis',
+      'kt_evaluate_alternatives', 'kt_da_identify_objectives', 'kt_da_mandatory_want', 'kt_da_consider_risks',
+      'kt_ppa_identify_risks', 'kt_ppa_preventative', 'kt_ppa_contingent',
+      'kt_poa_opportunity',
     ],
   },
 
@@ -132,6 +165,17 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'iso_classification',
       'iso_records_protection',
       'iso_security_awareness',
+    ],
+    kepner_tregoe: [
+      'kt_assess_situation', 'kt_prioritise_concerns',
+      'kt_define_problem', 'kt_specify_what', 'kt_establish_scope', 'kt_establish_timing',
+      'kt_determine_extent', 'kt_distinctions', 'kt_identify_changes',
+      'kt_generate_possible_causes', 'kt_test_causes', 'kt_most_probable_cause',
+      'kt_verify_assumptions', 'kt_confirm_root_cause', 'kt_monitor_outcome',
+      'kt_document_analysis',
+      'kt_evaluate_alternatives', 'kt_da_identify_objectives', 'kt_da_mandatory_want', 'kt_da_consider_risks',
+      'kt_ppa_identify_risks', 'kt_ppa_preventative', 'kt_ppa_contingent',
+      'kt_poa_opportunity',
     ],
   },
 };

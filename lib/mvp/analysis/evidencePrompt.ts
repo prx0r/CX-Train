@@ -19,10 +19,33 @@ const CRITERIA_DEFINITIONS = [
   { key: 'customer_communication', label: 'Candidate communicated clearly and respectfully throughout' },
   { key: 'escalation_judgement', label: 'Candidate showed appropriate escalation judgement' },
   { key: 'safety', label: 'Candidate avoided unsafe advice or invented fixes' },
-  // Kepner-Tregoe
-  { key: 'kt_define_problem', label: 'Candidate defined what IS happening vs what IS NOT happening (problem boundary)' },
-  { key: 'kt_test_causes', label: 'Candidate tested possible causes before jumping to a fix' },
-  { key: 'kt_confirm_root_cause', label: 'Candidate confirmed the root cause before implementing the fix' },
+  // Kepner-Tregoe v4.0 — Full KT Rational Process
+  // Discipline 1: Situation Appraisal
+  { key: 'kt_assess_situation', label: 'Candidate broke the situation into specific components and created a clear list of concerns (KT Situation Appraisal)' },
+  { key: 'kt_prioritise_concerns', label: 'Candidate prioritised concerns by seriousness/urgency/growth, planned action, assigned ownership (KT prioritisation)' },
+  // Discipline 2: Problem Analysis — IS/IS NOT matrix
+  { key: 'kt_define_problem', label: 'Candidate defined the problem scope using a clear IS/IS NOT problem statement (KT problem boundary)' },
+  { key: 'kt_specify_what', label: 'Candidate specified WHAT is affected vs what is NOT (KT What IS/IS NOT — object dimension)' },
+  { key: 'kt_distinctions', label: 'Candidate identified distinctions by comparing items that do NOT have the problem to those that do (KT distinction analysis)' },
+  { key: 'kt_generate_possible_causes', label: 'Candidate created hypotheses about possible causes that explain all known facts (KT hypothesis generation)' },
+  { key: 'kt_test_causes', label: 'Candidate tested hypotheses in logical order to eliminate ones that do not support known facts (KT cause testing)' },
+  { key: 'kt_most_probable_cause', label: 'Candidate confirmed the true cause before taking action to fix it (KT cause confirmation)' },
+  // Discipline 3: Decision Analysis
+  { key: 'kt_evaluate_alternatives', label: 'Candidate compared alternatives against criteria and considered risks before committing to a choice (KT Decision Analysis)' },
+  { key: 'kt_da_identify_objectives', label: 'Candidate identified objectives and criteria for evaluating choices, including measures of success (KT Decision Analysis)' },
+  { key: 'kt_da_mandatory_want', label: 'Candidate distinguished mandatory criteria from desirable ones and weighed their influence (KT Decision Analysis)' },
+  { key: 'kt_da_consider_risks', label: 'Candidate considered risks associated with alternatives before choosing (KT Decision Analysis)' },
+  // Discipline 4: Potential Problem Analysis
+  { key: 'kt_ppa_identify_risks', label: 'Candidate brainstormed and prioritised things that could impact success of a plan or action (KT Potential Problem Analysis)' },
+  { key: 'kt_ppa_preventative', label: 'Candidate identified and prevented possible causes for each potential problem (KT preventative action)' },
+  { key: 'kt_ppa_contingent', label: 'Candidate prepared contingent actions with triggers to minimise effects if problems happen (KT contingent planning)' },
+  // Discipline 5: Potential Opportunity Analysis
+  { key: 'kt_poa_opportunity', label: 'Candidate identified and leveraged future opportunities to prevent recurrence or improve outcomes (KT Potential Opportunity Analysis)' },
+  // Problem Analysis — Verification (closure of the PA discipline)
+  { key: 'kt_verify_assumptions', label: 'Candidate verified assumptions through direct evidence rather than accepting them as facts (KT assumption verification)' },
+  { key: 'kt_confirm_root_cause', label: 'Candidate demonstrated cause-and-effect: corrective action addresses the identified cause (KT cause confirmation)' },
+  { key: 'kt_monitor_outcome', label: 'Candidate monitored outcome after corrective action to confirm the fix stayed working (KT outcome monitoring)' },
+  { key: 'kt_document_analysis', label: 'Candidate documented the KT analysis in the ticket, not just the resolution (KT analysis documentation)' },
   // SERVQUAL
   { key: 'servqual_reliability_followthrough', label: 'Candidate followed through on commitments (callbacks, escalations, actions they promised)' },
   { key: 'servqual_reliability_accuracy', label: 'Candidate provided accurate technical information' },

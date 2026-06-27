@@ -43,3 +43,5 @@ yarn-error.log*
 Thumbs.db
 .vercel
 data/mvp.db
+data/recordings/*
+!data/recordings/.gitkeep

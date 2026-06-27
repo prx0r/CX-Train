@@ -223,6 +223,10 @@ export function initTables(): void {
     /* v4 — compliance assessment results */
     `ALTER TABLE assessment_results ADD COLUMN compliance_score INTEGER`,
     `ALTER TABLE assessment_results ADD COLUMN compliance_json TEXT`,
+
+    /* v5 — audio recording analysis */
+    `ALTER TABLE assessment_results ADD COLUMN recording_path TEXT`,
+    `ALTER TABLE assessment_results ADD COLUMN recording_analysis_json TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }
