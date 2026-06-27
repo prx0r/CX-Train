@@ -3,17 +3,11 @@ import { join } from 'path';
 import { scoreExtraction, DEFAULT_WEIGHTS } from '@/lib/mvp/analysis/scoring';
 import { evaluateAllFrameworks } from '@/lib/mvp/compliance/evaluator';
 import { DEFAULT_FRAMEWORKS } from '@/lib/mvp/compliance/frameworks';
+import { computeScoredAssessment, DEFAULT_CATEGORY_DEFS } from '@/lib/mvp/results/scoring-calculator';
+import type { ValidationFlags } from '@/lib/mvp/results/scoring-calculator';
 
 const FIXTURES_DIR = join(process.cwd(), 'tests', 'fixtures', 'analysis-engine');
 const ALL_W = Object.keys(DEFAULT_WEIGHTS);
-
-const CATS = [
-  { id: 'security_compliance', label: 'Security & Compliance', fws: ['cyber_essentials_2025', 'gdpr_2018'], weight: 25, color: '#dc2626' },
-  { id: 'technical_troubleshooting', label: 'Technical Troubleshooting', fws: ['kepner_tregoe', 'itil_incident_mgmt'], weight: 25, color: '#2563eb' },
-  { id: 'customer_experience', label: 'Customer Experience', fws: ['servqual', 'sbar_communication', 'leap_heat_rubric'], weight: 25, color: '#059669' },
-  { id: 'process_professionalism', label: 'Process & Professionalism', fws: ['itil_service_desk'], weight: 15, color: '#7c3aed' },
-  { id: 'msp_custom', label: 'MSP Custom', fws: ['callum_baseline_v1'], weight: 10, color: '#d97706' },
-];
 
 const RED_FLAG_INFO: Record<string, { label: string; color: string }> = {
   severe_customer_abuse: { label: 'Severe Customer Abuse', color: '#dc2626' },
@@ -24,15 +18,18 @@ const RED_FLAG_INFO: Record<string, { label: string; color: string }> = {
   no_troubleshooting: { label: 'No Troubleshooting', color: '#d97706' },
 };
 
+const CAT_COLORS: Record<string, string> = {
+  security_compliance: '#dc2626',
+  technical_troubleshooting: '#2563eb',
+  customer_experience: '#059669',
+  process_professionalism: '#7c3aed',
+  msp_custom: '#d97706',
+};
+
 /* ── Server-side computation ── */
 
-function loadTranscript(name: string) {
-  const raw = JSON.parse(readFileSync(join(FIXTURES_DIR, `${name}.json`), 'utf-8'));
-  return raw;
-}
-
 function compute(name: string) {
-  const fx = loadTranscript(name);
+  const fx = JSON.parse(readFileSync(join(FIXTURES_DIR, `${name}.json`), 'utf-8'));
   const exp = fx.expected;
   const passSet = new Set(exp.must_pass || []);
   const failSet = new Set(exp.must_fail || []);
@@ -60,239 +57,246 @@ function compute(name: string) {
   };
 
   const fwResults = evaluateAllFrameworks(evidencePool, DEFAULT_FRAMEWORKS, null);
-  const fwScores = (fwResults?.frameworks || []).map((f: any) => ({
+
+  /* Build the data structure the calculator expects */
+  const frameworkResults = (fwResults?.frameworks || []).map((f: any) => ({
     id: f.frameworkId,
     name: f.frameworkName,
+    category: f.frameworkId, // not used yet
     score: f.score,
-    passed: f.passed,
     criteria: (f.criteriaResults || []).map((c: any) => ({
       id: c.criterionId,
       label: c.label,
       status: c.status,
-      evidence: c.evidence,
-      earned: c.pointsEarned,
-      max: c.pointsMax,
+      weight: c.pointsMax || 1,
+      evidence: c.evidence ? [c.evidence] : [],
     })),
   }));
 
-  const categories = CATS.map(cat => {
-    const matched = fwScores.filter(f => cat.fws.includes(f.id));
-    const avg = matched.length > 0 ? Math.round(matched.reduce((s: number, f: any) => s + f.score, 0) / matched.length) : 0;
-    const passed = matched.some((f: any) => f.passed);
-    return { ...cat, score: avg, passed, frameworks: matched };
-  });
+  /* Use the transparent calculator */
+  const assessed = computeScoredAssessment(frameworkResults, DEFAULT_CATEGORY_DEFS);
 
-  let total = 0;
-  for (const c of categories) total += c.score * (c.weight / 100);
-  const totalScore = Math.round(total);
-
-  return { fx, scoring, totalScore, categories, fwScores, redFlags: Array.from(flagSet) as string[] };
+  return { fx, scoring, assessed, redFlags: Array.from(flagSet) as string[] };
 }
 
-/* ── Component ── */
-
-function ScoreBadge({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
-  const fontSize = size === 'lg' ? 36 : size === 'md' ? 24 : 16;
-  const color = score >= 70 ? '#059669' : score >= 50 ? '#d97706' : '#dc2626';
-  const label = score >= 70 ? 'Good' : score >= 50 ? 'Needs Work' : 'Unsatisfactory';
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize, fontWeight: 700, color, lineHeight: 1 }}>{score}</div>
-      <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>/ 100 · {label}</div>
-    </div>
-  );
-}
-
-function ReadinessBadge({ readiness }: { readiness: string }) {
-  const colors: Record<string, { bg: string; text: string; label: string }> = {
-    ready: { bg: '#d1fae5', text: '#065f46', label: 'READY' },
-    needs_supervision: { bg: '#fef3c7', text: '#92400e', label: 'NEEDS SUPERVISION' },
-    not_ready: { bg: '#fee2e2', text: '#991b1b', label: 'NOT READY' },
-  };
-  const c = colors[readiness] || colors.not_ready;
-  return (
-    <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: c.bg, color: c.text }}>
-      {c.label}
-    </span>
-  );
-}
+/* ── Sub-components ── */
 
 function Bar({ score, max, color, height = 8 }: { score: number; max: number; color: string; height?: number }) {
   const pct = Math.min(100, Math.round((score / max) * 100));
   return (
     <div style={{ height, background: '#e5e7eb', borderRadius: height, overflow: 'hidden', width: '100%' }}>
-      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: height, transition: 'width 0.3s' }} />
+      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: height }} />
     </div>
   );
 }
 
 /* ── Page ── */
 
-export default function ResultsDesignA({ searchParams }: { searchParams: { t?: string } }) {
+export default function ResultsPage({ searchParams }: { searchParams: { t?: string } }) {
   const transcript = searchParams.t || 'tricky-passive-aggressive';
-  const { fx, scoring, totalScore, categories, fwScores, redFlags } = compute(transcript);
-
-  const strengths = [
-    { icon: '🛡️', text: 'Security protocols followed correctly — identity verified before proceeding' },
-    { icon: '🔍', text: 'Issue clarified and diagnostic steps performed' },
-    { icon: '📋', text: 'Ticket documented with all required fields' },
-  ];
-  const weaknesses = [
-    { icon: '🗣️', text: 'Tone was dismissive — audible sighs and condescending language' },
-    { icon: '🔬', text: 'Root cause not systematically explored — jumped to solution' },
-    { icon: '📊', text: 'Business impact and urgency not fully established' },
-  ];
-  const nextSteps = [
-    { icon: '🎯', text: 'Practice Kepner-Tregoe IS/IS NOT method for structured diagnosis' },
-    { icon: '💬', text: 'Use LEAP framework on every call: Listen, Empathize, Apologize, Problem-solve' },
-    { icon: '📝', text: 'Document business impact and next steps in every ticket' },
-  ];
+  const { fx, scoring, assessed, redFlags } = compute(transcript);
 
   const transcriptText = fx.transcript.map((m: any) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-  const showRaw = searchParams.raw === '1';
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '32px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#111' }}>
-
-      {/* ── BACK LINK ── */}
-      <a href="/mvp/results" style={{ fontSize: 12, color: '#6b7280', textDecoration: 'none', display: 'block', marginBottom: 16 }}>
-        ← Back to results
-      </a>
+    <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#111' }}>
+      <a href="/mvp/results/design-a/list" style={{ fontSize: 12, color: '#6b7280', textDecoration: 'none', marginBottom: 16, display: 'block' }}>← All transcripts</a>
 
       {/* ── HEADER ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: '#111' }}>
-            {fx.name.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
-          </h1>
-          <p style={{ fontSize: 12, color: '#9ca3af', margin: '4px 0 0' }}>
-            Assessment · {fx.scenario_id} · {new Date().toLocaleDateString()}
-          </p>
-          {redFlags.length > 0 && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {redFlags.map((r: string) => (
-                <span key={r} style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, color: '#fff', background: RED_FLAG_INFO[r]?.color || '#6b7280' }}>
-                  ⚠ {RED_FLAG_INFO[r]?.label || r}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <ScoreBadge score={scoring.score} size="lg" />
-          <ReadinessBadge readiness={scoring.rating} />
-        </div>
-      </div>
-
-      {/* ── QUICK TAKEAWAYS ── */}
-      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#065f46', marginBottom: 6 }}>Quick Takeaways</div>
-        <div style={{ fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
-          {scoring.rating === 'not_ready' ? (
-            <>
-              This candidate showed technical competence but significant conduct issues prevented a passing score.
-              The troubleshooting was adequate but the dismissive tone and lack of systematic diagnosis method
-              indicate they are not yet ready for independent client-facing work. Focus coaching on customer interaction
-              skills and structured problem-solving methodology.
-            </>
-          ) : scoring.rating === 'needs_supervision' ? (
-            <>
-              The candidate handled most aspects of the call competently. Minor gaps in diagnostic methodology
-              and documentation completeness need addressing. With targeted coaching on structured problem-solving
-              (Kepner-Tregoe method) and communication frameworks (SBAR for escalations), this candidate
-              should be ready for independent work within weeks.
-            </>
-          ) : (
-            <>
-              The candidate demonstrated strong performance across all assessment categories. Security protocols
-              followed, customer handled professionally, issue resolved effectively, and ticket documented thoroughly.
-              Ready for independent client-facing work.
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── STRENGTHS | WEAKNESSES | NEXT STEPS ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24 }}>
-        {[
-          { title: 'Strengths', items: strengths, color: '#059669', bg: '#f0fdf4' },
-          { title: 'To Improve', items: weaknesses, color: '#dc2626', bg: '#fef2f2' },
-          { title: 'Next Steps', items: nextSteps, color: '#2563eb', bg: '#eff6ff' },
-        ].map(section => (
-          <div key={section.title} style={{ background: section.bg, borderRadius: 8, padding: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: section.color, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {section.title}
-            </div>
-            {section.items.map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, fontSize: 11, color: '#374151', marginBottom: 6, lineHeight: 1.4 }}>
-                <span>{item.icon}</span>
-                <span>{item.text}</span>
+      <div style={{
+        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+        border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, marginBottom: 20,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#0f172a' }}>
+              {fx.name.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+            </h1>
+            <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>
+              {fx.scenario_id} · {new Date().toLocaleDateString()}
+            </p>
+            {redFlags.length > 0 && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {redFlags.map((r: string) => (
+                  <span key={r} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, color: '#fff', background: RED_FLAG_INFO[r]?.color || '#6b7280' }}>
+                    ⚠ {RED_FLAG_INFO[r]?.label || r}
+                  </span>
+                ))}
               </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>RAW SCORE</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: assessed.totalScore >= 60 ? '#059669' : '#dc2626' }}>{assessed.totalScore}</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>VALIDATED</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: assessed.validatedScore >= 60 ? '#059669' : '#dc2626' }}>{assessed.validatedScore}</div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '4px 12px', borderRadius: 6, background: assessed.validation.confidence >= 80 ? '#d1fae5' : assessed.validation.confidence >= 60 ? '#fef3c7' : '#fee2e2' }}>
+              <div style={{ fontSize: 10, color: '#64748b' }}>CONFIDENCE</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: assessed.validation.confidence >= 80 ? '#065f46' : assessed.validation.confidence >= 60 ? '#92400e' : '#991b1b' }}>
+                {assessed.validation.confidence}%
+              </div>
+            </div>
+            <div style={{ padding: '4px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, background: scoring.rating === 'ready' ? '#d1fae5' : scoring.rating === 'needs_supervision' ? '#fef3c7' : '#fee2e2', color: scoring.rating === 'ready' ? '#065f46' : scoring.rating === 'needs_supervision' ? '#92400e' : '#991b1b' }}>
+              {scoring.rating.toUpperCase()}
+            </div>
+          </div>
+        </div>
+
+        {/* Validation warnings */}
+        {assessed.validation.warnings.length > 0 && (
+          <div style={{ marginTop: 12, padding: 10, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#991b1b', marginBottom: 4 }}>Validation Warnings</div>
+            {assessed.validation.warnings.map((w, i) => (
+              <div key={i} style={{ fontSize: 10, color: '#b91c1c', marginBottom: 2 }}>⚠ {w}</div>
             ))}
+          </div>
+        )}
+        {assessed.validation.extremeFlags.length > 0 && (
+          <div style={{ marginTop: 8, padding: 10, background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6 }}>
+            {assessed.validation.extremeFlags.map((f, i) => (
+              <div key={i} style={{ fontSize: 10, color: '#92400e' }}>⚠ {f}</div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── SCORE MATH BREAKDOWN ── */}
+      <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Score Breakdown</h2>
+      <p style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>
+        Each criterion has a weight. Framework score = (earned / max) × 100. Category = weighted average of its frameworks. Total = weighted average of categories.
+      </p>
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        {assessed.categories.map(cat => (
+          <div key={cat.id} style={{
+            flex: '1 1 150px', minWidth: 140,
+            background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#0f172a' }}>{cat.label}</span>
+              <span style={{ fontSize: 11, color: '#64748b' }}>({cat.weight}%)</span>
+            </div>
+            <Bar score={cat.rawScore} max={100} color={CAT_COLORS[cat.id] || '#6b7280'} height={6} />
+            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: cat.rawScore >= 70 ? '#059669' : cat.rawScore >= 50 ? '#d97706' : '#dc2626' }}>
+              {cat.rawScore}
+            </div>
+            <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 4 }}>
+              contributes {cat.weightedContribution.toFixed(1)} to total
+            </div>
           </div>
         ))}
       </div>
 
-      {/* ── CATEGORY SCORES ── */}
-      <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Category Scores</h2>
+      {/* ── DETAILED FRAMEWORK BREAKDOWN ── */}
+      <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Framework Details</h2>
       <div style={{ display: 'grid', gap: 8, marginBottom: 24 }}>
-        {categories.map(cat => (
-          <div key={cat.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: cat.passed ? '#059669' : '#dc2626', fontSize: 14, fontWeight: 700 }}>{cat.passed ? '✓' : '✗'}</span>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{cat.label}</span>
-                <span style={{ fontSize: 10, color: '#9ca3af' }}>({cat.weight}% of total)</span>
-              </div>
-              <span style={{ fontSize: 14, fontWeight: 700, color: cat.score >= 70 ? '#059669' : cat.score >= 50 ? '#d97706' : '#dc2626' }}>{cat.score}</span>
-            </div>
-            <Bar score={cat.score} max={100} color={cat.color} height={6} />
-
-            {/* Framework breakdowns */}
-            <div style={{ marginTop: 8 }}>
-              {cat.frameworks.map((fw: any) => (
-                <details key={fw.id} style={{ marginBottom: 4 }}>
-                  <summary style={{ fontSize: 11, color: '#6b7280', cursor: 'pointer', padding: '2px 0' }}>
-                    <span style={{ color: fw.passed ? '#059669' : '#dc2626', fontWeight: 600 }}>{fw.passed ? '✓' : '✗'}</span>
-                    {' '}{fw.name}
-                    <span style={{ float: 'right', fontWeight: 600, color: fw.score >= 70 ? '#059669' : fw.score >= 50 ? '#d97706' : '#dc2626' }}>{fw.score}/100</span>
+        {assessed.categories.map(cat => (
+          <details key={cat.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0 12px' }}>
+            <summary style={{ cursor: 'pointer', padding: '10px 0', fontSize: 13, fontWeight: 600, color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>
+                <span style={{ color: cat.rawScore >= 60 ? '#059669' : '#dc2626', marginRight: 8 }}>{cat.rawScore >= 60 ? '✓' : '✗'}</span>
+                {cat.label}
+              </span>
+              <span style={{ fontSize: 12, color: cat.rawScore >= 60 ? '#059669' : '#dc2626', fontWeight: 700 }}>{cat.rawScore}/100</span>
+            </summary>
+            <div style={{ padding: '0 0 12px 16px', borderLeft: '2px solid #e2e8f0', marginLeft: 4 }}>
+              {cat.frameworks.map(fw => (
+                <details key={fw.id} style={{ marginBottom: 6 }}>
+                  <summary style={{ cursor: 'pointer', padding: '4px 0', fontSize: 11, color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>
+                      <span style={{ color: fw.rawScore >= 70 ? '#059669' : '#dc2626', fontWeight: 700, marginRight: 4 }}>
+                        {fw.rawScore >= 70 ? '✓' : '✗'}
+                      </span>
+                      {fw.name}
+                      <span style={{ color: '#94a3b8', marginLeft: 4 }}>(weight: {fw.weight}% of category)</span>
+                    </span>
+                    <span style={{ fontWeight: 600, color: fw.rawScore >= 70 ? '#059669' : fw.rawScore >= 50 ? '#d97706' : '#dc2626' }}>
+                      {fw.rawScore}/100
+                    </span>
                   </summary>
-                  <div style={{ padding: '6px 0 2px 12px', borderLeft: '2px solid #e5e7eb', marginLeft: 4 }}>
-                    {fw.criteria.map((c: any) => (
-                      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontSize: 10, borderBottom: '1px solid #f3f4f6' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ color: c.status === 'pass' ? '#059669' : c.status === 'fail' ? '#dc2626' : '#9ca3af', fontWeight: 700 }}>
+                  <div style={{ padding: '4px 0 2px 12px', fontSize: 10 }}>
+                    {/* Math: sum(earned) / sum(max) × 100 */}
+                    <div style={{ color: '#94a3b8', marginBottom: 6, fontSize: 9 }}>
+                      {fw.criteria.filter((c: any) => c.status !== 'not_applicable').reduce((s: number, c: any) => s + c.earned, 0).toFixed(0)} earned / {fw.criteria.filter((c: any) => c.status !== 'not_applicable').reduce((s: number, c: any) => s + c.maxPossible, 0).toFixed(0)} max = {fw.rawScore}/100
+                    </div>
+                    {fw.criteria.map(c => (
+                      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid #f1f5f9' }}>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1 }}>
+                          <span style={{
+                            display: 'inline-block', width: 14, height: 14, borderRadius: 3,
+                            background: c.status === 'pass' ? '#d1fae5' : c.status === 'fail' ? '#fee2e2' : '#f1f5f9',
+                            color: c.status === 'pass' ? '#059669' : c.status === 'fail' ? '#dc2626' : '#94a3b8',
+                            fontSize: 9, lineHeight: '14px', textAlign: 'center', fontWeight: 700,
+                          }}>
                             {c.status === 'pass' ? '✓' : c.status === 'fail' ? '✗' : '–'}
                           </span>
-                          <span style={{ color: '#374151' }}>{c.label}</span>
+                          <span style={{ color: '#334155' }}>{c.label}</span>
                         </div>
-                        <span style={{ color: '#9ca3af', fontSize: 9 }}>
-                          {c.status} · {c.earned}/{c.max}
-                        </span>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{ color: '#94a3b8', fontSize: 9 }}>
+                            ×{c.multiplier.toFixed(1)} of {c.weight}pts
+                          </span>
+                          <span style={{
+                            fontWeight: 600, fontSize: 11, width: 24, textAlign: 'right',
+                            color: c.status === 'pass' ? '#059669' : c.status === 'fail' ? '#dc2626' : '#94a3b8',
+                          }}>
+                            {c.status === 'not_applicable' ? '—' : c.earned.toFixed(0)}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </details>
               ))}
             </div>
-          </div>
+          </details>
         ))}
+      </div>
+
+      {/* ── VALIDATION PASS DETAIL ── */}
+      <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Validation Pass</h2>
+      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          {([
+            { label: 'Relevance Ratio', value: `${assessed.validation.relevanceRatio}%`, desc: '% of criteria that were applicable', good: assessed.validation.relevanceRatio >= 50 },
+            { label: 'Un-evidenced Passes', value: String(assessed.validation.lowEvidenceCount), desc: 'pass criteria missing evidence quotes', good: assessed.validation.lowEvidenceCount === 0 },
+            { label: 'Category Balance', value: `σ=${assessed.validation.categoryImbalance}`, desc: 'standard deviation across categories', good: assessed.validation.categoryImbalance < 30 },
+          ] as const).map(v => (
+            <div key={v.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, padding: 10 }}>
+              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>{v.label}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: v.good ? '#059669' : '#d97706' }}>{v.value}</div>
+              <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 2 }}>{v.desc}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: 10, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6 }}>
+          <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Confidence Calculation</div>
+          <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.6 }}>
+            Base confidence: 100%<br />
+            {assessed.validation.lowEvidenceCount > 0 && <>− {assessed.validation.lowEvidenceCount} un-evidenced passes × 5% = −{assessed.validation.lowEvidenceCount * 5}%<br /></>}
+            {assessed.validation.categoryImbalance > 20 && <>− ({assessed.validation.categoryImbalance} imbalance − 20) × 2% = −{(assessed.validation.categoryImbalance - 20) * 2}%<br /></>}
+            {assessed.validation.relevanceRatio < 60 && <>− (60 − {assessed.validation.relevanceRatio}%) × 1% = −{60 - assessed.validation.relevanceRatio}%<br /></>}
+            <strong>Final confidence: {assessed.validation.confidence}%</strong><br />
+            {assessed.validation.confidence >= 80
+              ? '✓ High confidence — validated score matches raw score'
+              : `⚠ Lower confidence — validated score adjusted toward 50 (${assessed.totalScore} → ${assessed.validatedScore})`}
+          </div>
+        </div>
       </div>
 
       {/* ── TRANSCRIPT ── */}
       <details>
-        <summary style={{ fontSize: 12, color: '#6b7280', cursor: 'pointer', fontWeight: 600, padding: '8px 0' }}>
+        <summary style={{ fontSize: 12, color: '#64748b', cursor: 'pointer', fontWeight: 600, padding: '8px 0' }}>
           View Transcript ({fx.transcript.length} messages)
         </summary>
-        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: 12, marginTop: 4, fontFamily: 'monospace', fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: '#374151' }}>
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: 12, marginTop: 4, fontFamily: 'monospace', fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: '#334155' }}>
           {transcriptText}
         </div>
       </details>
-
-      {/* ── FOOTER ── */}
-      <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid #e5e7eb', fontSize: 10, color: '#9ca3af', textAlign: 'center' }}>
-        CX-Train Assessment Engine · Frameworks: {DEFAULT_FRAMEWORKS.length} · Categories: {CATS.length} · Criteria: {ALL_W.length}
-      </div>
     </div>
   );
 }
