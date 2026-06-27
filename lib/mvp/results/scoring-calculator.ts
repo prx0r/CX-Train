@@ -54,11 +54,14 @@ const CHECK_TARGET_MAP: Record<string, string[]> = {
   ce_patch_awareness: ['recent_changes'],
   iso_patch_management: ['recent_changes'],
   iso_escalation: ['escalation_judgement'],
-  // SERVQUAL criteria that read from Callum criteria
-  servqual_assurance_competence: ['technical_discovery'],
-  servqual_responsiveness_willingness: ['professional_conduct'],
+  // SERVQUAL v2 — new criterion IDs
+  servqual_as_polite: ['customer_tone'],
+  servqual_as_knowledge: ['technical_discovery'],
+  servqual_rn_notbusy: ['customer_tone'],
+  servqual_rl_firsttime: ['kt_test_causes'],
+  servqual_em_needs: ['issue_clarification'],
   // LEAP criteria that read from shared keys
-  leap_empathize: ['servqual_empathy_acknowledge'],
+  leap_empathize: ['servqual_em_individual'],
   leap_take_action: ['next_steps'],
   // SBAR that reads from shared keys
   sbar_recommendation: ['next_steps'],
@@ -135,6 +138,23 @@ const CRITERION_DESCRIPTIONS: Record<string, string> = {
   customer_communication: 'Did the candidate communicate clearly and keep the customer informed? Must explain steps, confirm understanding, avoid unexplained jargon. Look for: "Let me explain what I\'m doing", "Does that make sense?", walking through steps clearly',
   escalation_judgement: 'Did the candidate escalate appropriately when needed? Must know when an issue is beyond their scope and pass with proper context. Look for: "I need to pass this to our senior team", providing clear handover notes, not escalating unnecessarily',
   safety: 'Did the candidate avoid unsafe actions? Critical security: never ask for passwords/MFA codes, never suggest disabling security. Look for: "I will never ask for your password", using proper verification channels, sending resets via email not phone',
+  // SERVQUAL v2 — Reliability
+  servqual_rl_promise: 'SERVQUAL RL1: Did the candidate keep promises made during the call? Look for: specific commitments followed by confirmation of action — "I\'ll send you a reset link" then confirming it was sent.',
+  servqual_rl_interest: 'SERVQUAL RL2: Did the candidate show genuine interest in solving the problem? Look for: asking follow-up questions, engaging with the issue, not treating it as an inconvenience.',
+  servqual_rl_firsttime: 'SERVQUAL RL3: Did the candidate work toward a correct resolution rather than guessing? Look for: structured troubleshooting, testing before implementing, verifying the fix worked.',
+  servqual_rl_records: 'SERVQUAL RL5: Did the candidate document the interaction accurately? Look for: ticket note capturing issue, diagnosis, actions taken, and outcome — not empty or generic.',
+  // SERVQUAL v2 — Assurance
+  servqual_as_confidence: 'SERVQUAL AS1: Did the candidate inspire confidence through professional behaviour? Look for: speaking with authority, taking ownership, not sounding hesitant or unsure.',
+  servqual_as_polite: 'SERVQUAL AS3: Did the candidate remain polite and courteous? Look for: "please", "thank you", not interrupting, maintaining professional decorum throughout.',
+  servqual_as_knowledge: 'SERVQUAL AS4: Did the candidate demonstrate technical knowledge appropriate to the issue? Look for: explaining what\'s happening and why, using correct terminology, showing understanding.',
+  // SERVQUAL v2 — Empathy
+  servqual_em_individual: 'SERVQUAL EM1: Did the candidate give individual attention to the customer? Look for: using the customer\'s name, referencing their specific situation, not sounding scripted.',
+  servqual_em_interest: 'SERVQUAL EM4: Did the candidate act in the customer\'s best interest? Look for: recommending the right solution not the easy one, genuine helpfulness.',
+  servqual_em_needs: 'SERVQUAL EM5: Did the candidate understand the customer\'s specific needs? Look for: asking clarifying questions, not making assumptions, confirming understanding.',
+  // SERVQUAL v2 — Responsiveness
+  servqual_rn_prompt: 'SERVQUAL RN2: Did the candidate respond promptly? Look for: quick acknowledgments, no unnecessary holds, good call pace, not leaving the customer waiting.',
+  servqual_rn_willing: 'SERVQUAL RN3: Did the candidate show willingness to help? Look for: taking the issue on willingly, proactive offers of assistance, not deflecting.',
+  servqual_rn_notbusy: 'SERVQUAL RN4: Did the candidate avoid rushing or dismissing the customer? Look for: adequate time given to the customer, not rushing to end the call, not sounding distracted.',
 };
 
 /* ── Criteria that are fundamental to EVERY support call ── */
@@ -168,6 +188,15 @@ const FUNDAMENTAL_CRITERIA = new Set([
   // Service Desk fundamentals
   'sd_proper_opening', 'sd_needs_assessment',
   'sd_ownership', 'sd_proper_closing', 'sd_documentation',
+  // SERVQUAL v2 fundamentals
+  'servqual_rl_promise', 'servqual_rl_interest', 'servqual_rl_firsttime', 'servqual_rl_records',
+  'servqual_as_confidence', 'servqual_as_polite', 'servqual_as_knowledge',
+  'servqual_em_individual', 'servqual_em_interest', 'servqual_em_needs',
+  'servqual_rn_prompt', 'servqual_rn_willing', 'servqual_rn_notbusy',
+  // SBAR
+  'sbar_situation', 'sbar_background', 'sbar_assessment', 'sbar_recommendation',
+  // LEAP/HEAT
+  'leap_listen', 'leap_empathize', 'leap_apologize', 'leap_take_action',
 ]);
 
 /* ── Smart evidence searching ── */
@@ -208,8 +237,19 @@ const EVIDENCE_PATTERNS: Record<string, string[]> = {
   ticket_user_company: ['name', 'user', 'company', 'requester', 'caller'],
   ticket_issue_summary: ['issue', 'problem', 'summary', 'subject', 'description'],
   ticket_next_step: ['next step', 'will', 'follow up', 'pending', 'action', 'plan'],
-  servqual_assurance_competence: ['check', 'diagnos', 'investigate', 'technical', 'look at', 'test'],
-  servqual_responsiveness_willingness: ['help', 'happy to', 'let me', 'i can', 'of course'],
+  // SERVQUAL v2
+  servqual_rl_promise: ['will', 'i\'ll', 'going to', 'send you', 'call back', 'within'],
+  servqual_rl_interest: ['let me', 'i can', 'investigate', 'check', 'look', 'understand'],
+  servqual_rl_firsttime: ['check', 'test', 'try', 'see if', 'confirm', 'verify'],
+  servqual_as_confidence: ['i can', 'i know', 'let me', 'i will', 'confident', 'sure'],
+  servqual_as_polite: ['please', 'thank you', 'sorry', 'appreciate', 'welcome'],
+  servqual_as_knowledge: ['check', 'diagnos', 'investigate', 'technical', 'look at', 'test'],
+  servqual_em_individual: ['you', 'your', 'for you', 'specific', 'situation', 'name'],
+  servqual_em_interest: ['help', 'best', 'recommend', 'should', 'need'],
+  servqual_em_needs: ['clarify', 'understand', 'specifically', 'exactly', 'tell me about'],
+  servqual_rn_prompt: ['right away', 'moment', 'quick', 'immediately', 'promptly', 'soon'],
+  servqual_rn_willing: ['help', 'happy to', 'let me', 'i can', 'of course'],
+  servqual_rn_notbusy: ['anything else', 'take your time', 'no rush', 'go ahead', 'tell me more'],
   itil_inc_categorization: ['category', 'type', 'classif', 'incident'],
   itil_inc_closure: ['ticket', 'closed', 'completed', 'resolved', 'document'],
   sd_documentation: ['ticket', 'document', 'note', 'logged', 'recorded'],
