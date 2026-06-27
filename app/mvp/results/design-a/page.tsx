@@ -191,111 +191,129 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
       </div>
 
       {/* FRAMEWORK BREAKDOWN */}
-      <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Framework Breakdown</h2>
+      {(() => {
+        /* Build type map for framework lookups */
+        const fwTypeMap: Record<string, string> = {};
+        for (const fw of DEFAULT_FRAMEWORKS) fwTypeMap[fw.id] = fw.type;
+        const isSkills = (id: string) => fwTypeMap[id] === 'skills_framework' || fwTypeMap[id] === 'baseline';
+        const isCompliance = (id: string) => fwTypeMap[id] === 'compliance_standard';
 
-      {frameworkResults.map((fw: any) => {
-        const fwCriteria = fw.criteriaResults.filter((c: any) => c.status !== 'not_applicable');
-        const total = fwCriteria.length;
-        const passed = fwCriteria.filter((c: any) => c.status === 'pass').length;
-        const invalidated = fwCriteria.filter((c: any) => {
-          const cr = criteria.find(cr => cr.id === c.criterionId);
-          return cr?.evidenceStatus === 'invalidated';
-        }).length;
-        const relevant = total - invalidated;
-        const relevantPassed = Math.min(passed, relevant);
-        const score = relevant > 0 ? Math.round((relevantPassed / relevant) * 100) : 0;
+        const skillsFrameworks = frameworkResults.filter((fw: any) => isSkills(fw.frameworkId));
+        const complianceFrameworks = frameworkResults.filter((fw: any) => isCompliance(fw.frameworkId));
 
-        /* Group criteria by subcategory */
-        const groups = new Map<string, { label: string; criteria: any[] }>();
-        for (const c of fwCriteria) {
-          const key = c.subcategory || 'General';
-          if (!groups.has(key)) groups.set(key, { label: key, criteria: [] });
-          groups.get(key)!.criteria.push(c);
-        }
+        const renderFramework = (fw: any) => {
+          const fwCriteria = fw.criteriaResults.filter((c: any) => c.status !== 'not_applicable');
+          const total = fwCriteria.length;
+          const passed = fwCriteria.filter((c: any) => c.status === 'pass').length;
+          const invalidated = fwCriteria.filter((c: any) => {
+            const cr = criteria.find(cr => cr.id === c.criterionId);
+            return cr?.evidenceStatus === 'invalidated';
+          }).length;
+          const relevant = total - invalidated;
+          const relevantPassed = Math.min(passed, relevant);
+          const score = relevant > 0 ? Math.round((relevantPassed / relevant) * 100) : 0;
 
-        return (
-          <details key={fw.frameworkId} style={{ marginBottom: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-            <summary style={{ cursor: 'pointer', padding: '12px 16px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>
-                <span style={{ color: score >= 70 ? '#059669' : '#dc2626', marginRight: 8 }}>{score >= 70 ? '✓' : '✗'}</span>
-                {fw.frameworkName}
-                <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6, fontWeight: 400 }}>
-                  {' '}{groups.size} areas · {passed}/{total}
+          const groups = new Map<string, { label: string; criteria: any[] }>();
+          for (const c of fwCriteria) {
+            const key = c.subcategory || 'General';
+            if (!groups.has(key)) groups.set(key, { label: key, criteria: [] });
+            groups.get(key)!.criteria.push(c);
+          }
+
+          return (
+            <details key={fw.frameworkId} style={{ marginBottom: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+              <summary style={{ cursor: 'pointer', padding: '12px 16px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>
+                  <span style={{ color: score >= 70 ? '#059669' : '#dc2626', marginRight: 8 }}>{score >= 70 ? '✓' : '✗'}</span>
+                  {fw.frameworkName}
+                  <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6, fontWeight: 400 }}>
+                    {' '}{groups.size} areas · {passed}/{total}
+                  </span>
                 </span>
-              </span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: score >= 70 ? '#059669' : score >= 50 ? '#d97706' : '#dc2626' }}>{score}%</span>
-            </summary>
-            <div style={{ padding: '4px 16px 12px', fontSize: 11 }}>
-              {(() => {
-                const renderCriterion = (c: any) => {
-                  const critRecord = criteria.find(cr => cr.id === c.criterionId);
-                  const evStatus = critRecord?.evidenceStatus;
-                  let bgColor = 'transparent', borderColor = 'transparent';
-                  let statusDisplay: string, statusColor: string, statusBg: string;
+                <span style={{ fontSize: 14, fontWeight: 700, color: score >= 70 ? '#059669' : score >= 50 ? '#d97706' : '#dc2626' }}>{score}%</span>
+              </summary>
+              <div style={{ padding: '4px 16px 12px', fontSize: 11 }}>
+                {(() => {
+                  const renderCriterion = (c: any) => {
+                    const critRecord = criteria.find(cr => cr.id === c.criterionId);
+                    const evStatus = critRecord?.evidenceStatus;
+                    let bgColor = 'transparent', borderColor = 'transparent';
+                    let statusDisplay: string, statusColor: string, statusBg: string;
 
-                  if (evStatus === 'verified' && c.status === 'pass') {
-                    bgColor = '#f0fdf4'; borderColor = '#bbf7d0';
-                    statusDisplay = '1'; statusColor = '#059669'; statusBg = '#d1fae5';
-                  } else if (evStatus === 'verified' && c.status === 'fail') {
-                    bgColor = '#fef2f2'; borderColor = '#fecaca';
-                    statusDisplay = '0'; statusColor = '#dc2626'; statusBg = '#fee2e2';
-                  } else {
-                    statusDisplay = '–'; statusColor = '#94a3b8'; statusBg = '#f1f5f9';
-                  }
+                    if (evStatus === 'verified' && c.status === 'pass') {
+                      bgColor = '#f0fdf4'; borderColor = '#bbf7d0';
+                      statusDisplay = '1'; statusColor = '#059669'; statusBg = '#d1fae5';
+                    } else if (evStatus === 'verified' && c.status === 'fail') {
+                      bgColor = '#fef2f2'; borderColor = '#fecaca';
+                      statusDisplay = '0'; statusColor = '#dc2626'; statusBg = '#fee2e2';
+                    } else {
+                      statusDisplay = '–'; statusColor = '#94a3b8'; statusBg = '#f1f5f9';
+                    }
 
-                  return (
-                    <div key={c.criterionId} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                      padding: '4px 8px', marginBottom: 1, borderRadius: 4,
-                      background: bgColor, border: `1px solid ${borderColor}`,
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, minWidth: 0 }}>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          width: 18, height: 18, borderRadius: 3, fontSize: 10, fontWeight: 700,
-                          flexShrink: 0, marginTop: 1, background: statusBg, color: statusColor,
-                        }}>{statusDisplay}</span>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ color: '#1e293b', fontSize: 11 }}>{c.label.split(' — ').slice(1).join(' — ') || c.label}</div>
-                          {critRecord?.description && (
-                            <div style={{ fontSize: 9, color: '#64748b', marginTop: 1, lineHeight: 1.2 }}>
-                              {critRecord.description}
-                            </div>
-                          )}
-                          {evStatus === 'verified' && critRecord?.evidenceQuote && (
-                            <div style={{ fontSize: 9, color: '#059669', marginTop: 1, fontStyle: 'italic', wordBreak: 'break-word' }}>
-                              "{critRecord.evidenceQuote.substring(0, 80)}{critRecord.evidenceQuote.length > 80 ? '...' : ''}"
-                            </div>
-                          )}
+                    return (
+                      <div key={c.criterionId} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                        padding: '4px 8px', marginBottom: 1, borderRadius: 4,
+                        background: bgColor, border: `1px solid ${borderColor}`,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, minWidth: 0 }}>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: 18, height: 18, borderRadius: 3, fontSize: 10, fontWeight: 700,
+                            flexShrink: 0, marginTop: 1, background: statusBg, color: statusColor,
+                          }}>{statusDisplay}</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ color: '#1e293b', fontSize: 11 }}>{c.label.split(' — ').slice(1).join(' — ') || c.label}</div>
+                            {critRecord?.description && (
+                              <div style={{ fontSize: 9, color: '#64748b', marginTop: 1, lineHeight: 1.2 }}>
+                                {critRecord.description}
+                              </div>
+                            )}
+                            {evStatus === 'verified' && critRecord?.evidenceQuote && (
+                              <div style={{ fontSize: 9, color: '#059669', marginTop: 1, fontStyle: 'italic', wordBreak: 'break-word' }}>
+                                "{critRecord.evidenceQuote.substring(0, 80)}{critRecord.evidenceQuote.length > 80 ? '...' : ''}"
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                };
+                    );
+                  };
 
-                const groupEntries = Array.from(groups.entries());
-                return groupEntries.map(([groupKey, group]) => {
-                  const groupTotal = group.criteria.length;
-                  const groupPassed = group.criteria.filter(c => c.status === 'pass').length;
-                  return (
-                    <details key={groupKey} style={{ marginBottom: 4 }} open>
-                      <summary style={{ cursor: 'pointer', padding: '6px 8px', borderRadius: 4, background: '#f8fafc', fontSize: 11, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{groupKey}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: groupPassed === groupTotal ? '#059669' : groupPassed > 0 ? '#d97706' : '#dc2626' }}>
-                          {groupPassed}/{groupTotal}
-                        </span>
-                      </summary>
-                      <div style={{ padding: '4px 0 4px 12px' }}>
-                        {group.criteria.map(renderCriterion)}
-                      </div>
-                    </details>
-                  );
-                });
-              })()}
-            </div>
-          </details>
+                  const groupEntries = Array.from(groups.entries());
+                  return groupEntries.map(([groupKey, group]) => {
+                    const groupTotal = group.criteria.length;
+                    const groupPassed = group.criteria.filter(c => c.status === 'pass').length;
+                    return (
+                      <details key={groupKey} style={{ marginBottom: 4 }} open>
+                        <summary style={{ cursor: 'pointer', padding: '6px 8px', borderRadius: 4, background: '#f8fafc', fontSize: 11, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>{groupKey}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: groupPassed === groupTotal ? '#059669' : groupPassed > 0 ? '#d97706' : '#dc2626' }}>
+                            {groupPassed}/{groupTotal}
+                          </span>
+                        </summary>
+                        <div style={{ padding: '4px 0 4px 12px' }}>
+                          {group.criteria.map(renderCriterion)}
+                        </div>
+                      </details>
+                    );
+                  });
+                })()}
+              </div>
+            </details>
+          );
+        };
+
+        return (
+          <>
+            <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, marginTop: 20 }}>🧰 Skills Assessment</h2>
+            {skillsFrameworks.length > 0 ? skillsFrameworks.map(renderFramework) : <p style={{ fontSize: 12, color: '#94a3b8' }}>No skills frameworks assessed for this scenario.</p>}
+
+            <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, marginTop: 20 }}>📋 Compliance Standards</h2>
+            {complianceFrameworks.length > 0 ? complianceFrameworks.map(renderFramework) : <p style={{ fontSize: 12, color: '#94a3b8' }}>No compliance standards assessed for this scenario.</p>}
+          </>
         );
-      })}
+      })()}
     </div>
   );
 }
