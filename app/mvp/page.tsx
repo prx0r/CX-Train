@@ -37,9 +37,10 @@ const ASSIGNMENT_CARDS: AssignmentCard[] = [
   },
 ];
 
-const DRILL_OPTIONS = [
-  { id: 'pack-outlook-sim-v2', title: 'Outlook Not Sending — Work Offline' },
-];
+interface PackOption {
+  id: string;
+  title: string;
+}
 
 interface Assessment {
   id: string;
@@ -58,7 +59,8 @@ export default function MvpDashboard() {
   const [selectedType, setSelectedType] = useState<AssignmentType | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [drillPack, setDrillPack] = useState(DRILL_OPTIONS[0].id);
+  const [drillPacks, setDrillPacks] = useState<PackOption[]>([]);
+  const [drillPack, setDrillPack] = useState('');
   const [creating, setCreating] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
   const [error, setError] = useState('');
@@ -71,7 +73,18 @@ export default function MvpDashboard() {
     } catch { console.error('Failed to load assessments'); }
   }
 
-  useEffect(() => { loadAssessments(); }, []);
+  async function loadPacks() {
+    try {
+      const res = await fetch('/api/mvp/packs');
+      const data = await res.json();
+      if (data.packs && data.packs.length > 0) {
+        setDrillPacks(data.packs);
+        setDrillPack(data.packs[0].id);
+      }
+    } catch { console.error('Failed to load packs'); }
+  }
+
+  useEffect(() => { loadAssessments(); loadPacks(); }, []);
 
   function handleSelectType(type: AssignmentType) {
     if (!ASSIGNMENT_CARDS.find(c => c.type === type)?.enabled) return;
@@ -228,7 +241,7 @@ export default function MvpDashboard() {
                   onChange={e => setDrillPack(e.target.value)}
                   style={{ padding: '7px 10px', border: '1px solid #b8b8b8', borderRadius: 3, fontSize: 13, background: '#fff', color: '#111' }}
                 >
-                  {DRILL_OPTIONS.map(p => (
+                  {drillPacks.map(p => (
                     <option key={p.id} value={p.id}>{p.title}</option>
                   ))}
                 </select>

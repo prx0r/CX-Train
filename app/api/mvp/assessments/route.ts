@@ -4,6 +4,7 @@ import { makeId, getActiveScenario, getActiveCriteria, getManagerStandards } fro
 import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
 import { getPackById, getPackIdForMode } from '@/lib/mvp/sim/packRegistry';
+import { mergeAssessmentConfig } from '@/lib/mvp/sim/mergeConfig';
 import { isAssignmentTypeValid, ASSIGNMENT_TYPES, ENABLED_TRAINING_DRILL_PACKS } from '@/lib/mvp/assignment-types';
 import { failWithCustomCode } from '@/lib/mvp/api/responses';
 
@@ -76,11 +77,22 @@ export async function POST(request: NextRequest) {
       bad_ticket_example: standards.bad_ticket_example,
     } : null;
 
-    db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, assessment_pack_id, assessment_mode, assignment_type, created_at)
-      VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
+    /* Merge scoring config from pack defaults + manager overrides */
+    let scoringSnapshot: string | null = null;
+    if (packId) {
+      try {
+        const codePack = getPackById(packId);
+        const standardsOverrides = standards?.scoring_overrides_json || null;
+        const merged = mergeAssessmentConfig({ pack: codePack, managerStandardsOverrides: standardsOverrides, packId });
+        scoringSnapshot = JSON.stringify(merged);
+      } catch { /* if merge fails, scoringSnapshot stays null — fallback to pack defaults */ }
+    }
+
+    db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, scoring_snapshot_json, assessment_pack_id, assessment_mode, assignment_type, created_at)
+      VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
       assessmentId, title, candidateName, candidateEmail, inviteToken, scenario.id, criteria?.id || null,
       managerProfileId, standardsSnapshot ? JSON.stringify(standardsSnapshot) : null,
-      packId, assessmentMode, assignmentType
+      scoringSnapshot, packId, assessmentMode, assignmentType
     );
 
     db.prepare(`INSERT INTO sessions (id, assessment_id, status, started_at)

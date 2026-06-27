@@ -1,4 +1,4 @@
-import { SimPack, SimState } from './types';
+import { SimPack, SimState, SimPackScoringCriterion } from './types';
 
 export const OUTLOOK_WORK_OFFLINE_PACK_ID = 'pack-outlook-sim-v2';
 
@@ -55,11 +55,35 @@ export function getInitialState(): SimState {
 }
 
 export function getOutlookWorkOfflinePack(): SimPack {
+  const scoringCriteriaList: SimPackScoringCriterion[] = [
+    { id: 'asked_impact', label: 'Asked business impact', category: 'call_control', weight: 8, mandatory: false, check: 'tag_present', target: 'communication.impact_question', positive: true, description: 'Candidate asked about business impact of the issue', gradingGuide: 'Look for questions like "how urgent is this?" or "what work is blocked?"' },
+    { id: 'asked_scope', label: 'Asked scope', category: 'call_control', weight: 8, mandatory: false, check: 'tag_present', target: 'communication.scope_question', positive: true, description: 'Candidate asked whether one or many users are affected', gradingGuide: 'Look for "is anyone else having this issue?" or "just you?"' },
+    { id: 'confirmed_user', label: 'Confirmed user identity', category: 'call_control', weight: 5, mandatory: true, check: 'tag_present', target: 'communication.user_confirmation', positive: true, description: 'Candidate verified caller identity', gradingGuide: 'Look for "can I confirm your name?" or similar identity verification' },
+    { id: 'opened_outlook', label: 'Opened Outlook', category: 'diagnosis', weight: 5, mandatory: false, check: 'action_performed', target: 'open_outlook', positive: true, description: 'Candidate opened Outlook to investigate', gradingGuide: 'Action logged: open_outlook performed' },
+    { id: 'checked_status', label: 'Checked Outlook status', category: 'diagnosis', weight: 15, mandatory: true, check: 'action_performed', target: 'check_outlook_status', positive: true, description: 'Candidate checked Outlook connection status', gradingGuide: 'Action logged: check_outlook_status performed' },
+    { id: 'checked_webmail', label: 'Checked webmail', category: 'diagnosis', weight: 10, mandatory: false, check: 'action_performed', target: 'check_webmail', positive: true, description: 'Candidate checked webmail to isolate scope', gradingGuide: 'Action logged: check_webmail performed' },
+    { id: 'disabled_wfo', label: 'Disabled Work Offline', category: 'resolution', weight: 20, mandatory: true, check: 'action_performed', target: 'disable_work_offline', positive: true, description: 'Candidate correctly disabled Work Offline mode', gradingGuide: 'Action logged: disable_work_offline performed' },
+    { id: 'verified_fix', label: 'Verified fix', category: 'resolution', weight: 10, mandatory: true, check: 'action_performed', target: 'send_test_email', positive: true, description: 'Candidate verified fix with test email', gradingGuide: 'Action logged: send_test_email performed' },
+    { id: 'used_kb', label: 'Used knowledge base', category: 'diagnosis', weight: 5, mandatory: false, check: 'action_performed', target: 'search_kb_outlook', positive: true, description: 'Candidate searched knowledge base', gradingGuide: 'Action logged: search_kb_outlook performed' },
+    { id: 'avoided_red_flags', label: 'Avoided red flags', category: 'professionalism', weight: 10, mandatory: true, check: 'state_value', target: 'flags.guessedWithoutEvidence', positive: true, value: false, description: 'Candidate avoided guessing root cause without evidence', gradingGuide: 'State flags.guessedWithoutEvidence should remain false' },
+    { id: 'ticket_root_cause', label: 'Root cause in ticket', category: 'ticket_quality', weight: 5, mandatory: false, check: 'state_value', target: 'toolStates.outlook.outboxCount', positive: true, value: 0, description: 'Ticket mentions root cause (spooler cleared)', gradingGuide: 'Outbox count should be 0 after fix' },
+  ];
+
   return {
     id: OUTLOOK_WORK_OFFLINE_PACK_ID,
     version: '2.0',
     title: 'Outlook Not Sending — Work Offline',
-    mode: 'dashboard_sim',
+    description: 'Customer cannot send emails from Outlook desktop. Tests remote diagnostics, root cause identification, and fix verification.',
+    level: 2,
+    severity: 'P2',
+    category: 'email',
+    queueTitle: 'Outlook not sending — Sarah Thompson',
+    requesterName: 'Sarah Thompson',
+    company: 'Connexion Dental',
+    department: 'Accounts',
+    location: 'Head Office',
+    mode: 'call_plus_remote',
+    taxonomyItemId: 'email.outlook',
 
     customer: {
       name: 'Sarah',
@@ -67,6 +91,18 @@ export function getOutlookWorkOfflinePack(): SimPack {
       role: 'Accounts',
       temperament: 'stressed',
       openingLine: "Hi, this is Sarah from Accounts. Outlook won't send my emails. I really need to get this sorted — I have invoices that need to go out this morning.",
+    },
+
+    callerBehavior: {
+      archetype: 'direct',
+      defaultIntensity: 2,
+      frustrationTriggers: ['too many yes/no questions', 'being put on hold without explanation'],
+      reassuranceTriggers: ['clear next steps', 'empathy', 'confirmation of urgency'],
+      curveballProbability: 0.3,
+      preferredCurveballs: ['this happened last week', 'why does this keep happening'],
+      verbosity: 'normal',
+      technicalLevel: 'non_technical',
+      initialMood: 'frustrated',
     },
 
     initialState: getInitialState(),
@@ -90,7 +126,6 @@ export function getOutlookWorkOfflinePack(): SimPack {
     },
 
     tools: ['customer_chat', 'ticket', 'outlook', 'browser', 'cmd', 'control_panel', 'connectwise', 'notes', 'network', 'vpn', 'printer'],
-
     actions: [
       /* ── Call lifecycle ────────────────────────────── */
       {
@@ -98,6 +133,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'customer_chat',
         label: 'Start call',
         allowedPhases: ['not_started'],
+        transitionsTo: 'call_active',
         observation: 'Call connected. Customer is on the line.',
         scoreImpact: { positive: ['call_control'] },
       },
@@ -106,6 +142,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'customer_chat',
         label: 'End call',
         allowedPhases: ['call_active', 'remote_active'],
+        transitionsTo: 'ticketing',
         effects: { 'call.endedAt': '$now' as any },
         observation: 'Call ended. Proceed to write your ticket.',
         scoreImpact: { positive: ['call_control'] },
@@ -117,6 +154,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'connectwise',
         label: 'Remote into ALDER-LT-023',
         allowedPhases: ['call_active'],
+        transitionsTo: 'remote_active',
         effects: {
           'remote.connected': true,
           'remote.currentApp': 'none',
@@ -130,6 +168,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         tool: 'connectwise',
         label: 'Disconnect Remote Desktop',
         allowedPhases: ['remote_active'],
+        transitionsTo: 'call_active',
         effects: {
           'remote.connected': false,
           'remote.currentApp': 'none',
@@ -170,6 +209,7 @@ export function getOutlookWorkOfflinePack(): SimPack {
         },
         observation: 'Outlook connection status: "Work Offline" is enabled. The Send/Receive indicator shows disconnected.',
         revealsFacts: ['Outlook is in Work Offline mode'],
+        revealsToolState: ['outlook'],
         taxonomyTags: ['tool.outlook.check_status', 'diagnostic.application_state_checked'],
         scoreImpact: { positive: ['diagnosis'] },
       },
@@ -376,6 +416,48 @@ export function getOutlookWorkOfflinePack(): SimPack {
       },
     ],
 
+    cmdCommands: [
+      { command: 'ping outlook.office365.com', description: 'Test connectivity to Microsoft 365', output: 'Reply from 52.96.x.x: bytes=32 time=24ms TTL=114', allowedPhases: ['remote_active'], triggersAction: 'run_ping' },
+      { command: 'ipconfig', description: 'Show IP configuration', output: 'IP 10.0.50.23 / DNS 8.8.8.8', allowedPhases: ['remote_active'], triggersAction: 'run_ipconfig' },
+    ],
+
+    scoringDefaults: {
+      categoryWeights: { call_control: 20, diagnosis: 30, resolution: 25, ticket_quality: 15, professionalism: 10 },
+      criteria: scoringCriteriaList,
+      mandatoryCheckpoints: ['confirmed_user', 'checked_status', 'disabled_wfo', 'verified_fix', 'avoided_red_flags'],
+      redFlags: [
+        { id: 'jumped_to_disruptive_fix', severity: 'major', message: 'Jumped to disruptive fix before basic checks' },
+        { id: 'destructive_action_without_evidence', severity: 'major', message: 'Destructive action before evidence' },
+        { id: 'escalate_without_basic_checks', severity: 'major', message: 'Escalated without basic checks' },
+        { id: 'guessed_without_evidence', severity: 'major', message: 'Guessed root cause without evidence' },
+      ],
+      diagnosticChecklist: [
+        { id: 'confirmed_user', label: 'Identified the user', criteria: 'confirmed_user' },
+        { id: 'asked_scope', label: 'Asked scope (one user or many)', criteria: 'asked_scope' },
+        { id: 'asked_impact', label: 'Asked business impact', criteria: 'asked_impact' },
+        { id: 'opened_outlook', label: 'Opened Outlook to investigate', criteria: 'opened_outlook' },
+        { id: 'checked_status', label: 'Checked Outlook connection status', criteria: 'checked_status' },
+        { id: 'checked_webmail', label: 'Checked webmail to isolate scope', criteria: 'checked_webmail' },
+        { id: 'disabled_wfo', label: 'Disabled Work Offline (correct fix)', criteria: 'disabled_wfo' },
+        { id: 'verified_fix', label: 'Verified fix with test email', criteria: 'verified_fix' },
+        { id: 'used_kb', label: 'Used knowledge base', criteria: 'used_kb' },
+        { id: 'avoided_red_flags', label: 'Avoided dangerous actions', criteria: 'avoided_red_flags' },
+      ],
+      failGates: [
+        { id: 'severe_conduct', label: 'Severe customer conduct failure', severity: 'critical', scoreCap: 10, overrideReadiness: 'not_ready', redFlagType: 'severe_customer_abuse' },
+        { id: 'unsafe_security', label: 'Unsafe security behaviour', severity: 'critical', scoreCap: 25, overrideReadiness: 'not_ready', redFlagType: 'unsafe_security_behaviour' },
+      ],
+      derivedGates: [],
+      thresholds: { ready: 80, needs_supervision: 60 },
+      idealTicket: {
+        summary: 'Outlook stuck in Work Offline mode for Sarah Thompson at Connexion Dental',
+        requiredFields: ['user', 'company', 'device', 'issue_summary', 'impact', 'urgency', 'checks_attempted', 'root_cause', 'resolution', 'verification', 'next_step'],
+        mustMention: ['Sarah Thompson', 'Connexion Dental', 'Outlook Work Offline', 'Outbox cleared', 'test email sent'],
+        mustNotInvent: ['hardware fault', 'server outage', 'Exchange server down', 'corrupt PST'],
+      },
+    },
+
+    /* Backward-compat fields */
     rubric: {
       call_control: { weight: 3, label: 'Call control and opening' },
       diagnosis: { weight: 5, label: 'Diagnostic process' },
@@ -384,45 +466,19 @@ export function getOutlookWorkOfflinePack(): SimPack {
       ticket: { weight: 3, label: 'Ticket quality' },
       professionalism: { weight: 2, label: 'Professionalism and communication' },
     },
-
     redFlags: [
       { id: 'jumped_to_disruptive_fix', severity: 'major', message: 'Jumped to disruptive fix before basic checks' },
       { id: 'destructive_action_without_evidence', severity: 'major', message: 'Destructive action before evidence' },
       { id: 'escalate_without_basic_checks', severity: 'major', message: 'Escalated without basic checks' },
       { id: 'guessed_without_evidence', severity: 'major', message: 'Guessed root cause without evidence' },
     ],
-
     idealTicket: {
       summary: 'Outlook stuck in Work Offline mode for Sarah Thompson at Connexion Dental',
       requiredFields: ['user', 'company', 'device', 'issue_summary', 'impact', 'urgency', 'checks_attempted', 'root_cause', 'resolution', 'verification', 'next_step'],
-      mustMention: [
-        'Sarah Thompson',
-        'Connexion Dental',
-        'Outlook Work Offline',
-        'Outbox cleared',
-        'test email sent',
-      ],
-      mustNotInvent: [
-        'hardware fault',
-        'server outage',
-        'Exchange server down',
-        'corrupt PST',
-      ],
+      mustMention: ['Sarah Thompson', 'Connexion Dental', 'Outlook Work Offline', 'Outbox cleared', 'test email sent'],
+      mustNotInvent: ['hardware fault', 'server outage', 'Exchange server down', 'corrupt PST'],
     },
-
-    scoringCriteria: [
-      { id: 'asked_impact', label: 'Asked business impact', weight: 8, check: 'tag_present', target: 'communication.impact_question' },
-      { id: 'asked_scope', label: 'Asked scope', weight: 8, check: 'tag_present', target: 'communication.scope_question' },
-      { id: 'confirmed_user', label: 'Confirmed user identity', weight: 5, check: 'tag_present', target: 'communication.user_confirmation' },
-      { id: 'opened_outlook', label: 'Opened Outlook', weight: 5, check: 'action_performed', target: 'open_outlook' },
-      { id: 'checked_status', label: 'Checked Outlook status', weight: 15, check: 'action_performed', target: 'check_outlook_status' },
-      { id: 'checked_webmail', label: 'Checked webmail', weight: 10, check: 'action_performed', target: 'check_webmail' },
-      { id: 'disabled_wfo', label: 'Disabled Work Offline', weight: 20, check: 'action_performed', target: 'disable_work_offline' },
-      { id: 'verified_fix', label: 'Verified fix', weight: 10, check: 'action_performed', target: 'send_test_email' },
-      { id: 'used_kb', label: 'Used knowledge base', weight: 5, check: 'action_performed', target: 'search_kb_outlook' },
-      { id: 'avoided_red_flags', label: 'Avoided red flags', weight: 10, check: 'state_value', target: 'flags.guessedWithoutEvidence', value: false },
-    ],
-
+    scoringCriteria: scoringCriteriaList,
     diagnosticChecklist: [
       { id: 'confirmed_user', label: 'Identified the user', criteria: 'confirmed_user' },
       { id: 'asked_scope', label: 'Asked scope (one user or many)', criteria: 'asked_scope' },
@@ -435,5 +491,12 @@ export function getOutlookWorkOfflinePack(): SimPack {
       { id: 'used_kb', label: 'Used knowledge base', criteria: 'used_kb' },
       { id: 'avoided_red_flags', label: 'Avoided dangerous actions', criteria: 'avoided_red_flags' },
     ],
+    managerReviewHints: {
+      keyCriteria: ['confirmed_user', 'checked_status', 'disabled_wfo', 'verified_fix'],
+      commonMistakes: ['Guesses root cause without checking status', 'Attempts reinstall before basic checks', 'Escalates prematurely'],
+      whatGoodLooksLike: 'User verified, impact understood, Outlook status checked, Work Offline disabled, test email sent, ticket complete with root cause and next steps.',
+      calibrationNotes: 'Key indicator: did they check webmail? If yes, they understood scope isolation. If no, they got lucky with the direct fix.',
+    },
+    taxonomyClassification: ['email.outlook', 'diagnostic.connectivity', 'fix.client_configuration'],
   };
 }

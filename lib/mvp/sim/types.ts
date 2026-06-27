@@ -86,6 +86,10 @@ export type SimEventType =
   | 'sim_completed'
   | 'red_flag_triggered';
 
+export type ScoringCategory = 'call_control' | 'diagnosis' | 'resolution' | 'ticket_quality' | 'professionalism';
+
+export const SCORING_CATEGORIES: ScoringCategory[] = ['call_control', 'diagnosis', 'resolution', 'ticket_quality', 'professionalism'];
+
 export type CustomerTemperament = 'calm' | 'stressed' | 'angry' | 'confused';
 export type CustomerMood = 'neutral' | 'frustrated' | 'reassured';
 
@@ -146,17 +150,40 @@ export interface SimRedFlag {
   message: string;
 }
 
+export interface SimCallerBehavior {
+  archetype: 'uncertain' | 'direct' | 'executive';
+  defaultIntensity: 1 | 2 | 3;
+  frustrationTriggers: string[];
+  reassuranceTriggers: string[];
+  curveballProbability: number;
+  preferredCurveballs: string[];
+  verbosity: 'terse' | 'normal' | 'verbose';
+  technicalLevel: 'non_technical' | 'somewhat_technical' | 'technical';
+  initialMood: CustomerMood;
+}
+
+export interface SimCmdCommand {
+  command: string;
+  description: string;
+  output: string | ((state: SimState) => string);
+  triggersAction?: string;
+  allowedPhases: SimPhase[];
+  requiresState?: Record<string, unknown>;
+}
+
 export interface SimAction {
   id: string;
   tool: SimToolId;
   label: string;
   allowedPhases: SimPhase[];
+  transitionsTo?: SimPhase;
   requiresState?: Record<string, unknown>;
   effects?: Record<string, unknown>;
   observation: string;
   failureObservation?: string;
   strictPreconditions?: boolean;
   revealsFacts?: string[];
+  revealsToolState?: string[];
   taxonomyTags?: TaxonomyTag[];
   redFlag?: SimRedFlag;
   scoreImpact?: {
@@ -184,11 +211,15 @@ export interface SimIdealTicket {
 export interface SimPackScoringCriterion {
   id: string;
   label: string;
+  category: ScoringCategory;
   weight: number;
-  check: 'action_performed' | 'tag_present' | 'tag_in_event' | 'state_value';
+  mandatory: boolean;
+  check: 'action_performed' | 'tag_present' | 'tag_in_event' | 'state_value' | 'fact_revealed';
   target: string;
   value?: unknown;
-  positive?: boolean;
+  positive: boolean;
+  description: string;
+  gradingGuide: string;
 }
 
 export interface SimPackDiagnosticStep {
@@ -197,14 +228,56 @@ export interface SimPackDiagnosticStep {
   criteria: string;
 }
 
+export interface SimPackDefaults {
+  categoryWeights: Record<string, number>;
+  criteria: SimPackScoringCriterion[];
+  mandatoryCheckpoints: string[];
+  redFlags: SimRedFlag[];
+  diagnosticChecklist: SimPackDiagnosticStep[];
+  failGates: SimFailGateMap[];
+  derivedGates: SimDerivedGate[];
+  thresholds: {
+    ready: number;
+    needs_supervision: number;
+  };
+  idealTicket: SimIdealTicket;
+}
+
+export interface SimFailGateMap {
+  id: string;
+  label: string;
+  severity: 'minor' | 'major' | 'critical';
+  scoreCap: number;
+  overrideReadiness?: 'ready' | 'needs_supervision' | 'not_ready';
+  redFlagType?: string;
+}
+
+export interface SimDerivedGate {
+  id: string;
+  label: string;
+  severity: 'warning' | 'major';
+  scoreCap: number;
+  condition: (criteria: Record<string, 'pass' | 'partial' | 'fail'>, score: number) => boolean;
+}
+
 export interface SimPack {
   id: string;
   version: string;
   title: string;
-  mode: 'dashboard_sim';
+  description: string;
+  level: number;
+  severity: 'P1' | 'P2' | 'P3' | 'P4';
+  category: string;
+  queueTitle: string;
+  requesterName: string;
+  company: string;
+  department?: string;
+  location?: string;
+  mode: 'call_only' | 'ticket_only' | 'call_plus_remote' | 'voicemail_plus_ticket';
   taxonomyItemId?: string;
 
   customer: SimCustomer;
+  callerBehavior: SimCallerBehavior;
 
   initialState: SimState;
 
@@ -216,18 +289,28 @@ export interface SimPack {
   };
 
   tools: SimToolId[];
-
   actions: SimAction[];
+  cmdCommands: SimCmdCommand[];
 
+  /* Primary source for scoring config */
+  scoringDefaults: SimPackDefaults;
+
+  /* Backward-compat fields — populate these from scoringDefaults in factory */
   rubric: SimRubric;
-
   redFlags: SimRedFlag[];
-
   idealTicket: SimIdealTicket;
+  scoringCriteria: SimPackScoringCriterion[];
+  diagnosticChecklist: SimPackDiagnosticStep[];
 
-  scoringCriteria?: SimPackScoringCriterion[];
+  /* Manager review hints (not scored) */
+  managerReviewHints: {
+    keyCriteria: string[];
+    commonMistakes: string[];
+    whatGoodLooksLike: string;
+    calibrationNotes: string;
+  };
 
-  diagnosticChecklist?: SimPackDiagnosticStep[];
+  taxonomyClassification: string[];
 }
 
 export interface SimPackEvent {
@@ -289,10 +372,35 @@ export interface SimTimelineEntry {
   started_at_ms: number | null;
 }
 
+export interface SimCategoryScore {
+  score: number;
+  maxScore: number;
+  earnedWeight: number;
+  maxWeight: number;
+  criteriaResults: Record<string, 'pass' | 'partial' | 'fail'>;
+}
+
+export interface SimCostlyMiss {
+  criterionId: string;
+  label: string;
+  pointsLost: number;
+  whyItMatters: string;
+}
+
 export interface SimScoringResult {
+  overallScore: number;
+  categoryScores: Record<ScoringCategory, SimCategoryScore>;
   actionCriteria: Record<string, 'pass' | 'partial' | 'fail'>;
+  mandatoryFailures: string[];
   redFlags: string[];
-  scoreDelta: number;
+  gateHits: Array<{
+    id: string;
+    label: string;
+    severity: string;
+    scoreCap: number;
+    rationale: string;
+  }>;
+  whatCostYouMost: SimCostlyMiss[];
   timelineSummary: string[];
   technicalPath: string[];
 }

@@ -36,7 +36,7 @@ export async function GET(
       started_at_ms: e.started_at_ms,
     }));
 
-    const visibleState = getVisibleState(currentState);
+    const visibleState = getVisibleState(currentState, pack);
     const safeActions = getVisibleActions(currentState, pack.actions);
 
     return NextResponse.json({

@@ -66,7 +66,12 @@ export const ASSIGNMENT_TYPES: Record<AssignmentType, AssignmentTypeConfig> = {
 
 export const ASSIGNMENT_TYPE_LIST: AssignmentType[] = ['hiring_exam', 'training_drill', 'training_shift'];
 
-export const ENABLED_TRAINING_DRILL_PACKS = ['pack-outlook-sim-v2'];
+export const ENABLED_TRAINING_DRILL_PACKS = [
+  'pack-outlook-sim-v2',
+  'pack-password-reset-v1',
+  'pack-new-starter-v1',
+  'pack-shared-mailbox-v1',
+];
 
 export function getAssignmentTypeConfig(t: string): AssignmentTypeConfig | null {
   return ASSIGNMENT_TYPES[t as AssignmentType] || null;

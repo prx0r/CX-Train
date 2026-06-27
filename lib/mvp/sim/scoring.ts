@@ -1,6 +1,25 @@
-import { SimScoringResult, SimState, SimPackScoringCriterion } from './types';
+import { SimScoringResult, SimState, SimPackScoringCriterion, SimCategoryScore, SimCostlyMiss, ScoringCategory, SCORING_CATEGORIES, SimFailGateMap, SimDerivedGate } from './types';
 
-interface ScoringEvent {
+export interface ScoringConfig {
+  version?: string;
+  categoryWeights: Record<string, number>;
+  criteria: SimPackScoringCriterion[];
+  mandatoryCheckpoints: string[];
+  redFlags: SimRedFlagMeta[];
+  diagnosticChecklist: { id: string; label: string; criteria: string }[];
+  failGates: SimFailGateMap[];
+  derivedGates: SimDerivedGate[];
+  thresholds: { ready: number; needs_supervision: number };
+  idealTicket: { summary: string; requiredFields: string[] };
+}
+
+export interface SimRedFlagMeta {
+  id: string;
+  severity: 'minor' | 'major' | 'critical';
+  message: string;
+}
+
+export interface ScoringEvent {
   event_type: string;
   action_id?: string | null;
   text?: string | null;
@@ -10,23 +29,25 @@ interface ScoringEvent {
 }
 
 export function scoreSimEvents(params: {
-  pack: {
-    actions?: any[];
-    rubric?: Record<string, { weight: number }>;
-    scoringCriteria?: SimPackScoringCriterion[];
-    diagnosticChecklist?: { id: string; label: string; criteria: string }[];
-  };
+  config: ScoringConfig;
   events: ScoringEvent[];
   finalState: SimState;
+  triggeredRedFlags?: string[];
 }): SimScoringResult {
-  const { pack, events, finalState } = params;
+  const { config, events, finalState, triggeredRedFlags } = params;
+  const criteria = config.criteria || [];
+  const checklist = config.diagnosticChecklist || [];
+  const failGates = config.failGates || [];
+  const derivedGates = config.derivedGates || [];
+  const mandatoryIds = new Set(config.mandatoryCheckpoints || []);
 
   const performedActionIds = new Set(
     events.filter(e => e.event_type === 'action_performed').map(e => e.action_id).filter(Boolean)
   );
 
-  const redFlagEvents = events.filter(e => e.event_type === 'red_flag_triggered');
-  const redFlagActionIds = new Set(redFlagEvents.map(e => e.action_id).filter(Boolean));
+  const redFlagEventIds = new Set(
+    events.filter(e => e.event_type === 'red_flag_triggered').map(e => e.action_id).filter(Boolean)
+  );
 
   function hasTag(tag: string): boolean {
     return events.some(e => {
@@ -55,47 +76,151 @@ export function scoreSimEvents(params: {
     return current;
   }
 
-  const criteria = pack.scoringCriteria || [];
-  const checklist = pack.diagnosticChecklist || [];
   const actionCriteria: Record<string, 'pass' | 'partial' | 'fail'> = {};
-
-  let scoreDelta = 0;
-  const redFlags = redFlagEvents.map(e => e.action_id).filter(Boolean) as string[];
+  let earnedTotal = 0;
+  let maxTotal = 0;
+  const mandatoryFailures: string[] = [];
 
   for (const c of criteria) {
-    let passed = false;
+    let result: 'pass' | 'partial' | 'fail' = 'fail';
 
     switch (c.check) {
       case 'action_performed':
-        passed = performedActionIds.has(c.target);
+        result = performedActionIds.has(c.target) ? 'pass' : 'fail';
         break;
       case 'tag_present':
-        passed = hasTag(c.target);
+        result = hasTag(c.target) ? 'pass' : 'fail';
         break;
       case 'tag_in_event':
-        passed = events.some(e => hasTagInEvent(e.action_id || '', c.target));
+        result = events.some(e => hasTagInEvent(e.action_id || '', c.target)) ? 'pass' : 'fail';
         break;
       case 'state_value': {
         const actual = getNested(finalState, c.target);
-        passed = actual === c.value;
+        result = actual === c.value ? 'pass' : 'fail';
         break;
       }
+      case 'fact_revealed':
+        result = finalState.call.factsRevealed.includes(c.target) ? 'pass' : 'fail';
+        break;
     }
 
-    actionCriteria[c.id] = passed ? 'pass' : 'fail';
+    actionCriteria[c.id] = result;
 
-    if (passed) {
-      if (c.positive !== false) {
-        scoreDelta += c.weight;
-      }
-    } else if (c.positive === false) {
-      scoreDelta -= Math.abs(c.weight);
+    const resultStr = result as string;
+    const earned = resultStr === 'pass' ? c.weight : (resultStr === 'partial' ? c.weight * 0.5 : 0);
+    if (c.positive) {
+      earnedTotal += earned;
+      maxTotal += c.weight;
+    } else if ((resultStr === 'pass' && !c.positive) || (resultStr === 'fail' && c.positive === false)) {
+      earnedTotal -= c.weight;
+    }
+
+    if (mandatoryIds.has(c.id) && resultStr !== 'pass') {
+      mandatoryFailures.push(c.id);
     }
   }
 
-  if (finalState.phase === 'submitted') scoreDelta += 5;
+  if (finalState.phase === 'submitted') {
+    earnedTotal += 5;
+    maxTotal += 5;
+  }
 
-  scoreDelta = Math.max(0, Math.min(100, scoreDelta));
+  const blacklistedActions: string[] = triggeredRedFlags || (Array.from(redFlagEventIds) as string[]);
+  const redFlagNames: string[] = [];
+  for (const rfId of blacklistedActions) {
+    const rf = config.redFlags.find(r => r.id === rfId);
+    if (rf) redFlagNames.push(rf.message || rfId);
+    else redFlagNames.push(rfId);
+  }
+
+  let rawScore = maxTotal > 0 ? Math.round((earnedTotal / maxTotal) * 100) : 0;
+
+  // Apply fail gates from red flags
+  const gateHits: Array<{ id: string; label: string; severity: string; scoreCap: number; rationale: string }> = [];
+  let forceReadiness: string | null = null;
+  for (const gate of failGates) {
+    if (gate.redFlagType && blacklistedActions.some(id => id === gate.redFlagType)) {
+      rawScore = Math.min(rawScore, gate.scoreCap);
+      gateHits.push({
+        id: gate.id,
+        label: gate.label,
+        severity: gate.severity,
+        scoreCap: gate.scoreCap,
+        rationale: `Red flag triggered: ${gate.redFlagType}`,
+      });
+      if (gate.overrideReadiness) forceReadiness = gate.overrideReadiness;
+    }
+  }
+
+  // Apply derived gates from criteria patterns
+  for (const gate of derivedGates) {
+    if (gate.condition(actionCriteria, rawScore)) {
+      const wasCapped = rawScore > gate.scoreCap;
+      rawScore = Math.min(rawScore, gate.scoreCap);
+      if (wasCapped) {
+        gateHits.push({
+          id: gate.id,
+          label: gate.label,
+          severity: gate.severity,
+          scoreCap: gate.scoreCap,
+          rationale: 'Criteria pattern matched derived gate condition',
+        });
+      }
+    }
+  }
+
+  // Apply mandatory checkpoint cap
+  if (mandatoryFailures.length > 0) {
+    rawScore = Math.min(rawScore, 70);
+    gateHits.push({
+      id: 'mandatory_checkpoints',
+      label: 'Mandatory checkpoints missed',
+      severity: 'major',
+      scoreCap: 70,
+      rationale: `Mandatory checkpoints failed: ${mandatoryFailures.join(', ')}`,
+    });
+  }
+
+  rawScore = Math.max(0, Math.min(100, rawScore));
+
+  // Compute category scores
+  const categoryScores: Record<ScoringCategory, SimCategoryScore> = {} as any;
+  for (const cat of SCORING_CATEGORIES) {
+    const catCriteria = criteria.filter(c => c.category === cat && c.positive);
+    let catEarned = 0;
+    let catMax = 0;
+    const catResults: Record<string, 'pass' | 'partial' | 'fail'> = {};
+    for (const c of catCriteria) {
+      const res = actionCriteria[c.id] || 'fail';
+      catResults[c.id] = res;
+      const earned = res === 'pass' ? c.weight : (res === 'partial' ? c.weight * 0.5 : 0);
+      catEarned += earned;
+      catMax += c.weight;
+    }
+    categoryScores[cat] = {
+      score: catMax > 0 ? Math.round((catEarned / catMax) * 100) : 0,
+      maxScore: 100,
+      earnedWeight: catEarned,
+      maxWeight: catMax,
+      criteriaResults: catResults,
+    };
+  }
+
+  // Build "what cost you most"
+  const whatCostYouMost: SimCostlyMiss[] = [];
+  const misses = criteria
+    .filter(c => c.positive && (actionCriteria[c.id] === 'fail' || actionCriteria[c.id] === 'partial'))
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 3);
+  for (const miss of misses) {
+    const isPartial = actionCriteria[miss.id] === 'partial';
+    whatCostYouMost.push({
+      criterionId: miss.id,
+      label: miss.label,
+      pointsLost: Math.round(miss.weight * (isPartial ? 0.5 : 1)),
+      whyItMatters: miss.gradingGuide || miss.description,
+    });
+  }
 
   const timelineSummary: string[] = [];
   for (const ev of events) {
@@ -114,15 +239,19 @@ export function scoreSimEvents(params: {
 
   const technicalPath: string[] = [];
   for (const step of checklist) {
-    const passed = actionCriteria[step.criteria] === 'pass';
-    technicalPath.push(`${passed ? 'V' : 'X'} ${step.label}`);
+    const p = actionCriteria[step.criteria] === 'pass';
+    technicalPath.push(`${p ? 'V' : 'X'} ${step.label}`);
   }
-  if (redFlags.length > 0) technicalPath.push(`Triggered red flags: ${redFlags.join(', ')}`);
+  if (redFlagNames.length > 0) technicalPath.push(`Triggered red flags: ${redFlagNames.join(', ')}`);
 
   return {
+    overallScore: rawScore,
+    categoryScores,
     actionCriteria,
-    redFlags,
-    scoreDelta,
+    mandatoryFailures,
+    redFlags: redFlagNames,
+    gateHits,
+    whatCostYouMost,
     timelineSummary,
     technicalPath,
   };

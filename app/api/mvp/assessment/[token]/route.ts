@@ -20,7 +20,19 @@ export async function GET(
     }
 
     const assignmentType = (full.assessment as any).assignment_type || 'hiring_exam';
-    const capabilities = getCapabilitiesForType(assignmentType);
+    const capabilities = { ...(getCapabilitiesForType(assignmentType) || { call: true, voice: true, textFallback: true, ticketPanel: true, remoteDesktop: false, tools: [], ticketComposer: true }) };
+
+    /* Adjust capabilities based on pack mode */
+    try {
+      const packId = (full.assessment as any).assessment_pack_id;
+      if (packId) {
+        const pack = getPackById(packId);
+        if (pack.mode === 'call_only' || pack.mode === 'ticket_only') {
+          capabilities.remoteDesktop = false;
+          capabilities.tools = [];
+        }
+      }
+    } catch {}
 
     /* Build ticket data from scenario/pack info */
     let ticketData: Record<string, unknown> = {
@@ -43,6 +55,7 @@ export async function GET(
         ticketData.company = pack.customer.company;
         ticketData.department = pack.customer.role;
         ticketData.description = pack.customer.openingLine;
+        ticketData.severity = pack.severity === 'P1' ? 'critical' : pack.severity === 'P2' ? 'high' : pack.severity === 'P3' ? 'medium' : 'low';
       }
     } catch {}
 
@@ -60,7 +73,7 @@ export async function GET(
         assignment_runtime: {
           shell: 'service_desk',
           mode_label: assignmentType === 'hiring_exam' ? 'Hiring Exam' : assignmentType === 'training_drill' ? 'Training Drill' : 'Assessment',
-          capabilities: capabilities || { call: true, voice: true, textFallback: true, ticketPanel: true, remoteDesktop: false, tools: [], ticketComposer: true },
+          capabilities,
         },
         ticket: ticketData,
         call: {
@@ -96,7 +109,7 @@ export async function GET(
       baseResponse.sim = {
         tools: pack.tools,
         safe_actions: getVisibleActions(currentState, pack.actions),
-        visible_state: getVisibleState(currentState),
+        visible_state: getVisibleState(currentState, pack),
         phase: currentState.phase,
         timeline: buildTimeline(typedEvents as any).map(t => ({
           sequence: t.sequence,

@@ -13,6 +13,7 @@ export interface ManagerStandardsRow {
   good_customer_update_example: string | null;
   good_internal_note_example: string | null;
   good_escalation_note_example: string | null;
+  scoring_overrides_json?: string | null;
   created_at: string;
   updated_at: string;
 }

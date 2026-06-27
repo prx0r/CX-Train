@@ -143,7 +143,7 @@ export async function POST(
       started_at_ms: e.started_at_ms,
     }));
 
-    const visibleState = getVisibleState(updatedState);
+    const visibleState = getVisibleState(updatedState, pack);
     const safeActions = getVisibleActions(updatedState, pack.actions);
 
     return NextResponse.json({

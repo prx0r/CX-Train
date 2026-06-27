@@ -94,22 +94,14 @@ export function applyAction(
   const taxonomyTags = action.taxonomyTags ?? [];
 
   let phaseTransition = false;
-  if (action.id === 'start_call') {
-    updated = transitionPhase(updated, 'call_active');
-    phaseTransition = true;
-  }
-  if (action.id === 'remote_connect') {
-    updated = transitionPhase(updated, 'remote_active');
-    updated.remote.connected = true;
-    phaseTransition = true;
-  }
-  if (action.id === 'end_call') {
-    updated = transitionPhase(updated, 'ticketing');
-    phaseTransition = true;
-  }
-  if (action.id === 'remote_disconnect') {
-    updated = transitionPhase(updated, 'call_active');
-    updated.remote.connected = false;
+  if (action.transitionsTo) {
+    updated = transitionPhase(updated, action.transitionsTo);
+    if (action.transitionsTo === 'remote_active') {
+      updated.remote.connected = true;
+    }
+    if (action.id === 'remote_disconnect' || action.transitionsTo === 'call_active') {
+      updated.remote.connected = false;
+    }
     phaseTransition = true;
   }
 

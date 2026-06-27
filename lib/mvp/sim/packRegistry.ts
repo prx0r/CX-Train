@@ -1,8 +1,16 @@
 import { SimPack } from './types';
-import { getOutlookWorkOfflinePack, OUTLOOK_WORK_OFFLINE_PACK_ID } from './packConfig';
+import {
+  getOutlookWorkOfflinePack, OUTLOOK_WORK_OFFLINE_PACK_ID,
+  getPasswordResetPack, PASSWORD_RESET_PACK_ID,
+  getNewStarterTriagePack, NEW_STARTER_PACK_ID,
+  getSharedMailboxAccessPack, SHARED_MAILBOX_PACK_ID,
+} from './packs';
 
 const registry: Record<string, () => SimPack> = {
   [OUTLOOK_WORK_OFFLINE_PACK_ID]: getOutlookWorkOfflinePack,
+  [PASSWORD_RESET_PACK_ID]: getPasswordResetPack,
+  [NEW_STARTER_PACK_ID]: getNewStarterTriagePack,
+  [SHARED_MAILBOX_PACK_ID]: getSharedMailboxAccessPack,
 };
 
 export function getPackById(packId: string): SimPack {

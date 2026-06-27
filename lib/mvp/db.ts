@@ -208,6 +208,14 @@ export function initTables(): void {
     `ALTER TABLE session_events ADD COLUMN audio_metadata_json TEXT`,
 
     `ALTER TABLE assessments ADD COLUMN assignment_type TEXT NOT NULL DEFAULT 'hiring_exam'`,
+
+    // v2 scoring system columns
+    `ALTER TABLE assessments ADD COLUMN scoring_snapshot_json TEXT`,
+    `ALTER TABLE manager_standards ADD COLUMN scoring_overrides_json TEXT`,
+    `ALTER TABLE assessment_results ADD COLUMN category_scores_json TEXT`,
+    `ALTER TABLE assessment_results ADD COLUMN mandatory_failures_json TEXT`,
+    `ALTER TABLE assessment_results ADD COLUMN gate_hits_json TEXT`,
+    `ALTER TABLE assessment_results ADD COLUMN criteria_breakdown_json TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }
