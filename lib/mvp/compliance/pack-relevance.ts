@@ -54,6 +54,15 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'kt_ppa_identify_risks', 'kt_ppa_preventative', 'kt_ppa_contingent',
       'kt_poa_opportunity',
     ],
+    comptia_troubleshooting: [
+      'comptia_gather_info', 'comptia_question_users', 'comptia_identify_symptoms',
+      'comptia_duplicate_problem', 'comptia_narrow_scope',
+      'comptia_start_simple', 'comptia_multiple_approaches',
+      'comptia_test_theory',
+      'comptia_plan_action', 'comptia_implement_solution',
+      'comptia_verify_fix', 'comptia_preventive_measures',
+      'comptia_document',
+    ],
   },
 
   'pack-password-reset-v1': {
@@ -99,6 +108,15 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'kt_ppa_identify_risks', 'kt_ppa_preventative', 'kt_ppa_contingent',
       'kt_poa_opportunity',
     ],
+    comptia_troubleshooting: [
+      'comptia_gather_info', 'comptia_question_users', 'comptia_identify_symptoms',
+      'comptia_duplicate_problem', 'comptia_narrow_scope',
+      'comptia_start_simple', 'comptia_multiple_approaches',
+      'comptia_test_theory',
+      'comptia_plan_action', 'comptia_implement_solution',
+      'comptia_verify_fix', 'comptia_preventive_measures',
+      'comptia_document',
+    ],
   },
 
   'pack-new-starter-v1': {
@@ -140,6 +158,15 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'kt_evaluate_alternatives', 'kt_da_identify_objectives', 'kt_da_mandatory_want', 'kt_da_consider_risks',
       'kt_ppa_identify_risks', 'kt_ppa_preventative', 'kt_ppa_contingent',
       'kt_poa_opportunity',
+    ],
+    comptia_troubleshooting: [
+      'comptia_gather_info', 'comptia_question_users', 'comptia_identify_symptoms',
+      'comptia_duplicate_problem', 'comptia_narrow_scope',
+      'comptia_start_simple', 'comptia_multiple_approaches',
+      'comptia_test_theory',
+      'comptia_plan_action', 'comptia_implement_solution',
+      'comptia_verify_fix', 'comptia_preventive_measures',
+      'comptia_document',
     ],
   },
 
@@ -184,6 +211,15 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'kt_evaluate_alternatives', 'kt_da_identify_objectives', 'kt_da_mandatory_want', 'kt_da_consider_risks',
       'kt_ppa_identify_risks', 'kt_ppa_preventative', 'kt_ppa_contingent',
       'kt_poa_opportunity',
+    ],
+    comptia_troubleshooting: [
+      'comptia_gather_info', 'comptia_question_users', 'comptia_identify_symptoms',
+      'comptia_duplicate_problem', 'comptia_narrow_scope',
+      'comptia_start_simple', 'comptia_multiple_approaches',
+      'comptia_test_theory',
+      'comptia_plan_action', 'comptia_implement_solution',
+      'comptia_verify_fix', 'comptia_preventive_measures',
+      'comptia_document',
     ],
   },
 };

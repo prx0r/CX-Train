@@ -8,6 +8,7 @@ export { SBAR_COMMUNICATION } from './sbar-communication';
 export { LEAP_HEAT_RUBRIC } from './leap-heat-rubric';
 export { ITIL_INCIDENT_MGMT } from './itil-incident-mgmt';
 export { ITIL_SERVICE_DESK } from './itil-service-desk';
+export { COMPTIA_TROUBLESHOOTING } from './comptia-troubleshooting';
 
 import { FrameworkDefinition } from '../evaluator';
 import { CALLUM_BASELINE_V1 } from './callum-baseline';
@@ -20,6 +21,7 @@ import { SBAR_COMMUNICATION } from './sbar-communication';
 import { LEAP_HEAT_RUBRIC } from './leap-heat-rubric';
 import { ITIL_INCIDENT_MGMT } from './itil-incident-mgmt';
 import { ITIL_SERVICE_DESK } from './itil-service-desk';
+import { COMPTIA_TROUBLESHOOTING } from './comptia-troubleshooting';
 
 export const DEFAULT_FRAMEWORKS: FrameworkDefinition[] = [
   CALLUM_BASELINE_V1,
@@ -32,6 +34,7 @@ export const DEFAULT_FRAMEWORKS: FrameworkDefinition[] = [
   LEAP_HEAT_RUBRIC,
   ITIL_INCIDENT_MGMT,
   ITIL_SERVICE_DESK,
+  COMPTIA_TROUBLESHOOTING,
 ];
 
 export function getFrameworksById(ids: string[]): FrameworkDefinition[] {
