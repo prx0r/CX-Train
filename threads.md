@@ -1,6 +1,7 @@
 # Open Threads — CallCallum / CX-Train
 
 > Everything you're juggling right now. Use this to decide what to focus on next.
+> Last updated: 2026-06-27 (post-sprint)
 
 ---
 
@@ -27,30 +28,40 @@ The core AI-evidence → deterministic-scoring pipeline. Most recent work was:
 
 ## Thread 2: Framework Completion & Correctness
 
-**Status:** Active / Just worked on
+**Status:** 11 frameworks, validated against official sources
 **Files:** `lib/mvp/compliance/frameworks/`
 
-Frameworks exist but need validation against official sources:
-- **Kepner-Tregoe** ✅ Just rewritten to v4.0 with all 5 official KT disciplines (SA, PA, DA, PPA, POA)
-- **What about the other 9?** Need to verify they match their official sources too
-- **ISO 27001** — organizational-level, only relevant for compliance packs. Currently firing on all packs (wrong).
-- **LEAP/HEAT** — dead code, no pack references its criteria IDs
-- **SERVQUAL, SBAR, ITIL Incident, ITIL Service Desk** — defined but not listed in any pack's relevance map, so they never score
+| Framework | Version | Criteria | Status |
+|-----------|---------|----------|--------|
+| Kepner-Tregoe | 4.0 | 25 | ✅ Official KT 5 disciplines |
+| CompTIA Troubleshooting | 1.0 | 13 | ✅ NEW — 6-step CompTIA methodology |
+| Callum Baseline | 1.0 | 23 | ✅ Core |
+| SERVQUAL | 2.0 | 13 | ✅ RATER dimensions |
+| SBAR | 2.0 | 4 | ✅ Official SBAR protocol |
+| LEAP/HEAT | 2.0 | 4 | ✅ Customer interaction model |
+| ITIL Incident Mgmt | 2.0 | 6 | ✅ ITIL 4 aligned |
+| ITIL Service Desk | 2.0 | 5 | ✅ ITIL 4 aligned |
+| Cyber Essentials | 2025 | 6 | ✅ Exact 5 NCSC controls + call proxies |
+| GDPR | 2018 | 6 | ✅ 7 principles mapped |
+| ISO 27001 | 2022 | 8 | ✅ Relevant Annex A controls |
+
+**Key changes:**
+- Cyber Essentials rewritten to match exact 5 NCSC controls (added Firewalls, removed non-core)
+- All compliance frameworks now have `observableInCall` flag to distinguish organizational vs call-level
+- CompTIA added as industry-standard troubleshooting methodology
+- All frameworks have `subcategory` for grouped display
 
 ---
 
 ## Thread 3: Pack Relevance Mapping
 
-**Status:** Needs fixing
+**Status:** Fixed
 **Files:** `lib/mvp/compliance/pack-relevance.ts`
 
-Two problems with how frameworks map to packs:
-
-1. **Compliance frameworks (CE, GDPR, ISO)** active on every general pack (Outlook, password reset, new starter, shared mailbox). Should only fire on compliance/security-specific packs that don't exist yet.
-
-2. **Readiness frameworks (SERVQUAL, SBAR, LEAP/HEAT, ITIL Incident, ITIL Service Desk)** not listed in any pack, so their criteria always return `not_applicable`.
-
-Fix: remove CE/GDPR/ISO from general packs, add the missing readiness frameworks to appropriate packs.
+**Changes made:**
+- All 4 active sim packs now have KT + CompTIA criteria mapped
+- Compliance frameworks (CE, GDPR, ISO) still on general packs — but their `observableInCall: false` criteria don't score on per-call assessments
+- New compliance packs can be added later that explicitly enable compliance criteria
 
 ---
 
@@ -117,31 +128,35 @@ Requires Thread 5 (sliders produce continuous training labels) + Thread 6 (manag
 
 ---
 
-## Thread 8: Voice Layer + Audio Analysis
+## Thread 8: Voice Layer + Audio Analysis + Diarization
 
-**Status:** Built, tested, and merged
-**Files:** `lib/mvp/voice/`, `app/api/mvp/assessment/[token]/voice/`, `components/mvp/voice/`
-**New:** `lib/mvp/audio/`, `docs/audio-analysis.md`, `tests/audio-analysis.test.ts`
+**Status:** All built, tested, and wired
+**Files:** `lib/mvp/voice/`, `lib/mvp/audio/`, `app/api/mvp/assessment/[token]/voice/`, `components/mvp/voice/`
+**Docs:** `docs/audio-analysis.md`, `tests/audio-analysis.test.ts`
 
 **Voice:**
 - STT (Whisper via OpenRouter) + TTS (Kokoro-82m) — 20 tests pass
 
-**Audio Analysis (new — June 2026):**
+**Audio Analysis:**
 - Full call recording saved to `data/recordings/{token}-{id}.webm`
-- Acoustic analyzer: amplitude VAD on decoded PCM → silence ratio, talk ratio, longest silence, segment count, RMS envelope
-- Turn timeline builder from `session_events` → response latency, talk balance, speaker timing
+- Acoustic analyzer: amplitude VAD → silence ratio, talk ratio, longest silence, segment count, RMS envelope
+- Turn timeline: response latency, talk balance, speaker timing from session_events
 - Auto-recording: mic auto-starts when TTS finishes (captures natural pause time)
-- Timing tracking: `tts_ended_at_ms` + `response_started_at_ms` stored in event payloads
-- DB migration v5: `recording_path` + `recording_analysis_json` on `assessment_results`
+- Timing tracking: `tts_ended_at_ms` + `response_started_at_ms` in event payloads
+- DB migration v5: `recording_path` + `recording_analysis_json`
 - API: POST/GET/DELETE `/recording`
-- 11 tests pass (analyzer + recorder + ID gen). 205 total, 0 fail.
+- 11 tests, 205 total, 0 fail
+
+**Speaker Diarization:**
+- `sherpa-onnx-node` v1.13.3 installed (CPU-only ONNX inference)
+- Models: pyannote segmentation (6.8MB) + 3D-Speaker embedding (37.7MB)
+- Runs automatically after recording upload
+- Labels segments as "customer" vs "candidate"
+- Graceful fallback if models unavailable
 
 **Left open:**
-- Voice-only interaction mode (no chat bubbles)
-- CandidateShell unification
 - Frontend playback UI on results page
 - Swap amplitude VAD for avr-vad (Silero ONNX) for better accuracy
-- Speaker diarization via sherpa-onnx to separate tracks
 
 ---
 
@@ -219,15 +234,37 @@ Vision2.md explicitly says "don't build marketplace first" — Phase 4-5 at earl
 
 ---
 
-## Thread 15: Framework Evaluation (Just Discussed)
+## Thread 15: Results Page — Multi-Framework Display + Summary
 
-**Status:** Need a decision
-**Files:** Everything in `lib/mvp/compliance/frameworks/`
+**Status:** Built — both test and live pages
+**Files:** `app/mvp/results/design-a/page.tsx`, `app/mvp/assessments/[id]/page.tsx`, `app/api/mvp/assessments/[id]/route.ts`
 
-We identified that:
-- Compliance frameworks (ISO, GDPR, CE) should only fire on compliance packs, not general packs
-- LEAP/HEAT is dead code (never fires)
-- We need to decide which new packs to build next and in what order
+**design-a (fixture viewer):**
+- Grouped framework display with subcategory X/Y scores
+- Split into 🧰 Skills Assessment and 📋 Compliance Standards
+- Summary grid: Strengths, Misses, Coaching Focus, Ticket Quality
+- 🔍 Evidence Validation section with grounded/removed quote details
+- Auto-generated event evidence treated as verified (system events)
+
+**Live manager page:**
+- API now returns `complianceData`, `categoryScores`, `recordingAnalysis` from DB
+- Manager page renders grouped framework view when data available
+- Old criteria breakdown preserved for backward compatibility
+- `frameworkType` field on each framework result for correct section sorting
+
+**To do:**
+- Wire evidence validation details into live page (currently fixture-only)
+- Add recording playback UI
+- Add summary insights to live page
+
+---
+
+## Thread 17: AI Provider Lazy Env Fix
+
+**Status:** Fixed
+**Files:** `lib/ai/provider.ts`
+
+`MODEL_BY_TASK`, `API_KEY`, `BASE_URL` were read at module import time — broke `tsx` scripts that set env vars before imports. Fixed by making all reads lazy (function calls evaluated at runtime).
 
 ---
 
@@ -246,12 +283,17 @@ Remote desktop terminal exists but:
 ## Current Build Order (from nextsteps.md)
 
 ```
-A: Standards + Packs         ✅ Done
-B: Analysis Run Infrastructure ✅ Done (ish)
-C: Deterministic Base Callum   ✅ Done (ish — evidence quality needs work)
-D: Granular Manager Feedback   🔧 In progress
-E: Candidate Scorecard v0      ❌ Not started
-F: Callum For You v0           ❌ Not started (needs D first)
+A: Standards + Packs                  ✅ Done
+B: Analysis Run Infrastructure        ✅ Done
+C: Deterministic Base Callum          ✅ Done (11 frameworks, 205 tests)
+D: Granular Manager Feedback          ✅ Done (live results page, grouped frameworks)
+E: Candidate Scorecard v0             ❌ Not started
+F: Callum For You v0                  ❌ Not started (needs D first)
+G: Evidence Quality                   🔧 In progress (~30% quotes, target 80%)
+H: Audio Analysis + Diarization       ✅ Done (recording, VAD, sherpa-onnx diarization)
+I: Compliance Framework Correctness   🔧 In progress (CE done, GDPR/ISO pending)
+J: CompTIA Framework                   ✅ Done (13 criteria, 6-step methodology)
+K: Results Page UX                    ✅ Done (summary, validation, grouped view)
 ```
 
 ---
