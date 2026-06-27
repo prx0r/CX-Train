@@ -283,3 +283,469 @@ Standards Layer
 ```
 
 That is much more coherent, and it gives every feature a clear home.
+
+---
+
+## Competitive Landscape — What Already Exists
+
+There are generic AI training simulators for customer support, but none dominate the MSP niche:
+
+| Product | What It Does | Gap |
+|---------|-------------|-----|
+| **Intryc** | Simulations with helpdesk actions (macros, custom fields, statuses, escalation paths) | Generic customer support, not MSP-specific |
+| **CXMaster** | Free AI chat scenarios for empathy, de-escalation, customer service skills | No ticket simulation, no MSP rubric, no hiring exam mode |
+| **Total Sem** | MSP helpdesk bootcamp with VM troubleshooting, AI-scored communication | Training course, not a repeatable assessment platform |
+| **ConnectWise Certify** | Role-based training/certifications for TSP/MSP teams | Platform adoption training, not readiness assessment |
+
+So the category exists in fragments. **No dominant product is specifically:**
+
+> MSP manager assessment standard + realistic ticket/call simulator + candidate hiring exam + training feedback engine + compliance evidence + AI-assisted triage pack.
+
+---
+
+## The Actual CallCallum Gap
+
+The gap is not "AI can help the service desk."
+
+The gap is:
+
+> **MSP managers do not have a consistent, evidence-based way to assess whether a human can actually do the work.**
+
+Right now hiring is probably:
+```
+CV → awkward interview → maybe technical questions → maybe gut feel → hire
+  → discover on live calls whether they panic, overtalk, skip notes, mis-prioritise, or escalate badly
+```
+
+CallCallum changes that to:
+```
+candidate receives realistic MSP ticket/call
+  → handles customer + ticket + notes + triage
+    → system logs transcript/actions/notes
+      → scorer checks against MSP rubric
+        → manager reviews evidence
+          → candidate gets benchmarked
+```
+
+That is valuable even if no automation ever happens.
+
+---
+
+## The Product Should Become the MSP Assessment Standard
+
+> **CallCallum is the practical assessment standard for MSP support readiness.**
+
+Not CompTIA. Not generic helpdesk training. Not "can you answer IT trivia?"
+
+More like:
+
+- Can you speak to a user?
+- Can you clarify the issue?
+- Can you triage urgency?
+- Can you use a ticket properly?
+- Can you document clearly?
+- Can you avoid unsafe shortcuts?
+- Can you verify the fix?
+- Can you escalate with useful context?
+- Can you use AI without blindly trusting it?
+
+**That last one is important.**
+
+---
+
+## The AI-Assisted Service Desk Pack
+
+Instead of trying to become the automation engine, make an **AI-Assisted Service Desk Pack**.
+
+The trainee is allowed to use an AI assistant during the sim. But the assessment is:
+
+> *Did they use AI responsibly?*
+
+Score things like:
+
+| Criterion | What It Measures |
+|-----------|-----------------|
+| AI question quality | Did they ask the AI a useful, specific question? |
+| Context provided | Did they give enough ticket context for a useful answer? |
+| Verification | Did they check AI suggestions against actual evidence? |
+| Hallucination catching | Did they spot wrong or invented steps? |
+| Note integrity | Did they avoid copying a bad note blindly? |
+| Conversation control | Did they keep control of the customer interaction? |
+| Generic answer awareness | Did they know when the AI response was too vague? |
+| Documentation honesty | Did they document what actually happened, not what the AI guessed? |
+
+This is very timely because **frontier MSPs will absolutely give techs AI tools**. The new skill is not "never use AI." The skill is:
+
+> *Use AI as a junior assistant, not as your brain.*
+
+That could be a killer differentiator.
+
+---
+
+## Compliance / Evidence Angle
+
+CallCallum should produce an assessment record:
+
+```
+Candidate: Alex
+Scenario: Outlook not sending
+Mode: hiring exam
+Transcript: saved
+Ticket note: saved
+Action timeline: saved
+Rubric version: v1.3
+Score: 78
+Manager override: yes/no
+Evidence:
+  - asked scope question
+  - checked ticket details
+  - identified work offline
+  - verified test email
+  - note missed root cause
+```
+
+This becomes useful for:
+
+- Fairer hiring
+- Repeatable onboarding
+- Probation evidence
+- Manager calibration
+- Compliance training
+- Reducing "gut feel" hiring
+- Showing why someone passed/failed
+- Proving training happened
+
+**This is much less crowded than automation.**
+
+---
+
+## The Sharper Product Stack
+
+CallCallum should be defined as five products:
+
+### 1. Hiring Exams
+
+Voice/ticket simulations for candidates. No feedback shown to candidate. Manager gets score and evidence.
+
+### 2. Training Drills
+
+Single-ticket practice. Immediate AI feedback. Retry loop.
+
+### 3. Training Shift
+
+Multiple tickets, prioritisation, triage, note quality, queue pressure. This is the "real MSP flight simulator."
+
+### 4. Ticket/Call QA
+
+Upload or paste a real ticket note or call transcript. Score it against the same rubric.
+
+### 5. AI-Assisted Pack
+
+Trainee uses AI during the ticket. Score whether they checked, challenged, and controlled the AI.
+
+That is coherent.
+
+---
+
+## Where You Should Not Go Yet
+
+Avoid these for now:
+
+- Autonomous AI actions
+- Remote desktop control
+- RMM script execution
+- PSA automation engine
+- Replacing ConnectWise/Kaseya AI
+- Full AI support agent
+- Heavy compliance platform
+- Full SOP/documentation repository
+
+Those are distractions. You can integrate later, but the product should first win the manager's pain:
+
+> *"I need to know if this person can actually handle support work."*
+
+---
+
+## The First Niche to Dominate
+
+Don't say "customer support training simulator."
+
+Say:
+
+> **MSP L1 support readiness assessment.**
+
+Even narrower:
+
+> **Voice + ticket simulation for hiring and onboarding first-line MSP technicians.**
+
+That is specific enough to sell. Then expand:
+
+```
+Hiring assessment → onboarding drills → training shift → real ticket QA
+  → AI-assisted triage training → benchmark standard
+```
+
+---
+
+## The Moat in This Direction
+
+The moat becomes:
+
+- Realistic MSP scenario packs
+- Scoring rubrics managers trust
+- Benchmark data across candidates
+- Labelled examples of good/bad ticket handling
+- Manager-specific calibration
+- Evidence-backed assessments
+- AI-use competency scoring
+- Scenario outcomes correlated with real job performance
+
+This is better than "we trained a model." The model supports the assessment. **The assessment standard is the product.**
+
+---
+
+## Final Positioning
+
+The gap for CallCallum is:
+
+> MSPs are getting AI tools faster than they are getting reliable ways to assess, train, and govern the humans using them.
+
+CallCallum should become:
+
+> **The MSP human-readiness and AI-readiness assessment platform.**
+
+The product direction:
+
+```
+Training simulator
++ hiring assessment
++ feedback engine
++ manager rubric
++ compliance evidence
++ AI-assisted triage training pack
+```
+
+This is a much cleaner lane than automation. And it fits what you have already built.
+
+---
+
+# Part 2: Compliance Training, Skill Profiles, and Adaptive Drills
+
+## 1. Compliance Training Should Become Practical Simulation
+
+CallCallum should not treat compliance training as passive video completion or multiple-choice checkbox learning.
+
+The product should turn compliance, cyber awareness, and service desk risk training into **realistic call-and-ticket simulations** where the learner must actively recognise risk, handle the customer conversation, make triage decisions, document the ticket, and escalate correctly.
+
+Instead of asking:
+
+> *"Do you know what phishing is?"*
+
+CallCallum should test:
+
+> *"Can you recognise a phishing-related call, ask the right questions, avoid unsafe action, create a useful ticket, and escalate with the right context?"*
+
+## 2. Compliance Scenario Packs
+
+CallCallum should support dedicated compliance and security-readiness packs. These should look and feel like normal MSP service desk calls, not abstract training quizzes.
+
+### Phishing Report Pack
+
+The user reports a suspicious email. The trainee must gather evidence, avoid clicking unsafe links, ask for headers/screenshots if appropriate, classify the ticket correctly, and escalate according to the MSP's security process.
+
+### Password Reset / Identity Verification Pack
+
+The caller requests a password reset. The trainee must verify identity according to procedure and avoid being socially engineered.
+
+### Suspicious Login / Account Compromise Pack
+
+The customer reports unusual login activity. The trainee must recognise possible compromise, gather impact details, escalate correctly, and avoid treating it as a routine password issue.
+
+### Permissions Change Pack
+
+The caller requests access to a mailbox, folder, SharePoint site, finance system, or admin function. The trainee must identify authorisation requirements before making or recommending changes.
+
+### Data Loss / Deletion Pack
+
+The customer reports missing files or accidental deletion. The trainee must avoid destructive action, gather timeline/context, preserve evidence, and escalate appropriately.
+
+### VIP / High-Impact Escalation Pack
+
+The issue affects a senior user, board meeting, finance deadline, or major client process. The trainee must correctly assess business impact and urgency.
+
+### AI-Assisted Triage Pack
+
+The trainee is allowed to use an AI assistant during the scenario, but is assessed on whether they verify the AI output, catch wrong suggestions, avoid blindly copying notes, and remain responsible for the final action.
+
+## 3. Compliance Evidence Output
+
+Each completed compliance scenario should produce an audit-ready assessment record:
+
+- Learner identity
+- Scenario name and version
+- Rubric version
+- Date completed
+- Transcript
+- Action timeline
+- Ticket fields (summary, category, impact, urgency, priority)
+- Internal note / live note
+- Final ticket note
+- Score breakdown
+- Evidence for each score
+- Failed criteria
+- Manager review status
+- Manager override and comment
+- Remediation assigned
+- Retest result if applicable
+
+This allows an MSP to prove not just that training was assigned, but that the user **practically demonstrated competence**.
+
+## 4. Training Compliance Matrix
+
+CallCallum should build a compliance/readiness matrix for each user:
+
+| Skill / Scenario Area | Status | Last Score | Last Attempt | Retest Needed |
+|-----------------------|--------|-----------|-------------|---------------|
+| Phishing triage | Passed | 84 | 2026-06-27 | No |
+| Identity verification | Failed | 52 | 2026-06-27 | Yes |
+| Password reset safety | Needs review | 66 | 2026-06-27 | Yes |
+| Ticket note quality | Passed | 81 | 2026-06-27 | No |
+| AI-assisted triage | Not assessed | — | — | Yes |
+
+This turns training into a **living readiness profile** rather than a completion checkbox.
+
+## 5. Longitudinal Skill Profile
+
+CallCallum should accumulate performance over time. Every candidate, trainee, or technician should gradually build a profile of strengths, weaknesses, repeated mistakes, and improvement trends.
+
+The profile should track:
+
+- Call handling
+- Diagnostic questioning
+- Evidence gathering
+- Urgency classification
+- Ticket taxonomy accuracy
+- Escalation quality
+- Identity verification
+- Security awareness
+- Note quality
+- Customer communication
+- AI-use judgement
+- Verification before closure
+- Unsafe shortcut tendency
+- Improvement after feedback
+
+The profile should help managers answer:
+
+- Is this person ready for real client calls?
+- Where do they repeatedly fail?
+- Are they improving?
+- Which scenarios should they practise next?
+- Are they safe to handle security-sensitive tickets?
+- Can they use AI responsibly?
+- Do they need manager review before live work?
+
+## 6. Focus Drills — Adaptive Remediation
+
+CallCallum should generate targeted remedial assessments based on a user's past weak spots.
+
+**Working name: Focus Drill.**
+
+A Focus Drill is a personalised scenario generated from the learner's previous failures. It combines several of their recurring weak areas into one realistic call.
+
+**Example:**
+
+If a trainee repeatedly fails on identity verification, escalation context, and ticket note quality, CallCallum could generate a Focus Drill where:
+
+- A caller requests a password reset
+- The caller gives incomplete identity information
+- The issue has a hidden security risk
+- The trainee must decide whether to proceed, challenge, or escalate
+- The final ticket note must include clear evidence and escalation context
+
+The goal is not to punish the learner. The goal is to create **deliberate practice** around the exact behaviours they need to improve.
+
+## 7. Focus Drill Generation Requirements
+
+A Focus Drill should be generated from:
+
+- Previous assessment scores
+- Failed rubric criteria
+- Manager feedback
+- Repeated unsafe actions
+- Missing note components
+- Scenario categories previously failed
+- Weak communication behaviours
+- AI misuse patterns if applicable
+
+The generated drill should include:
+
+- Scenario title
+- Customer persona
+- Initial ticket
+- Hidden risk
+- Required evidence
+- Expected actions
+- Unsafe actions
+- Escalation triggers
+- Note requirements
+- Scoring rubric
+- Pass/fail thresholds
+- Manager review prompt
+
+## 8. Manager Controls
+
+Managers should be able to:
+
+- Assign compliance packs
+- Assign Focus Drills
+- Set pass thresholds
+- Require retests
+- Mark a learner as ready/not ready
+- Override AI scoring
+- Add custom feedback
+- View historical progress
+- Export assessment evidence
+- See team-level weak spots
+- Generate training plans from recurring failures
+
+Manager feedback should feed the learner profile and improve future drill generation.
+
+## 9. Team-Level Insights
+
+CallCallum should also identify patterns across the team:
+
+- "5/8 trainees failed to verify identity before password reset."
+- "Most users recognise phishing but fail to gather useful escalation evidence."
+- "Ticket notes are consistently missing verification."
+- "AI-assisted trainees are copying AI-generated notes without checking them."
+- "New hires are over-escalating low-risk Outlook issues."
+
+These insights can guide future training, documentation updates, and manager coaching.
+
+## 10. Product Positioning
+
+This expands CallCallum beyond hiring assessment into practical service desk readiness and compliance evidence.
+
+> CallCallum replaces passive compliance videos and generic quizzes with realistic MSP call simulations that prove technicians can recognise risk, follow procedure, communicate clearly, and document correctly.
+
+The key promise:
+
+> **Do not just prove that training was completed. Prove that the technician can perform safely under realistic support conditions.**
+
+## 11. Strategic Boundary
+
+CallCallum should not become a full GRC platform or PSA analytics product. It should not compete directly with Kaseya, ConnectWise, Rewst, Pia, or IT Glue on automation, documentation storage, or ticket analytics.
+
+The product should focus on:
+
+- Human readiness
+- Practical assessment
+- Compliance training evidence
+- Manager-reviewed scoring
+- Adaptive remedial drills
+- AI-assisted support training
+- Service desk call/ticket simulation
+- Proof of competence before live client work
+
+This keeps CallCallum focused on the gap that large PSA/RMM vendors are less likely to solve deeply: **practical, evidence-based human assessment for MSP support work.**
