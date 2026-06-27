@@ -110,6 +110,33 @@ const EVIDENCE_PATTERNS: Record<string, string[]> = {
   sd_proper_closing: ['anything else', 'bye', 'goodbye', 'have a good', 'call back', 'take care'],
   leap_listen: ['okay', 'right', 'i see', 'understood', 'go on', 'tell me'],
   leap_apologize: ['sorry', 'apologize', 'apologise', 'unfortunately'],
+  submitted_ticket: ['submit', 'ticket', 'logged', 'created', 'submitted'],
+  performed_triage: ['triage', 'category', 'classif', 'priorit', 'type'],
+  ticket_user_company: ['name', 'user', 'company', 'requester', 'caller'],
+  ticket_issue_summary: ['issue', 'problem', 'summary', 'subject', 'description'],
+  ticket_next_step: ['next step', 'will', 'follow up', 'pending', 'action', 'plan'],
+  servqual_assurance_competence: ['check', 'diagnos', 'investigate', 'technical', 'look at', 'test'],
+  servqual_responsiveness_willingness: ['help', 'happy to', 'let me', 'i can', 'of course'],
+  itil_inc_categorization: ['category', 'type', 'classif', 'incident'],
+  itil_inc_closure: ['ticket', 'closed', 'completed', 'resolved', 'document'],
+  sd_documentation: ['ticket', 'document', 'note', 'logged', 'recorded'],
+  itil_inc_initial_diagnosis: ['check', 'diagnos', 'look', 'see', 'test', 'try'],
+  sbar_recommendation: ['next step', 'should', 'need to', 'recommend', 'action'],
+  leap_take_action: ['will', 'i\'ll', 'going to', 'let me', 'action'],
+  kt_establish_scope: ['scope', 'one user', 'multiple', 'others', 'just you'],
+  kt_establish_timing: ['when', 'start', 'began', 'how long', 'since'],
+  kt_determine_extent: ['how many', 'one', 'multiple', 'others', 'affected'],
+  kt_identify_changes: ['changed', 'update', 'recent', 'installed', 'modified'],
+  servqual_reliability_followthrough: ['i will', 'i\'ll', 'going to', 'let you know', 'call back'],
+  servqual_reliability_accuracy: ['correct', 'right', 'exact', 'proper', 'verified'],
+  servqual_assurance_confidence: ['i can', 'i know', 'confident', 'let me', 'i will'],
+  servqual_responsiveness_prompt: ['right away', 'moment', 'quick', 'immediately', 'promptly'],
+  servqual_responsiveness_updates: ['update', 'progress', 'still working', 'let you know'],
+  sbar_situation: ['happening', 'issue', 'problem', 'currently', 'right now'],
+  sbar_background: ['because', 'since', 'after', 'before', 'history', 'previous'],
+  sbar_assessment: ['i think', 'i believe', 'appears', 'looks like', 'seems'],
+  sd_proper_opening: ['hello', 'hi', 'thanks for calling', 'good morning', 'help'],
+  sd_ownership: ['i will', 'i\'ll', 'let me', 'i can', 'i\'m going to'],
 };
 
 /**
@@ -166,7 +193,28 @@ function determineEvidenceStatus(
     return { status: 'invalidated', quote: '' };
   }
 
-  // Step 4: No patterns for this criterion, no AI quote = not_observed
+  // Step 4: No patterns for this criterion, no AI quote.
+  // If status is 'fail', the criterion was consciously checked and failed → invalidated
+  // If status is 'pass', do a fallback keyword search from the label
+  if (status === 'fail') {
+    return { status: 'invalidated', quote: '' };
+  }
+
+  // Fallback: extract key words from label, search transcript
+  const labelWords = label.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !['ticket', 'candidate', 'about', 'issue', 'clear', 'asked', 'used', 'the', 'and', 'for', 'not'].includes(w));
+  for (const word of labelWords) {
+    const idx = lowerTranscript.indexOf(word);
+    if (idx !== -1) {
+      const lineStart = transcriptText.lastIndexOf('\n', idx) + 1;
+      const lineEnd = transcriptText.indexOf('\n', idx + word.length);
+      const snippet = transcriptText.slice(lineStart, lineEnd !== -1 ? lineEnd : transcriptText.length).trim();
+      return { status: 'verified', quote: snippet };
+    }
+  }
+
   return { status: 'not_observed', quote: '' };
 }
 

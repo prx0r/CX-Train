@@ -95,11 +95,43 @@ function compute(name: string) {
 
   const criteria = buildCriteriaFromFrameworks(frameworkResults);
 
-  /* Override evidence with AI-provided quotes (the buildCriteriaFromFrameworks
-     uses the evaluator's evidence strings, but we want the AI's original quotes) */
+  /* Override evidence with AI-provided quotes.
+     The compliance evaluator generates auto-strings for evidence.
+     We want the original AI quotes instead.
+     Also handles shared checkTargets (e.g., servqual_assurance_competence reads from technical_discovery) */
   if (useAi && aiData.ai) {
+    const aiKeys = Object.keys(aiData.ai.criteria || {});
     for (const c of criteria) {
-      const aiEntry = aiData.ai.criteria?.[c.id];
+      // Try direct match first
+      let aiEntry = aiData.ai.criteria?.[c.id];
+      // If not found, check if c.id matches an AI key that maps here
+      // (shared checkTargets like identity_check, technical_discovery, etc.)
+      if (!aiEntry?.evidence || aiEntry.evidence.length === 0) {
+        // Try common checkTarget mappings
+        const checkTargetMap: Record<string, string[]> = {
+          'ce_access_control': ['identity_check'],
+          'gdpr_identity_verified': ['identity_check'],
+          'iso_access_control': ['identity_check'],
+          'ce_patch_awareness': ['recent_changes'],
+          'iso_patch_management': ['recent_changes'],
+          'iso_escalation': ['escalation_judgement'],
+          'servqual_assurance_competence': ['technical_discovery'],
+          'servqual_responsiveness_willingness': ['professional_conduct'],
+          'leap_empathize': ['servqual_empathy_acknowledge'],
+          'leap_take_action': ['next_steps'],
+          'sbar_recommendation': ['next_steps'],
+          'sd_needs_assessment': ['issue_clarification'],
+          'itil_inc_initial_diagnosis': ['technical_discovery'],
+        };
+        const mappedKeys = checkTargetMap[c.id] || [];
+        for (const mk of mappedKeys) {
+          const mappedEntry = aiData.ai.criteria?.[mk];
+          if (mappedEntry?.evidence && mappedEntry.evidence.length > 0) {
+            aiEntry = mappedEntry;
+            break;
+          }
+        }
+      }
       if (aiEntry?.evidence && aiEntry.evidence.length > 0) {
         c.evidence = aiEntry.evidence;
       }
