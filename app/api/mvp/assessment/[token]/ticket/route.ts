@@ -24,8 +24,9 @@ export async function POST(
 
     const body = await request.json();
     const ticketText = (body.ticket || '').trim();
-    if (!ticketText) {
-      return NextResponse.json({ error: 'Ticket text is required' }, { status: 400 });
+    const uncertainties = (body.uncertainties || '').trim();
+    if (!ticketText && !uncertainties) {
+      return NextResponse.json({ error: 'Ticket text or uncertainties required' }, { status: 400 });
     }
 
     const db = getDb();
@@ -33,13 +34,25 @@ export async function POST(
       VALUES (?, ?, ?, datetime('now'))`).run(makeId(), session.id, ticketText);
     db.prepare('UPDATE assessments SET status = ? WHERE id = ?').run('completed', assessment.id);
 
+    if (uncertainties) {
+      appendSessionEvent({
+        assessment_id: assessment.id,
+        session_id: session.id,
+        event_type: 'candidate_uncertainties',
+        actor: 'candidate',
+        text: uncertainties,
+        payload: { uncertainties },
+        started_at_ms: Date.now(),
+      });
+    }
+
     appendSessionEvent({
       assessment_id: assessment.id,
       session_id: session.id,
       event_type: 'ticket_submitted',
       actor: 'candidate',
       text: ticketText,
-      payload: { ticket_text: ticketText },
+      payload: { ticket_text: ticketText, uncertainties },
       started_at_ms: Date.now(),
     });
 

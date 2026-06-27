@@ -52,6 +52,26 @@ export function applyAction(
   state: SimState,
   action: SimAction,
 ): { result: SimActionResult; updatedState: SimState } {
+  /* Validate phase */
+  if (action.allowedPhases && action.allowedPhases.length > 0 && !action.allowedPhases.includes(state.phase)) {
+    return {
+      result: {
+        ok: false,
+        action_id: action.id,
+        label: action.label,
+        result_text: `Action "${action.id}" is not allowed during phase "${state.phase}"`,
+        state_before: state as unknown as Record<string, unknown>,
+        state_after: state as unknown as Record<string, unknown>,
+        phaseTransition: false,
+        revealedFacts: [],
+        taxonomyTags: [],
+        redFlag: null,
+        errorCode: 'PHASE_MISMATCH' as SimErrorCode,
+      },
+      updatedState: state,
+    };
+  }
+
   const state_before = deepClone(state);
   let updated = deepClone(state);
 

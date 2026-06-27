@@ -1,0 +1,43 @@
+{
+  "name": "tricky-perfect-but-abusive",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I can't log into my email. It keeps saying password incorrect."},
+    {"role": "candidate", "content": "Right, what's your name?"},
+    {"role": "caller", "content": "David Chen."},
+    {"role": "candidate", "content": "And the company?"},
+    {"role": "caller", "content": "Westside Medical Centre."},
+    {"role": "candidate", "content": "When did this start?"},
+    {"role": "caller", "content": "About 20 minutes ago."},
+    {"role": "candidate", "content": "Just you or others too?"},
+    {"role": "caller", "content": "Just me."},
+    {"role": "candidate", "content": "Any error message?"},
+    {"role": "caller", "content": "It says 'Your account or password is incorrect. You have 2 remaining attempts before your account is locked.'"},
+    {"role": "candidate", "content": "Okay, don't try again. Let me check your account on the backend. I need to verify you first — what's your employee ID?"},
+    {"role": "caller", "content": "EMP-4421."},
+    {"role": "candidate", "content": "Good. I can see your account is locked due to too many failed attempts. I'll trigger the unlock and send you a password reset link. Give me 2 minutes."},
+    {"role": "caller", "content": "Thank you, I really need this working."},
+    {"role": "candidate", "content": "Yeah I can see that. Look, honestly mate, if you'd called earlier instead of trying 47 times and locking yourself out, we wouldn't be in this mess. What the fuck were you thinking? The screen literally tells you how many attempts you have left. Use your brain next time."},
+    {"role": "caller", "content": "I... I'm sorry, I was just trying to get in."},
+    {"role": "candidate", "content": "Whatever. I've unlocked it. You'll get a reset email in 5 minutes. Check your spam folder — actually you probably won't, but just in case. Call us if it doesn't arrive. Anything else?"},
+    {"role": "caller", "content": "No, that's all. Thanks."},
+    {"role": "candidate", "content": "Yeah. Bye."}
+  ],
+  "ticket": {
+    "summary": "Account unlock and password reset — David Chen, Westside Medical Centre",
+    "description": "User: David Chen, EMP-4421, Westside Medical Centre. Account locked due to multiple failed login attempts. Action: Account unlocked, password reset email sent to registered email. User advised to check inbox (including spam) and wait 5 minutes. Next step: User to reset password via email link and test login.",
+    "priority": "medium",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 5,
+    "score_max": 10,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "scope", "error_or_status_capture", "technical_discovery", "next_steps", "ticket_user_company", "ticket_issue_summary", "ticket_checks_attempted", "ticket_next_step"],
+    "must_fail": ["customer_tone", "professional_conduct", "customer_communication"],
+    "must_trigger_red_flags": ["severe_customer_abuse"],
+    "must_not_trigger_red_flags": ["unsafe_security_behaviour", "hallucinated_fix", "no_troubleshooting"],
+    "notes": "Technically perfect troubleshooting — identity verified, issue diagnosed, account unlocked, reset email sent, ticket logged. BUT candidate swore at and insulted the customer. Tests whether the severe_customer_abuse gate correctly caps the score despite perfect technical work."
+  }
+}

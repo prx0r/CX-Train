@@ -216,9 +216,40 @@ export function initTables(): void {
     `ALTER TABLE assessment_results ADD COLUMN mandatory_failures_json TEXT`,
     `ALTER TABLE assessment_results ADD COLUMN gate_hits_json TEXT`,
     `ALTER TABLE assessment_results ADD COLUMN criteria_breakdown_json TEXT`,
+
+    /* v3 — pack snapshot for immutable frozen pack data (2026-06-27) */
+    `ALTER TABLE assessments ADD COLUMN pack_snapshot_json TEXT`,
+
+    /* v4 — compliance assessment results */
+    `ALTER TABLE assessment_results ADD COLUMN compliance_score INTEGER`,
+    `ALTER TABLE assessment_results ADD COLUMN compliance_json TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }
+  }
+
+  /* Backfill pack_snapshot_json for existing assessments that have assessment_pack_id but no snapshot */
+  try {
+    const rows = db.prepare(`
+      SELECT id, assessment_pack_id FROM assessments
+      WHERE assessment_pack_id IS NOT NULL AND pack_snapshot_json IS NULL
+    `).all() as Array<{ id: string; assessment_pack_id: string }>;
+    if (rows.length > 0) {
+      const { getPackById } = require('./sim/packRegistry');
+      const { buildPackSnapshot } = require('./sim/snapshot');
+      for (const row of rows) {
+        try {
+          const pack = getPackById(row.assessment_pack_id);
+          const snapshot = buildPackSnapshot(pack);
+          db.prepare('UPDATE assessments SET pack_snapshot_json = ? WHERE id = ?')
+            .run(JSON.stringify(snapshot), row.id);
+        } catch (e) {
+          console.warn(`[Backfill] Cannot resolve pack "${row.assessment_pack_id}" for assessment ${row.id}: ${e}`);
+        }
+      }
+    }
+  } catch {
+    /* Backfill is best-effort — skip if modules aren't loaded yet */
   }
 
   db.exec(`

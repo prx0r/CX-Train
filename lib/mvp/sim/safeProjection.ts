@@ -90,6 +90,7 @@ export function getVisibleState(state: SimState, pack?: SimPack): VisibleSimStat
 
 export function getVisibleActions(state: SimState, actions: SimAction[]): VisibleAction[] {
   return actions
+    .filter(a => !a.allowedPhases || a.allowedPhases.length === 0 || a.allowedPhases.includes(state.phase))
     .map(a => ({
       id: a.id,
       tool: a.tool,

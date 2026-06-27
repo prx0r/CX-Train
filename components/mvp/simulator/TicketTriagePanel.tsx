@@ -10,6 +10,7 @@ export interface TicketTriageState {
   subcategoryId?: string;
   itemId?: string;
   priorityId?: string;
+  summary?: string;
   submittedAt?: string;
 }
 
@@ -55,6 +56,7 @@ export default function TicketTriagePanel({ taxonomy, triageState, onTriageChang
 
       {collapsed && allFilled && (
         <div style={{ fontSize: 12, color: '#525252', display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
+          {triageState.summary && <div><strong>Summary:</strong> {triageState.summary}</div>}
           <div><strong>Status:</strong> {triageState.status.replace('_', ' ')}</div>
           {triageState.boardId && <div><strong>Board:</strong> {boardOptions.find(b => b.id === triageState.boardId)?.label}</div>}
           {triageState.typeId && <div><strong>Type:</strong> {taxonomy.typeOptions.find(t => t.id === triageState.typeId)?.label}</div>}
@@ -65,6 +67,22 @@ export default function TicketTriagePanel({ taxonomy, triageState, onTriageChang
 
       {!collapsed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Summary / Subject line that the candidate writes */}
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 600, color: '#525252', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Summary</label>
+            <input
+              type="text"
+              value={triageState.summary || ''}
+              onChange={e => onTriageChange({ summary: e.target.value })}
+              placeholder="e.g. Password Reset — account locked after failed attempts"
+              disabled={disabled}
+              style={{
+                width: '100%', padding: '5px 6px', border: '1px solid #b8b8b8', borderRadius: 3,
+                fontSize: 12, color: '#111', background: disabled ? '#efefef' : '#fff',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
           <SelectField label="Status" value={triageState.status} onChange={v => onTriageChange({ status: v as any })}
             options={[
               { value: 'open', label: 'Open' },

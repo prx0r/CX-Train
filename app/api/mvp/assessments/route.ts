@@ -3,10 +3,11 @@ import { getDb, seedDefaults, initTables } from '@/lib/mvp/db';
 import { makeId, getActiveScenario, getActiveCriteria, getManagerStandards } from '@/lib/mvp/query';
 import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
-import { getPackById, getPackIdForMode } from '@/lib/mvp/sim/packRegistry';
+import { getPackById } from '@/lib/mvp/sim/packRegistry';
 import { mergeAssessmentConfig } from '@/lib/mvp/sim/mergeConfig';
 import { isAssignmentTypeValid, ASSIGNMENT_TYPES, ENABLED_TRAINING_DRILL_PACKS } from '@/lib/mvp/assignment-types';
 import { failWithCustomCode } from '@/lib/mvp/api/responses';
+import { buildPackSnapshot, validatePackStructure } from '@/lib/mvp/sim/snapshot';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,9 +21,7 @@ export async function POST(request: NextRequest) {
     const candidateEmail = body.candidate_email || null;
     const managerProfileId = body.manager_profile_id || 'manager-default-v1';
 
-    /* Resolve assignment type — default to hiring_exam */
     const rawAssignmentType = body.assignmentType || body.assignment_type || 'hiring_exam';
-
     if (!isAssignmentTypeValid(rawAssignmentType)) {
       return NextResponse.json({ error: `Invalid assignment type: "${rawAssignmentType}"` }, { status: 400 });
     }
@@ -37,7 +36,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Training Drill is not enabled.' }, { status: 400 });
     }
 
-    /* Map assignment type to internal mode */
     const assessmentMode = assignmentType === 'training_drill' ? 'dashboard_sim' : 'chat_call';
 
     const scenario = getActiveScenario();
@@ -50,20 +48,40 @@ export async function POST(request: NextRequest) {
     const assessmentId = makeId();
     const sessionId = makeId();
     const inviteToken = makeId();
-
     const db = getDb();
     const title = `Call Readiness: ${candidateName}`;
 
-    /* Resolve pack for training_drill */
-    let packInitialState: Record<string, unknown> = {};
+    /* Resolve pack for training_drill — with structural validation */
     let packId: string | null = null;
+    let packSnapshotJson: string | null = null;
+    let packInitialState: Record<string, unknown> = {};
+    let firstMessage: string = scenario.initial_message;
 
     if (assignmentType === 'training_drill') {
-      const preferredPackId: string = body.assessmentPackId || body.assessment_pack_id || ENABLED_TRAINING_DRILL_PACKS[0];
-      const resolvedPackId: string = ENABLED_TRAINING_DRILL_PACKS.includes(preferredPackId) ? preferredPackId : ENABLED_TRAINING_DRILL_PACKS[0];
-      packId = resolvedPackId;
-      const codePack = getPackById(resolvedPackId);
+      const preferredPackId = body.assessmentPackId || body.assessment_pack_id || null;
+      if (!preferredPackId || !ENABLED_TRAINING_DRILL_PACKS.includes(preferredPackId)) {
+        return NextResponse.json({
+          error: `Invalid or missing pack ID. Supported packs: ${ENABLED_TRAINING_DRILL_PACKS.join(', ')}`,
+          supportedPacks: ENABLED_TRAINING_DRILL_PACKS,
+        }, { status: 400 });
+      }
+
+      packId = preferredPackId;
+      const codePack = getPackById(packId as string);
+
+      const validation = validatePackStructure(codePack);
+      if (!validation.valid) {
+        return NextResponse.json({
+          error: `Pack "${packId}" fails structural validation`,
+          details: validation.errors,
+        }, { status: 500 });
+      }
+
+      const snapshot = buildPackSnapshot(codePack);
+      packSnapshotJson = JSON.stringify(snapshot);
+
       packInitialState = codePack.initialState as unknown as Record<string, unknown>;
+      firstMessage = snapshot.customer.opening_line;
     }
 
     /* Snapshot current standards */
@@ -85,23 +103,28 @@ export async function POST(request: NextRequest) {
         const standardsOverrides = standards?.scoring_overrides_json || null;
         const merged = mergeAssessmentConfig({ pack: codePack, managerStandardsOverrides: standardsOverrides, packId });
         scoringSnapshot = JSON.stringify(merged);
-      } catch { /* if merge fails, scoringSnapshot stays null — fallback to pack defaults */ }
+      } catch { /* fallback to null — merge errors don't block creation */ }
     }
 
-    db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, scoring_snapshot_json, assessment_pack_id, assessment_mode, assignment_type, created_at)
-      VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
-      assessmentId, title, candidateName, candidateEmail, inviteToken, scenario.id, criteria?.id || null,
-      managerProfileId, standardsSnapshot ? JSON.stringify(standardsSnapshot) : null,
-      scoringSnapshot, packId, assessmentMode, assignmentType
+    /* Store assessment — scenario_id set null for training_drill (pack is source of truth) */
+    const storedScenarioId = assignmentType === 'training_drill' ? null : scenario.id;
+
+    db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, scoring_snapshot_json, pack_snapshot_json, assessment_pack_id, assessment_mode, assignment_type, created_at)
+      VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
+      assessmentId, title, candidateName, candidateEmail, inviteToken,
+      storedScenarioId, criteria?.id || null,
+      managerProfileId,
+      standardsSnapshot ? JSON.stringify(standardsSnapshot) : null,
+      scoringSnapshot, packSnapshotJson, packId, assessmentMode, assignmentType
     );
 
     db.prepare(`INSERT INTO sessions (id, assessment_id, status, started_at)
       VALUES (?, ?, 'in_progress', datetime('now'))`).run(sessionId, assessmentId);
 
+    /* First message comes from pack for training_drill, from scenario for chat_call */
     db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
-      VALUES (?, ?, 'caller', ?, datetime('now'))`).run(makeId(), sessionId, scenario.initial_message);
+      VALUES (?, ?, 'caller', ?, datetime('now'))`).run(makeId(), sessionId, firstMessage);
 
-    /* Create sim_session for training_drill */
     if (assignmentType === 'training_drill' && packId) {
       const simSessionId = makeId();
       db.prepare(`INSERT INTO sim_sessions (id, session_id, assessment_id, assessment_pack_id, current_state_json, started_at)
@@ -119,7 +142,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    /* Write unified session_events */
     appendSessionEvent({
       assessment_id: assessmentId,
       session_id: sessionId,
@@ -135,7 +157,7 @@ export async function POST(request: NextRequest) {
       session_id: sessionId,
       event_type: 'customer_message',
       actor: 'customer',
-      text: scenario.initial_message,
+      text: firstMessage,
       started_at_ms: Date.now() + 50,
     });
 

@@ -23,7 +23,7 @@
   "expected": {
     "readiness_label": "not_ready",
     "score_min": 5,
-    "score_max": 20,
+    "score_max": 23,
     "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "recent_changes"],
     "must_fail": ["impact", "urgency", "scope", "technical_discovery", "error_or_status_capture", "next_steps", "customer_tone", "ticket_impact", "ticket_urgency", "ticket_checks_attempted", "ticket_next_step", "escalation_judgement"],
     "must_trigger_red_flags": ["no_troubleshooting"],

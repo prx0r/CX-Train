@@ -1,8 +1,14 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { getCurrentUser } from '@/lib/auth';
 
 export default async function HomePage() {
+  const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!hasSupabase) {
+    redirect('/mvp');
+  }
+
+  const { getCurrentUser } = await import('@/lib/auth');
   const user = await getCurrentUser();
   if (user) {
     redirect('/dashboard');

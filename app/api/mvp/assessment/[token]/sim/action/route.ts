@@ -5,10 +5,10 @@ import { applyAction } from '@/lib/mvp/sim/stateMachine';
 import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
 import { getVisibleActions, getVisibleState } from '@/lib/mvp/sim/safeProjection';
 import { buildTimeline } from '@/lib/mvp/sim/timeline';
-import { getPackById } from '@/lib/mvp/sim/packRegistry';
-import { SimState } from '@/lib/mvp/sim/types';
 import { getSessionEvents } from '@/lib/mvp/events/eventLog';
 import { getCapabilitiesForType } from '@/lib/mvp/assignment-types';
+import { resolveSimAction, SimResolutionError, getSnapshotFromAssessment } from '@/lib/mvp/sim/resolver';
+import type { PackSnapshot } from '@/lib/mvp/sim/snapshot';
 
 export async function POST(
   request: NextRequest,
@@ -21,41 +21,51 @@ export async function POST(
       return NextResponse.json({ error: 'Assessment not found' }, { status: 404 });
     }
 
-    const assignmentType = (full.assessment as any).assignment_type || ((full.assessment as any).assessment_mode === 'dashboard_sim' ? 'training_drill' : 'hiring_exam');
-    const capabilities = getCapabilitiesForType(assignmentType);
-    if (!capabilities?.remoteDesktop && (full.assessment as any).assessment_mode !== 'dashboard_sim') {
-      return NextResponse.json({ error: 'Remote tool actions are not enabled for this assignment' }, { status: 400 });
+    const assessment = full.assessment as unknown as Record<string, unknown>;
+
+    /* Load snapshot for pack data (no fallback — error if missing) */
+    let snapshot: PackSnapshot;
+    try {
+      snapshot = getSnapshotFromAssessment(assessment);
+    } catch (err) {
+      if (err instanceof SimResolutionError) {
+        return NextResponse.json({ error: err.message }, { status: err.code === 'NOT_A_SIM_ASSESSMENT' ? 404 : 500 });
+      }
+      throw err;
+    }
+
+    /* Check capability from frozen snapshot (already derived from pack mode at creation) */
+    if (!snapshot.capabilities.remoteDesktop) {
+      return NextResponse.json({ error: 'Remote tool actions are not enabled for this pack' }, { status: 400 });
     }
 
     const body = await request.json();
     const actionId = body.action_id as string;
-    const toolId = body.tool_id as string;
     const startedAtMs = body.started_at_ms || Date.now();
 
     if (!actionId) {
       return NextResponse.json({ error: 'action_id required' }, { status: 400 });
     }
 
-    const packId = (full.assessment as any).assessment_pack_id;
-    const pack = getPackById(packId || 'pack-outlook-sim-v2');
-    const action = pack.actions.find(a => a.id === actionId);
+    /* Resolve action from snapshot actions (not registry) */
+    const action = snapshot.actions.find(a => a.id === actionId);
     if (!action) {
-      return NextResponse.json({ error: `Action ${actionId} not found` }, { status: 400 });
+      return NextResponse.json({ error: `Action "${actionId}" not found in pack` }, { status: 400 });
     }
 
     const db = getDb();
-    const simSession = db.prepare('SELECT id, current_state_json FROM sim_sessions WHERE session_id = ?').get(full.session.id) as any;
+    const simSession = db.prepare('SELECT id, current_state_json FROM sim_sessions WHERE session_id = ?')
+      .get(full.session.id) as { id: string; current_state_json: string } | undefined;
     if (!simSession) {
       return NextResponse.json({ error: 'Sim session not found' }, { status: 404 });
     }
 
-    const currentState = JSON.parse(simSession.current_state_json) as SimState;
+    const currentState = JSON.parse(simSession.current_state_json);
 
     /* Apply action through state machine */
     const { result, updatedState } = applyAction(currentState, action);
 
     if (!result.ok) {
-      /* Rejected action — do NOT log as action_performed event */
       return NextResponse.json({
         ok: false,
         error: result.result_text,
@@ -72,7 +82,7 @@ export async function POST(
     insertSimEvent({
       session_id: full.session.id,
       assessment_id: full.assessment.id,
-      assessment_pack_id: packId,
+      assessment_pack_id: snapshot.pack_id,
       event_type: 'action_performed',
       actor: 'candidate',
       tool_id: action.tool,
@@ -91,7 +101,7 @@ export async function POST(
     insertSimEvent({
       session_id: full.session.id,
       assessment_id: full.assessment.id,
-      assessment_pack_id: packId,
+      assessment_pack_id: snapshot.pack_id,
       event_type: 'observation_returned',
       actor: 'system',
       tool_id: action.tool,
@@ -106,7 +116,7 @@ export async function POST(
       insertSimEvent({
         session_id: full.session.id,
         assessment_id: full.assessment.id,
-        assessment_pack_id: packId,
+        assessment_pack_id: snapshot.pack_id,
         event_type: 'red_flag_triggered',
         actor: 'system',
         tool_id: action.tool,
@@ -124,7 +134,7 @@ export async function POST(
       insertSimEvent({
         session_id: full.session.id,
         assessment_id: full.assessment.id,
-        assessment_pack_id: packId,
+        assessment_pack_id: snapshot.pack_id,
         event_type: 'observation_returned',
         actor: 'system',
         label: `Phase: ${updatedState.phase}`,
@@ -143,8 +153,8 @@ export async function POST(
       started_at_ms: e.started_at_ms,
     }));
 
-    const visibleState = getVisibleState(updatedState, pack);
-    const safeActions = getVisibleActions(updatedState, pack.actions);
+    const visibleState = getVisibleState(updatedState, { actions: snapshot.actions } as any);
+    const safeActions = getVisibleActions(updatedState, snapshot.actions);
 
     return NextResponse.json({
       ok: true,

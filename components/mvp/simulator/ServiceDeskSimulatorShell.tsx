@@ -10,8 +10,7 @@ import TicketMetadataPanel from './TicketMetadataPanel';
 import TicketTriagePanel from './TicketTriagePanel';
 import type { TicketTriageState } from './TicketTriagePanel';
 import TicketNotesPanel from './TicketNotesPanel';
-import AssessmentResults from '@/components/mvp/results/AssessmentResults';
-import type { CandidateAnalysisResult } from '@/components/mvp/results/AssessmentResults';
+import AssessmentResults, { type CandidateAnalysisResult } from '@/components/mvp/results/AssessmentResults';
 import { VoiceRecorderButton, type VoiceTranscriptResult } from '@/components/mvp/voice/VoiceRecorderButton';
 import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
 import type { SimulatorCapabilities } from '@/lib/mvp/assignment-types';
@@ -45,10 +44,11 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   const [noteDraft, setNoteDraft] = useState('');
   const [activeNoteTab, setActiveNoteTab] = useState<NoteTab>('internal');
   const [sending, setSending] = useState(false);
-  const [ticketText, setTicketText] = useState('');
+  const [uncertainties, setUncertainties] = useState('');
   const [ticketSubmitted, setTicketSubmitted] = useState(false);
   const [analysing, setAnalysing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<CandidateAnalysisResult | null>(null);
+  const [reviewMode, setReviewMode] = useState(false);
   const [error, setError] = useState('');
   const [simData, setSimData] = useState<{ safe_actions: SafeAction[]; visible_state: Record<string, unknown>; phase: string; timeline: unknown[] } | null>(null);
   const [phase, setPhase] = useState<Phase>('not_started');
@@ -298,6 +298,9 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     if (update.priorityId !== undefined && update.priorityId !== oldState.priorityId) {
       recordTriageEvent('ticket_priority_set', 'priority', oldState.priorityId, update.priorityId);
     }
+    if (update.summary !== undefined && update.summary !== oldState.summary) {
+      recordTriageEvent('triage_summary_updated', 'summary', oldState.summary, update.summary);
+    }
   }
 
   async function handleTriageSubmit() {
@@ -305,6 +308,9 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
       triage: triageState,
       taxonomy_tags: ['ticket.triage_submitted', 'ticket.classification_completed'],
     });
+    if (triageState.summary) {
+      await recordUiAction('triage_summary_finalized', `Summary: ${triageState.summary}`, 'triage_summary_set', triageState.summary);
+    }
     showFeedback('Triage updated', true);
   }
 
@@ -320,12 +326,20 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   }, [callStatus, handleTtsEnded]);
 
   async function submitTicket() {
-    if (!ticketText.trim()) return;
+    const allNotes = [
+      ...internalNotes.map(n => `[Internal] ${n}`),
+      ...liveNotes.map(n => `[Live] ${n}`),
+    ].join('\n');
+    const ticketContent = allNotes || `Assessment completed — ${ticket.title}`;
     setAnalysing(true);
     try {
       const res = await fetch(`/api/mvp/assessment/${token}/ticket`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticket: ticketText.trim() }),
+        body: JSON.stringify({
+          ticket: ticketContent,
+          uncertainties: uncertainties.trim(),
+          notes: { internal: internalNotes, live: liveNotes },
+        }),
       });
       const d = await res.json();
       if (d.status === 'completed') {
@@ -333,24 +347,15 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
         if (d.candidate_analysis) {
           setAnalysisResults(d.candidate_analysis);
         }
-      } else setError(d.error || 'Failed to submit ticket');
-    } catch { setError('Failed to submit ticket'); }
-    setAnalysing(false);
-  }
-
-  if (ticketSubmitted) {
-    if (analysing) {
-      return (
-        <div style={{ height: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#2f2f2f', borderRadius: 2, padding: 48, maxWidth: 440, textAlign: 'center', border: '1px solid #4a4a4a' }}>
-            <div style={{ fontSize: 48, marginBottom: 16, color: '#7a4f00' }}>⏳</div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: '#f6e8b1', margin: '0 0 8px' }}>Analyzing your performance...</h2>
-            <p style={{ color: '#999', fontSize: 14, margin: 0 }}>Your assessment has been submitted. AI is evaluating your ticket, call handling, and diagnostic process. This may take a few seconds.</p>
-          </div>
-        </div>
-      );
+        setAnalysing(false);
+      } else {
+        setError(d.error || 'Failed to submit ticket');
+        setAnalysing(false);
+      }
+    } catch {
+      setError('Failed to submit ticket');
+      setAnalysing(false);
     }
-    return <AssessmentResults analysis={analysisResults} />;
   }
 
   const safeActions = simData?.safe_actions || [];
@@ -461,7 +466,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
                 <span style={{ fontSize: 12, fontWeight: 700, color: priorityColor }}>{ticket.severity.toUpperCase()}</span>
                 <div>
                   <div style={{ fontSize: 13, color: '#111', fontWeight: 700, marginBottom: 2 }}>
-                    {ticket.title}
+                    {triageState.summary || ticket.title}
                   </div>
                   <div style={{ fontSize: 11, color: '#525252' }}>
                     {triageState.boardId && taxonomy.boardOptions?.find(b => b.id === triageState.boardId)?.label || ''}
@@ -483,36 +488,57 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
               Select the ticket to claim it, review the requester context, and begin work.
             </div>
 
-            {phase === 'ticketing' && (
+            {phase === 'ticketing' && !ticketSubmitted && (
               <div style={{ marginTop: 16, padding: 14, background: '#fff', border: '1px solid #b8b8b8', borderRadius: 3 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 4 }}>Ready to submit?</div>
                 <div style={{ fontSize: 12, color: '#525252', marginBottom: 10 }}>
-                  Review your notes and triage, then submit for assessment when ready.
+                  {"Anything you\u2019re unsure about? Questions for the reviewer? Your notes will be submitted as the ticket."}
                 </div>
                 <textarea
-                  value={ticketText}
-                  onChange={e => setTicketText(e.target.value)}
-                  placeholder="Summarize the issue, steps taken, root cause, and next steps for the ticket..."
-                  rows={4}
+                  value={uncertainties}
+                  onChange={e => setUncertainties(e.target.value)}
+                  placeholder={"Things I'm unsure about: Did I miss any steps? Should I have checked something else? ..."}
+                  rows={3}
                   style={{
                     width: '100%', padding: 8, border: '1px solid #b8b8b8', borderRadius: 3,
                     fontSize: 12, color: '#111', background: '#fff', resize: 'none',
-                    fontFamily: 'monospace', lineHeight: 1.5, boxSizing: 'border-box',
+                    fontFamily: 'inherit', lineHeight: 1.5, boxSizing: 'border-box',
                   }}
                 />
                 <button
                   onClick={submitTicket}
-                  disabled={!ticketText.trim() || ticketSubmitted}
+                  disabled={analysing || ticketSubmitted}
                   style={{
                     marginTop: 8, padding: '8px 20px', borderRadius: 3, border: '1px solid #111',
-                    background: ticketText.trim() && !ticketSubmitted ? '#111' : '#efefef',
-                    color: ticketText.trim() && !ticketSubmitted ? '#fff' : '#525252',
+                    background: analysing ? '#efefef' : '#111',
+                    color: analysing ? '#525252' : '#fff',
                     fontSize: 13, fontWeight: 700,
-                    cursor: ticketText.trim() && !ticketSubmitted ? 'pointer' : 'default',
+                    cursor: analysing ? 'default' : 'pointer',
                   }}
                 >
-                  {ticketSubmitted ? 'Submitted' : 'Submit for Review'}
+                  {analysing ? 'Submitting...' : 'Submit for Review'}
                 </button>
+              </div>
+            )}
+
+            {/* Analysing overlay */}
+            {analysing && (
+              <div style={{ marginTop: 16, padding: 24, background: '#111', borderRadius: 3, textAlign: 'center', border: '1px solid #333' }}>
+                <div style={{ fontSize: 32, marginBottom: 12, color: '#7a4f00' }}>⏳</div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#f6e8b1', margin: '0 0 6px' }}>Analyzing your performance...</h3>
+                <p style={{ color: '#999', fontSize: 13, margin: 0 }}>AI is evaluating your ticket, call handling, and diagnostic process. This may take a few seconds.</p>
+              </div>
+            )}
+
+            {/* Results inline */}
+            {ticketSubmitted && !analysing && analysisResults && (
+              <div style={{ marginTop: 16 }}>
+                <AssessmentResults
+                  analysis={analysisResults}
+                  onRetake={() => window.location.href = '/mvp'}
+                  onReview={() => setReviewMode(p => !p)}
+                  reviewMode={reviewMode}
+                />
               </div>
             )}
           </div>
@@ -552,19 +578,19 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
                       Open Remote Desktop
                     </button>
                   )}
-                  {phase === 'ticketing' && (
+                  {phase === 'ticketing' && !ticketSubmitted && (
                     <button
                       onClick={submitTicket}
-                      disabled={!ticketText.trim() || ticketSubmitted}
+                      disabled={analysing}
                       style={{
                         padding: '6px 12px', borderRadius: 3, border: '1px solid #111',
-                        background: ticketText.trim() && !ticketSubmitted ? '#111' : '#efefef',
-                        color: ticketText.trim() && !ticketSubmitted ? '#fff' : '#525252',
+                        background: analysing ? '#efefef' : '#111',
+                        color: analysing ? '#525252' : '#fff',
                         fontSize: 11, fontWeight: 700,
-                        cursor: ticketText.trim() && !ticketSubmitted ? 'pointer' : 'default',
+                        cursor: analysing ? 'default' : 'pointer',
                       }}
                     >
-                      {ticketSubmitted ? 'Submitted' : 'Submit Ticket'}
+                      {analysing ? 'Submitting...' : 'Submit for Review'}
                     </button>
                   )}
                 </div>

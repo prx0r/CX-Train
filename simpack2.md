@@ -902,11 +902,615 @@ ALTER TABLE assessment_results ADD COLUMN criteria_breakdown_json TEXT;
 
 ---
 
-## 12. Implementation Verification
+## 12. Data Flow Architecture — Single Source of Truth
+
+> Added 2026-06-27. Addresses the bugs catalogued in `simpack2breaks.md`.
+> Core insight: **the scenario table and the pack system are parallel data models that cross-contaminate.** The fix forces a single source of truth per context and makes invalid states impossible to represent at rest.
+
+### 12.0 The Problem Pattern (Anti-Patterns Eliminated)
+
+Every bug in `simpack2breaks.md` falls into one of these anti-patterns:
+
+| Anti-Pattern | Example | Why It Explodes |
+|---|---|---|
+| Silent default coercion | `assessment_pack_id \|\| 'pack-outlook-sim-v2'` | Hides the error. Wrong data served with no warning. |
+| Parallel data sources | Scenario table + pack registry both provide customer persona | Which one wins? Depends on which route you hit. |
+| Fallback construction | `ticketData` built from scenario first, patched from pack second | If pack is null, scenario data leaks through. |
+| Colony of read paths | 4 different routes all resolve `assessment_pack_id` independently | Bug fixed in 3 routes, missed in the 4th. |
+| Dynamic column access | `(assessment as any).assessment_pack_id` | No compile-time guarantee column exists. Missing column = `undefined` = fallback triggers. |
+| Capability check split | Token route sets `remoteDesktop=false` for `call_only` but action route checks `assessment_mode` instead | Inconsistency between routes. One gate says no, another says yes. |
+
+### 12.1 Architectural Principles
+
+These principles make every bug in `simpack2breaks.md` structurally impossible.
+
+#### Principle 1: Snapshot on Write, Never Resolve on Read
+
+The pack factory (`getPackById()`) is called **exactly once** — at assessment creation. The full pack state is frozen into `assessments.pack_snapshot_json` as an immutable JSON blob. Every read-time consumer uses the snapshot, never the registry.
+
+```
+CREATE (once)                          READ (every route)
+─────────────                          ──────────────────
+getPackById(packId)                    readSnapshot(assessmentId)
+       │                                        │
+  pack.customer.name                    snapshot.customer.name
+  pack.mode                             snapshot.mode
+  pack.initialState                     snapshot.initialState
+  pack.customer.openingLine             snapshot.openingLine
+  pack.actions                          snapshot.actions
+  pack.tools                            snapshot.tools
+       │                                        │
+       ▼                                        ▼
+  INSERT INTO assessments              Return validated typed object
+  (..., pack_snapshot_json)             to route handler
+       │                                        │
+       ▼                                        ▼
+  pack_snapshot_json =                 No getPackById() call.
+  frozen, never mutated.               No || 'pack-outlook-sim-v2'.
+                                       No scenario table access.
+```
+
+**Why this prevents the bugs:**
+- Bug #5 (silent Outlook fallback in 4 routes): Impossible. There's no pack ID to resolve. The snapshot IS the pack data. If the snapshot is null, the route errors — no fallback.
+- Bug #2 (first message always Outlook): The first message is `snapshot.opening_line`, frozen at creation. Cannot drift.
+- Bug #4 (ticketData built from scenario first): `ticketData` is built from snapshot fields directly. No scenario involvement.
+- Pack code changes after assessment creation don't affect running assessments (edit safety).
+
+#### Principle 2: Zero Shared State Between sim and chat_call Code Paths
+
+Sim assessments (`training_drill`) and chat assessments (`hiring_exam`) share zero data sources:
+
+```
+training_drill (sim pack)              hiring_exam (chat call)
+─────────────────────────              ───────────────────────
+Source: pack_snapshot_json             Source: scenarios table
+Creation: pack.customer.openingLine    Creation: scenario.initial_message
+Caller AI: buildAiCustomerContext()    Caller AI: scenario.caller_behaviour_prompt
+Scoring: scoreSimEvents()              Scoring: runBaseCallumAnalysis() → AI
+DB column: assessment_pack_id NOT NULL DB column: scenario_id NOT NULL
+Capability: derived from pack.mode     Capability: from assignment type config
+```
+
+**Why this prevents the bugs:**
+- Bug #1 (`getActiveScenario()` always Outlook): Sim code never calls `getActiveScenario()`.
+- Bug #3 (scenario_id always Outlook): Sim assessments don't have a `scenario_id`. The column is null for training_drill rows.
+- The hardcoded "Sarah Thompson from Alder & Co" in `message/route.ts:98` is only reachable from chat_call mode. Sim mode uses `buildAiCustomerContext(snapshot)`.
+
+#### Principle 3: Fail-Fast on Missing or Corrupt Data
+
+Every case where data could be missing must either produce a typed error or be structurally impossible:
+
+```typescript
+// BAD (current — produces undefined, then silent fallback):
+const packId = (assessment as any).assessment_pack_id;  // undefined → Outlook
+
+// GOOD (ideal — typed accessor, throws if missing):
+function getSimAssessment(token: string): SimAssessmentView {
+  const row = getDb().prepare(`
+    SELECT ... FROM assessments
+    WHERE invite_token = ? AND assessment_pack_id IS NOT NULL
+  `).get(token);
+  if (!row) throw new SimError('NOT_A_SIM_ASSESSMENT', 'Assessment not found or not a sim pack');
+  
+  const snapshot = JSON.parse(row.pack_snapshot_json);
+  if (!snapshot.customer || !snapshot.initialState) {
+    throw new SimError('SNAPSHOT_CORRUPT', 'pack_snapshot_json is missing required fields');
+  }
+  return buildViewFromSnapshot(snapshot);
+}
+```
+
+**Error taxonomy for sim assessments:**
+
+| Error Code | When | HTTP |
+|---|---|---|
+| `NOT_A_SIM_ASSESSMENT` | `assessment_pack_id IS NULL` for a sim route | 400 |
+| `PACK_SNAPSHOT_MISSING` | `pack_snapshot_json IS NULL` | 500 |
+| `PACK_SNAPSHOT_CORRUPT` | Required fields absent from parsed snapshot | 500 |
+| `PACK_ID_UNKNOWN` | Creation-time: pack ID not in registry | 400 |
+| `PACK_VALIDATION_FAILED` | Creation-time: pack fails structural test | 500 |
+
+No route should ever return 200 with wrong data because of missing columns, null fields, or fallback defaults.
+
+#### Principle 4: Capability Mask Is Pack-Derived and Frozen
+
+Instead of computing capabilities from `assignmentType` config in every route, they are derived from `pack.mode` at creation and frozen into the snapshot:
+
+```typescript
+// Pack mode → capability mask (computed ONCE, stored in snapshot):
+function packModeToCapabilities(mode: string): CapabilityMask {
+  return {
+    call: true,
+    voice: true,
+    textFallback: true,
+    ticketPanel: true,
+    remoteDesktop: mode === 'call_plus_remote',
+    tools: mode === 'call_plus_remote' ? ['outlook', 'browser', 'cmd'] : [],
+    ticketComposer: true,
+  };
+}
+```
+
+Every route reads the same `snapshot.capabilities`. There is no route-by-route inconsistency.
+
+#### Principle 5: One Resolution Function, Called By All Routes
+
+There is exactly ONE function that resolves assessment data for sim routes. Every route handler calls it in its first 5 lines:
+
+```typescript
+// lib/mvp/sim/resolver.ts
+export function resolveSimAssessment(token: string): SimAssessmentView;
+export function resolveSimSession(assessmentId: string, sessionId: string): SimSessionView;
+export function resolveSimAction(assessmentId: string, sessionId: string, actionId: string): SimActionView;
+```
+
+No route writes `getPackById()`, `(assessment as any).assessment_pack_id`, or `getActiveScenario()` for sim assessments. If a bug is found in resolution, it's fixed in one place.
+
+### 12.2 The Resolution Stack
+
+```
+                    resolveSimAssessment(token)
+                              │
+                              ▼
+            ┌─────────────────────────────────┐
+            │ 1. SELECT assessments WHERE     │
+            │    invite_token = ? AND         │
+            │    assessment_pack_id IS NOT NULL│───→ NOT_A_SIM_ASSESSMENT
+            └──────────────┬──────────────────┘
+                           │
+                           ▼
+            ┌─────────────────────────────────┐
+            │ 2. JSON.parse(                  │
+            │    pack_snapshot_json)           │───→ PACK_SNAPSHOT_MISSING
+            └──────────────┬──────────────────┘
+                           │
+                           ▼
+            ┌─────────────────────────────────┐
+            │ 3. validateSnapshot(snapshot)   │
+            │    • customer.name present      │
+            │    • initialState present       │
+            │    • mode is valid              │
+            │    • capabilities present       │───→ PACK_SNAPSHOT_CORRUPT
+            │    • opening_line present       │
+            └──────────────┬──────────────────┘
+                           │
+                           ▼
+            ┌─────────────────────────────────┐
+            │ 4. buildSimAssessmentView()     │
+            │    Returns fully typed view      │
+            │    with all derived fields       │
+            │    (ticketData, call, messages,  │
+            │     sim, capabilities)           │
+            └──────────────┬──────────────────┘
+                           │
+                           ▼
+                    SimAssessmentView
+                    (immutable, typed)
+```
+
+### 12.3 Snapshot Schema (`assessments.pack_snapshot_json`)
+
+This is the frozen-on-create blob that replaces all runtime pack resolution. It is a flattened, validated subset of `SimPack`:
+
+```typescript
+interface PackSnapshot {
+  // Identity — frozen from pack.id, pack.version, pack.title
+  pack_id: string;
+  pack_version: string;
+  pack_title: string;
+
+  // Customer — frozen from pack.customer
+  customer: {
+    name: string;
+    company: string;
+    role: string;
+    temperament: string;
+    opening_line: string;
+  };
+
+  // Scenario — frozen from pack.hiddenTruth
+  hidden_truth: {
+    root_cause: string;
+    correct_fix: string;
+    ideal_diagnostic_path: string[];
+    facts_only_reveal_after: Record<string, string[]>;
+  };
+
+  // State — frozen from pack.initialState
+  initial_state: SimState;
+
+  // Behavior — frozen from pack.callerBehavior
+  caller_behavior: SimCallerBehavior;
+
+  // Capabilities — computed from pack.mode at creation time
+  capabilities: {
+    call: boolean;
+    voice: boolean;
+    textFallback: boolean;
+    ticketPanel: boolean;
+    remoteDesktop: boolean;
+    tools: string[];
+    ticketComposer: boolean;
+  };
+
+  // Actions — frozen from pack.actions (the full action list)
+  actions: SimAction[];
+
+  // Scoring — from earlier merge step (scoring_snapshot_json stays separate)
+  // scoring_snapshot_json exists as a sibling column, not duplicated here.
+
+  // Metadata
+  severity: string;
+  level: number;
+  queue_title: string;
+  taxonomy_classification: string[];
+
+  // Frozen timestamp
+  frozen_at: string;   // ISO timestamp of assessment creation
+}
+```
+
+**What the snapshot does NOT include:**
+- `scoringDefaults` — those live in the separate `scoring_snapshot_json` column (already implemented in Phase 1)
+- `managerReviewHints` — those are for the manager review UI, not the candidate sim
+- `diagnosticChecklist` — also scoring-related
+- `taxonomyItemId`, `department`, `location` — only used in manager queue UI
+
+**Why this split:** The `pack_snapshot_json` is what the candidate experience needs. The `scoring_snapshot_json` is what the analysis pipeline needs. Two concerns, two columns, two validation paths.
+
+### 12.4 Creation-Time Validation Gate
+
+Before an assessment row is written, a validation gate runs:
+
+```typescript
+// In POST /api/mvp/assessments (training_drill path only):
+
+function validateAndFreezePack(packId: string): PackSnapshot {
+  // 1. Resolve pack — fail hard if missing
+  let pack: SimPack;
+  try {
+    pack = getPackById(packId);
+  } catch {
+    throw new AssessmentCreateError('PACK_ID_UNKNOWN', `No pack registered with ID "${packId}"`);
+  }
+
+  // 2. Structural validation — pack must pass all factory tests
+  const structural = validatePackStructure(pack);
+  if (!structural.valid) {
+    throw new AssessmentCreateError(
+      'PACK_VALIDATION_FAILED',
+      `Pack "${packId}" fails structural validation: ${structural.errors.join('; ')}`
+    );
+  }
+
+  // 3. Mode compatibility — pack mode must match assignment type
+  if (assignmentType !== 'training_drill' && pack.mode !== 'call_only') {
+    throw new AssessmentCreateError(
+      'PACK_MODE_MISMATCH',
+      `Pack mode "${pack.mode}" is not compatible with assignment type "${assignmentType}"`
+    );
+  }
+
+  // 4. Freeze snapshot
+  const snapshot: PackSnapshot = {
+    pack_id: pack.id,
+    pack_version: pack.version,
+    pack_title: pack.title,
+    customer: {
+      name: pack.customer.name,
+      company: pack.customer.company,
+      role: pack.customer.role,
+      temperament: pack.customer.temperament,
+      opening_line: pack.customer.openingLine,
+    },
+    hidden_truth: { ...pack.hiddenTruth },
+    initial_state: JSON.parse(JSON.stringify(pack.initialState)),
+    caller_behavior: { ...pack.callerBehavior },
+    capabilities: packModeToCapabilities(pack.mode),
+    actions: pack.actions.map(a => ({ ...a })),  // shallow clone
+    severity: pack.severity,
+    level: pack.level,
+    queue_title: pack.queueTitle,
+    taxonomy_classification: [...pack.taxonomyClassification],
+    frozen_at: new Date().toISOString(),
+  };
+
+  return snapshot;
+}
+
+function validatePackStructure(pack: SimPack): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  if (!pack.customer?.name) errors.push('customer.name is empty');
+  if (!pack.customer?.openingLine) errors.push('customer.openingLine is empty');
+  if (!pack.initialState) errors.push('initialState is missing');
+  if (!pack.hiddenTruth?.rootCause) errors.push('hiddenTruth.rootCause is empty');
+  if (!Array.isArray(pack.actions) || pack.actions.length === 0)
+    errors.push('actions is empty');
+  if (!['call_only', 'ticket_only', 'call_plus_remote', 'voicemail_plus_ticket'].includes(pack.mode))
+    errors.push('invalid mode');
+  // ... full structural validation (same as pack-factory tests)
+  return { valid: errors.length === 0, errors };
+}
+```
+
+**Why this prevents the bugs:**
+- Bug #6 (non-listed packs silently coerce to Outlook): Replaced by explicit validation. Unknown pack ID → `PACK_ID_UNKNOWN` error at creation, never written to DB.
+- Pack structural issues caught at creation time, not discovered later when a candidate is mid-simulation.
+
+### 12.5 Initial Message Routing
+
+The first chat message is ALWAYS taken from the pack snapshot, never from the scenarios table:
+
+```typescript
+// In assessment creation (replaces Bug #2):
+const snapshot = validateAndFreezePack(packId);
+
+db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
+  VALUES (?, ?, 'caller', ?, datetime('now'))`)
+  .run(makeId(), sessionId, snapshot.customer.opening_line);
+//                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+//                    NOT scenario.initial_message — pack.customer.openingLine
+```
+
+### 12.6 Route Consolidation — Before/After
+
+**Before (current — each route resolves pack independently, 4 fallback bugs):**
+
+```
+token/route.ts     → getPackById(assessment_pack_id || 'outlook')
+sim/route.ts       → getPackById(assessment_pack_id || 'outlook')
+message/route.ts   → getPackById(assessment_pack_id || 'outlook')
+sim/action/route.ts → getPackById(assessment_pack_id || 'outlook')
+```
+
+**After (ideal — single resolver, no fallback, snapshot-based):**
+
+```
+token/route.ts     ─┐
+sim/route.ts       ─┤
+message/route.ts   ─┼──→ resolveSimAssessment(token) → SimAssessmentView
+sim/action/route.ts─┤       └─ reads pack_snapshot_json once
+ticket/route.ts    ─┘       └─ validates snapshot integrity
+                            └─ returns fully typed view
+                            └─ NO getPackById(), NO scenarios table, NO ||
+```
+
+### 12.7 Sim Assessment View (What Routes Receive)
+
+Every sim route handler receives this fully resolved, validated view:
+
+```typescript
+interface SimAssessmentView {
+  // DB row
+  assessment_id: string;
+  session_id: string;
+  status: string;
+  assignment_type: 'training_drill';
+  created_at: string;
+
+  // Frozen pack data (from snapshot)
+  pack_id: string;
+  pack_title: string;
+  customer_name: string;
+  customer_company: string;
+  customer_role: string;
+  opening_line: string;
+
+  // Capability mask (from snapshot, pack-derived)
+  capabilities: CapabilityMask;
+
+  // Ticket data (built from snapshot, not scenario)
+  ticket: {
+    id: string;
+    requester_name: string;
+    company: string;
+    department: string;
+    severity: string;
+    status: string;
+    description: string;  // = opening_line
+    required_fields: string[];  // from scoring_snapshot_json.idealTicket
+  };
+
+  // Call data
+  call: {
+    status: string;
+    caller_name: string;
+    caller_company: string;
+  };
+
+  // Messages (from DB messages table)
+  messages: Array<{ role: string; content: string }>;
+
+  // Sim state (if remoteDesktop is enabled)
+  sim?: {
+    tools: string[];
+    safe_actions: VisibleAction[];
+    visible_state: VisibleSimState;
+    phase: string;
+    timeline: SimTimelineEntry[];
+  };
+
+  // Analysis (if assessment is completed)
+  analysis?: any;
+}
+```
+
+### 12.8 DB Schema Changes
+
+```sql
+-- 1. Add the pack snapshot column (replaces runtime getPackById() calls)
+ALTER TABLE assessments ADD COLUMN pack_snapshot_json TEXT;
+
+-- 2. Backfill existing rows (only training_drill assessments)
+-- Run as a script at startup if pack_snapshot_json IS NULL AND assessment_pack_id IS NOT NULL
+-- This resolves the pack factory once, freezes the snapshot, and stores it.
+-- After backfill, NO route calls getPackById() for old assessments.
+
+-- 3. Assessment creation writes pack_snapshot_json
+-- No ALTER needed — the column is written at INSERT time.
+
+-- 4. scenario_id is set to NULL for training_drill assessments
+-- No schema change — just don't write the column for sim assessments.
+-- Old rows keep their scenario_id (harmless if pack_snapshot_json exists).
+```
+
+### 12.9 Migration Script for Existing Assessments
+
+A startup migration that backfills `pack_snapshot_json` for any existing training_drill rows:
+
+```typescript
+// In db.ts migrateSchema():
+function backfillPackSnapshots() {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT id, assessment_pack_id FROM assessments
+    WHERE assessment_pack_id IS NOT NULL AND pack_snapshot_json IS NULL
+  `).all() as Array<{ id: string; assessment_pack_id: string }>;
+
+  for (const row of rows) {
+    try {
+      const pack = getPackById(row.assessment_pack_id);
+      const snapshot = buildPackSnapshot(pack);
+      db.prepare('UPDATE assessments SET pack_snapshot_json = ? WHERE id = ?')
+        .run(JSON.stringify(snapshot), row.id);
+    } catch {
+      console.warn(`[Backfill] Cannot resolve pack "${row.assessment_pack_id}" for assessment ${row.id}`);
+    }
+  }
+}
+```
+
+### 12.10 Validation Test Suite — Pack Snapshot Integrity
+
+New tests that prevent regression of the bugs in `simpack2breaks.md`:
+
+```typescript
+describe('Pack Snapshot Integrity', () => {
+  it('every registered pack produces a valid snapshot', () => {
+    for (const packId of Object.keys(registry)) {
+      const snap = buildPackSnapshot(getPackById(packId));
+      assert.ok(snap.customer.name, `${packId}: customer.name missing`);
+      assert.ok(snap.customer.opening_line, `${packId}: opening_line missing`);
+      assert.ok(snap.capabilities, `${packId}: capabilities missing`);
+      // opening_line must NOT mention "Outlook" unless the pack is Outlook
+      // (prevents copy-paste bugs across packs)
+    }
+  });
+
+  it('no two packs share the same opening line', () => {
+    // Catch copy-paste: if someone clones the Outlook pack as a template
+    // and forgets to change the opening line, this fails.
+  });
+
+  it('pack_snapshot_json resolves to valid SimAssessmentView', () => {
+    // Round-trip: build snapshot → write to DB → read back → build view
+  });
+
+  it('sim routes error on missing pack_snapshot_json', () => {
+    // No silent fallback. Missing snapshot = 500 error.
+  });
+
+  it('snapshot opening_line matches pack.customer.openingLine', () => {
+    // At creation time, the frozen opening_line must match
+  });
+});
+```
+
+### 12.11 Key Functions to Create
+
+| File | Function | Purpose |
+|---|---|---|
+| `lib/mvp/sim/resolver.ts` | `resolveSimAssessment(token)` | Single entry point for all sim API routes. Returns `SimAssessmentView`. |
+| `lib/mvp/sim/resolver.ts` | `resolveSimSession(assessmentId, sessionId)` | Loads session state + sim_sessions. Used by action route. |
+| `lib/mvp/sim/resolver.ts` | `validateSnapshot(snapshot)` | Structural validation at read time. |
+| `lib/mvp/sim/snapshot.ts` | `buildPackSnapshot(pack)` | Freezes pack data at creation time. Returns `PackSnapshot`. |
+| `lib/mvp/sim/snapshot.ts` | `buildViewFromSnapshot(snapshot, dbData)` | Produces `SimAssessmentView` from snapshot + DB rows. |
+| `lib/mvp/sim/snapshot.ts` | `packModeToCapabilities(mode)` | Derives capability mask from pack mode. Called once at freeze time. |
+| `lib/mvp/sim/snapshot.ts` | `validatePackStructure(pack)` | Structural validation gate at creation time. |
+
+### 12.12 Data Flow — Complete Sequence (Fixed)
+
+```
+CREATION: POST /api/mvp/assessments
+───────────────────────────────────
+1. validate packId ∈ ENABLED_TRAINING_DRILL_PACKS
+2. pack = validateAndFreezePack(packId)
+   ├─ getPackById(packId)        — fail if not in registry
+   ├─ validatePackStructure(pack) — fail if fields missing
+   ├─ packModeToCapabilities()   — derive capability mask
+   └─ buildPackSnapshot(pack)    — freeze all customer/state/actions
+3. scoringSnapshot = mergeAssessmentConfig(pack, managerOverrides)
+4. INSERT INTO assessments (..., pack_snapshot_json, scoring_snapshot_json, ...)
+   NOTE: scenario_id = NULL for training_drill
+5. INSERT INTO messages (content = snapshot.customer.opening_line)
+6. INSERT INTO sim_sessions (current_state_json = snapshot.initial_state)
+7. INSERT INTO session_events (assessment_started, customer_message)
+
+READ: GET /api/mvp/assessment/[token]
+──────────────────────────────────────
+1. view = resolveSimAssessment(token)
+   ├─ SELECT WHERE invite_token = ? AND assessment_pack_id IS NOT NULL
+   ├─ JSON.parse(pack_snapshot_json)
+   ├─ validateSnapshot(snapshot)
+   └─ buildViewFromSnapshot(snapshot, dbData) → SimAssessmentView
+2. Return view.ticket, view.call, view.messages, view.sim
+   NO getPackById() call. NO scenario table access. NO || fallback.
+
+ACTION: POST /api/mvp/assessment/[token]/sim/action
+──────────────────────────────────────────────────
+1. view = resolveSimAssessment(token)
+2. Check view.capabilities.remoteDesktop — if false, reject (400)
+3. Resolve action from snapshot.actions (not pack.actions)
+4. Apply state machine, update sim_sessions, log events
+```
+
+### 12.13 What This Architecture Makes Impossible
+
+| Bug from simpack2breaks.md | How It's Prevented |
+|---|---|
+| Bug #1: `getActiveScenario()` always returns Outlook | Sim code never calls `getActiveScenario()`. Snapshot is the source of truth. |
+| Bug #2: First message always Outlook | Message comes from `snapshot.customer.opening_line`, frozen from `pack.customer.openingLine`. |
+| Bug #3: scenario_id always Outlook | `scenario_id` is NULL for training_drill rows. Column is not written. |
+| Bug #4: ticketData built from scenario | Ticket data is built from snapshot fields. No scenario involvement. |
+| Bug #5: `\|\| 'pack-outlook-sim-v2'` fallbacks | No pack ID resolution at read time. Snapshot is pre-resolved. Null snapshot → 500 error. |
+| Bug #6: Non-listed packs coerce to Outlook | Creation-time validation rejects unknown pack IDs with a 400 error. No coercion. |
+| Hardcoded "Sarah Thompson" | Never reached by sim code path. Only legacy chat_call. |
+| Action route allows remote on call_only | Reads `snapshot.capabilities.remoteDesktop` which was derived from pack mode at freeze. Consistent across all routes. |
+| Dynamic column missing | The `pack_snapshot_json` column validation is in `resolveSimAssessment()`. Missing column → JSON.parse fails → 500. |
+| Pack edit breaks running assessment | Snapshot is frozen. Pack code changes don't affect existing assessments. |
+
+### 12.14 Implementation Priority
+
+This is the **highest-priority fix** in the codebase. It blocks reliable multi-pack support.
+
+**Phase A — Schema + Resolver (critical)**
+1. Add `pack_snapshot_json` column migration
+2. Create `lib/mvp/sim/snapshot.ts` with `buildPackSnapshot()`, `packModeToCapabilities()`, `validatePackStructure()`
+3. Create `lib/mvp/sim/resolver.ts` with `resolveSimAssessment()`
+4. Add snapshot integrity tests
+5. Wire creation route to write `pack_snapshot_json`
+
+**Phase B — Route Migration (critical)**
+6. Migrate token route to use `resolveSimAssessment()`
+7. Migrate sim route to use `resolveSimAssessment()`
+8. Migrate message route to use `resolveSimAssessment()`
+9. Migrate sim/action route to use `resolveSimAssessment()`
+10. Migrate ticket route to use `resolveSimAssessment()`
+11. Remove ALL `|| 'pack-outlook-sim-v2'` fallbacks
+
+**Phase C — Cleanup**
+12. Set `scenario_id = NULL` for new training_drill assessments
+13. Backfill `pack_snapshot_json` for existing assessments
+14. Add structural validation test (no duplicate opening lines across packs)
+15. Remove `getActiveScenario()` calls from any sim-related code path
+
+---
+
+## 13. Implementation Verification
 
 All phases of simpack2.md have been implemented and tested. Here's the status of every deliverable.
 
-### 12.1 Files Created
+### 13.1 Files Created
 
 | File | Lines | Status |
 |---|---|---|
@@ -914,7 +1518,7 @@ All phases of simpack2.md have been implemented and tested. Here's the status of
 | `lib/mvp/sim/packs/` (directory) | — | Created. Ready for individual pack files. |
 | `tests/pack-factory.test.ts` | 420 | 49 tests covering structure, merge, scoring, edge cases. |
 
-### 12.2 Files Modified
+### 13.2 Files Modified
 
 | File | Change | Status |
 |---|---|---|
@@ -928,7 +1532,7 @@ All phases of simpack2.md have been implemented and tested. Here's the status of
 | `lib/mvp/db.ts` | Added 6 migration columns: `scoring_snapshot_json`, `scoring_overrides_json`, `category_scores_json`, `mandatory_failures_json`, `gate_hits_json`, `criteria_breakdown_json` | Done |
 | `lib/mvp/query.ts` | Added `scoring_overrides_json` to `ManagerStandardsRow` interface | Done |
 
-### 12.3 Not Yet Built (Ready for next iteration)
+### 13.3 Not Yet Built (Ready for next iteration)
 
 These are deferred until Pack Factory passes production validation:
 
@@ -941,7 +1545,7 @@ These are deferred until Pack Factory passes production validation:
 | Pack-factory-specific test script | Testing is done via `npx tsx --test tests/pack-factory.test.ts`. |
 | Training Shift v0 | A queue wrapper — requires pack stability first. |
 
-### 12.4 Test Results
+### 13.4 Test Results
 
 | Suite | Tests | Pass | Fail |
 |---|---|---|---|
@@ -951,7 +1555,7 @@ These are deferred until Pack Factory passes production validation:
 | **Total** | **178** | **178** | **0** |
 | **Build** (`npm run build`) | — | Pass | 0 |
 
-### 12.5 Test Coverage (Pack Factory v0)
+### 13.5 Test Coverage (Pack Factory v0)
 
 | Category | Tests | What's Verified |
 |---|---|---|
@@ -967,9 +1571,9 @@ These are deferred until Pack Factory passes production validation:
 
 ---
 
-## 13. Edge Cases — How the System Behaves
+## 14. Edge Cases — How the System Behaves
 
-### 13.1 No Manager Standards Exist
+### 14.1 No Manager Standards Exist
 
 ```
 Scenario: Manager has never configured standards. getManagerStandards() returns null.
@@ -979,7 +1583,7 @@ Flow:  mergeAssessmentConfig() receives null overrides.
 Result: Works normally. Manager can add standards later; new assessments will use them.
 ```
 
-### 13.2 No Pack Found (assessment_pack_id is null or invalid)
+### 14.2 No Pack Found (assessment_pack_id is null or invalid)
 
 ```
 Scenario: legacy chat_call assessment or pack ID doesn't exist.
@@ -989,7 +1593,7 @@ Flow:  mergeAssessmentConfig() is only called for training_drill assessments.
 Result: Legacy path works. Chat assessments use AI analysis; sim assessments use deterministic scoring.
 ```
 
-### 13.3 Empty Scoring Config (no criteria)
+### 14.3 Empty Scoring Config (no criteria)
 
 ```
 Scenario: Pack has empty criteria array.
@@ -1000,7 +1604,7 @@ Flow:  scoreSimEvents() iterates zero criteria → score = 0.
 Result: Harmless. Score may still get submission bonus (+5 if submitted).
 ```
 
-### 13.4 No Events — Candidate Submits Empty Session
+### 14.4 No Events — Candidate Submits Empty Session
 
 ```
 Scenario: Candidate starts session, immediately submits ticket with no actions.
@@ -1011,7 +1615,7 @@ Flow:  performedActionIds is empty.
 Result: Score is < 30. whatCostYouMost shows top missed criteria.
 ```
 
-### 13.5 Malformed JSON in Manager Overrides
+### 14.5 Malformed JSON in Manager Overrides
 
 ```
 Scenario: JSON.parse() fails in mergeAssessmentConfig().
@@ -1021,7 +1625,7 @@ Flow:  try/catch around JSON.parse catches the error.
 Result: Silently uses pack defaults. No crash, no partial merge.
 ```
 
-### 13.6 All Mandatory Checkpoints Fail — Red Flags Also Fire
+### 14.6 All Mandatory Checkpoints Fail — Red Flags Also Fire
 
 ```
 Scenario: Rage-clicker trainee triggers all red flags AND misses all mandatory checks.
@@ -1031,7 +1635,7 @@ Flow:  Mandatory failures tracked in mandatoryFailures[].
 Result: Score is ≤ 10. Both categories of failure are independently tracked.
 ```
 
-### 13.7 Category Weights Don't Sum to 100
+### 14.7 Category Weights Don't Sum to 100
 
 ```
 Scenario: Manager's overrides set call_control=50, diagnosis=50, resolution=0.
@@ -1042,7 +1646,7 @@ Result: Works. Categories with weight 0 contribute 0 to overall.
        Category scores (0-100) are computed independently of weights.
 ```
 
-### 13.8 Old Assessment Without scoring_snapshot_json
+### 14.8 Old Assessment Without scoring_snapshot_json
 
 ```
 Scenario: Assessment created before migration. Column is null.
@@ -1053,7 +1657,7 @@ Result: Works but uses live standards instead of frozen ones.
        Not ideal for historical accuracy, but doesn't crash.
 ```
 
-### 13.9 Unknown Pack ID in Merge Overrides
+### 14.9 Unknown Pack ID in Merge Overrides
 
 ```
 Scenario: perPack overrides reference a pack ID that doesn't exist.
@@ -1063,7 +1667,7 @@ Flow:  mergeAssessmentConfig() looks up overrides.perPack[packId].
 Result: Global overrides work. Per-pack overrides silently skipped.
 ```
 
-### 13.10 Triggered Red Flag Without Corresponding Fail Gate
+### 14.10 Triggered Red Flag Without Corresponding Fail Gate
 
 ```
 Scenario: Red flag fires but no fail gate in failGates[] matches it.
@@ -1076,7 +1680,7 @@ Result: Red flag is reported but doesn't affect score.
 
 ---
 
-## 14. Where This Architecture Breaks (Known Failure Modes)
+## 15. Where This Architecture Breaks (Known Failure Modes)
 
 | Failure Mode | What Happens | Severity | Mitigation |
 |---|---|---|---|
@@ -1089,7 +1693,7 @@ Result: Red flag is reported but doesn't affect score.
 | Custom criteria with invalid check type | Score returns `fail` for that criterion (default switch case) | **Low** | Custom criteria from managers use known check types. Invalid ones score 0. |
 | Extremely large event arrays (>1000 events) | Scoring iterates all events per criterion. O(n*m) | **Medium** | Add index or batch limit if perf becomes an issue. |
 
-### 14.1 Scoring Guarantees
+### 15.1 Scoring Guarantees
 
 The scoring engine always guarantees:
 
@@ -1100,7 +1704,7 @@ The scoring engine always guarantees:
 5. **Deterministic** — same input → same output (no randomness in scoring).
 6. **Traceable** — every point is attributable to a criterion × result × weight.
 
-### 14.2 Database Guarantees
+### 15.2 Database Guarantees
 
 The migration system guarantees:
 

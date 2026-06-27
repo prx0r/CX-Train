@@ -14,6 +14,13 @@ export function buildEvidenceTimeline(
     const mins = Math.floor(secs / 60);
     const formatted = `${String(mins).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
 
+    const payload = e.payload_json || {};
+    const taxonomyTags: string[] = Array.isArray(payload.taxonomy_tags)
+      ? payload.taxonomy_tags
+      : Array.isArray((payload as any).evidence_tags)
+        ? (payload as any).evidence_tags
+        : [];
+
     return {
       sequence_index: e.sequence_index,
       event_type: e.event_type,
@@ -25,6 +32,8 @@ export function buildEvidenceTimeline(
       is_red_flag: e.event_type === 'red_flag_triggered',
       timestamp_ms: e.started_at_ms || e.ended_at_ms,
       duration_ms: e.duration_ms,
+      action_id: e.action_id,
+      taxonomy_tags: taxonomyTags,
     };
   });
 }

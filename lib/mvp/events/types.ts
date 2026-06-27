@@ -25,7 +25,11 @@ export type SessionEventType =
   | 'ticket_impact_set'
   | 'ticket_urgency_set'
   | 'ticket_priority_set'
-  | 'ticket_triage_submitted';
+  | 'ticket_triage_submitted'
+  | 'candidate_uncertainties'
+  | 'triage_summary_updated'
+  | 'triage_summary_finalized'
+  | 'triage_summary_set';
 
 export type SessionActor = 'candidate' | 'customer' | 'system' | 'simulator' | 'analysis';
 
@@ -77,4 +81,6 @@ export interface EvidenceTimelineEntry {
   is_red_flag: boolean;
   timestamp_ms: number | null;
   duration_ms: number | null;
+  action_id: string | null;
+  taxonomy_tags: string[];
 }

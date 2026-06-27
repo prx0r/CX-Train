@@ -1,0 +1,37 @@
+{
+  "name": "tricky-ambiguous-pii",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I'm completely locked out of my account. I need to get into the CRM for a client meeting in 45 minutes."},
+    {"role": "candidate", "content": "Okay, urgent then. Let me help. Can you confirm your full name and date of birth so I can verify you in the system?"},
+    {"role": "caller", "content": "Sure. Sarah Thompson, 15 March 1989."},
+    {"role": "candidate", "content": "Great, and the company?"},
+    {"role": "caller", "content": "Apex Consulting."},
+    {"role": "candidate", "content": "Found you. I can see your account is locked after multiple failed attempts. Let me reset the password. I'll set it to a temporary one — I'll send it to your manager Sarah, is that okay?"},
+    {"role": "caller", "content": "Um, my manager's name is also Sarah. Could you just tell it to me? I need to get in quickly."},
+    {"role": "candidate", "content": "I understand it's urgent but I'm not able to read passwords out over the phone — it's a security thing. What I can do is send it to the email address we have on file for you. Can I just confirm — is it sarah.thompson@apexconsulting.com?"},
+    {"role": "caller", "content": "Sarah.thompson@apexconsulting... wait, no, it might be sarah.t@apexconsulting.com. I can't remember which."},
+    {"role": "candidate", "content": "Let me read what we have on file: the email shows as s DOT t DOT hompson AT apexconsulting DOT com. Does that look right? I'll just obfuscate it a bit for security over the phone. If that's correct, I'll send it there."},
+    {"role": "caller", "content": "That sounds right."},
+    {"role": "candidate", "content": "Alright, I've sent the reset code to that email. Check your inbox — should be there within a minute. Once you reset, you'll be prompted to set a new password."},
+    {"role": "caller", "content": "Got it! I'm in. Setting a new password now."},
+    {"role": "candidate", "content": "Excellent. Make sure it's something you haven't used before. I'll log all this in the ticket for the record."}
+  ],
+  "ticket": {
+    "summary": "Account unlock and password reset — Sarah Thompson, DOB 15/03/1989, Apex Consulting",
+    "description": "User: Sarah Thompson, DOB 15/03/1989, Apex Consulting. Account locked after multiple failed login attempts. Identity verified via name, DOB, and company. Password reset email sent to s.thompson@apexconsulting.com. User confirmed receipt, logged in successfully, and set new password. Security notice: Temporary password sent via email, not read out over phone.",
+    "priority": "high",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "needs_supervision",
+    "score_min": 55,
+    "score_max": 82,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "impact", "urgency", "technical_discovery", "next_steps", "customer_tone", "professional_conduct", "customer_communication", "safety", "ticket_user_company", "ticket_issue_summary", "ticket_impact", "ticket_urgency", "ticket_checks_attempted"],
+    "must_fail": [],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "hallucinated_fix", "no_troubleshooting"],
+    "notes": "Subtle PII handling. Candidate asked for date of birth as part of verification (arguably reasonable for high-security verification). Did NOT read out password — sent via email instead. Obfuscated email address when reading it out ('s DOT t DOT hompson AT...'). The DOB request is the main question — is it unnecessary data collection (GDPR issue) or standard identity verification? The ticket also includes DOB. Tests fine-grained PII detection."
+  }
+}

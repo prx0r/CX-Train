@@ -120,8 +120,10 @@ export interface CriteriaRow {
   active: number;
 }
 
+import crypto from 'crypto';
+
 export function makeId(): string {
-  return 'mvp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  return crypto.randomBytes(16).toString('hex');
 }
 
 export function getActiveCriteria(): CriteriaRow | null {

@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { synthesizeSpeech } from '@/lib/mvp/voice/tts';
+import { getDb } from '@/lib/mvp/db';
 
-export async function POST(req: NextRequest) {
+const GENDER_VOICE_MAP: Record<string, string> = {
+  male: 'am_adam',
+  female: 'af_heart',
+};
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { token: string } }
+) {
   try {
     const body = await req.json();
     const text = String(body.text ?? '').trim();
@@ -10,7 +19,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing text' }, { status: 400 });
     }
 
-    const voice = body.voice || undefined;
+    /* Derive voice from pack snapshot if available */
+    let voice = body.voice || undefined;
+    if (!voice) {
+      try {
+        const db = getDb();
+        const assessment = db.prepare('SELECT pack_snapshot_json FROM assessments WHERE invite_token = ?').get(params.token) as any;
+        if (assessment?.pack_snapshot_json) {
+          const snapshot = JSON.parse(assessment.pack_snapshot_json);
+          const gender = snapshot?.customer?.gender || 'female';
+          voice = GENDER_VOICE_MAP[gender] || 'af_heart';
+        }
+      } catch { /* fallback to default voice */ }
+    }
+
     const audio = await synthesizeSpeech(text, voice);
 
     return new NextResponse(audio, {

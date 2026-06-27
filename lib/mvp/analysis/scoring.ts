@@ -8,40 +8,58 @@ export interface ScoringResult {
   score: number;
   rawScoreBeforeCaps: number;
   rating: ReadinessLabel;
+  verdict: 'PASS' | 'FAIL';
+  criticalFailure: string | null;
   earnedScore: number;
   maxPossibleScore: number;
   failedRequiredChecks: string[];
   triggeredDealbreakers: string[];
   gateHits: FailGateHit[];
   skillBreakdown: Record<string, { score: number; maxScore: number; percent: number }>;
+  bonus: number;
+  coreEarned: number;
 }
 
 export const RUBRIC_VERSION = 'callcallum-base-v0.4-analysis-hardening';
 
+/* Binary scoring: 1pt per criterion = each is a yes/no check */
 export const DEFAULT_WEIGHTS: CriterionWeight = {
-  professional_conduct: 4,
-  customer_communication: 3,
   identity_check: 1,
   company_check: 1,
-  issue_clarification: 2,
+  issue_clarification: 1,
   started_when: 1,
-  impact: 3,
-  urgency: 3,
-  scope: 2,
-  technical_discovery: 2,
+  impact: 1,
+  urgency: 1,
+  scope: 1,
+  technical_discovery: 1,
   error_or_status_capture: 1,
   recent_changes: 1,
-  next_steps: 3,
-  customer_tone: 2,
+  next_steps: 1,
+  customer_tone: 1,
+  professional_conduct: 1,
+  customer_communication: 1,
   ticket_user_company: 1,
-  ticket_issue_summary: 2,
-  ticket_impact: 2,
-  ticket_urgency: 2,
-  ticket_checks_attempted: 2,
-  ticket_next_step: 2,
-  escalation_judgement: 2,
-  safety: 4,
+  ticket_issue_summary: 1,
+  ticket_impact: 1,
+  ticket_urgency: 1,
+  ticket_checks_attempted: 1,
+  ticket_next_step: 1,
+  escalation_judgement: 1,
+  safety: 1,
 };
+/* Total binary criteria: 22 → max binary score = 22pts */
+
+export const FUNDAMENTAL_CRITERIA = new Set([
+  'submitted_ticket',
+  'performed_triage',
+  'next_steps',
+]);
+
+export const EXCEPTIONAL_SERVICE_CRITERIA = new Set([
+  'customer_tone',
+  'professional_conduct',
+  'customer_communication',
+]);
 
 export const DEFAULT_THRESHOLDS = {
   ready_min: 80,
@@ -141,6 +159,14 @@ export const FAIL_GATES: FailGateDefinition[] = [
     severity: 'major',
     scoreCap: 70,
     redFlagType: 'critical_urgency_missed',
+    overrideReadiness: 'needs_supervision',
+  },
+  {
+    id: 'unprofessional_conduct',
+    label: 'Unprofessional conduct',
+    severity: 'major',
+    scoreCap: 50,
+    redFlagType: 'unprofessional_conduct',
     overrideReadiness: 'needs_supervision',
   },
 ];
@@ -370,6 +396,8 @@ export function scoreExtraction(params: {
   redFlags?: Array<{ type: string; severity?: string; evidence?: string }> | null;
   weights?: CriterionWeight;
   thresholds?: { ready_min: number; needs_supervision_min: number };
+  fundamentals?: { submitted_ticket: boolean; performed_triage: boolean };
+  exceptionalServiceScore?: number;
 }): ScoringResult {
   const weights = params.weights || DEFAULT_WEIGHTS;
   const criteria: NormalizedCriteria = params.criteria && typeof params.criteria === 'object' ? params.criteria : {};
@@ -402,8 +430,34 @@ export function scoreExtraction(params: {
     }
   }
 
-  const rawScore = maxPossibleScore > 0 ? Math.round((earnedScore / maxPossibleScore) * 100) : 0;
+  /* Binary: coreEarned = number of passed core criteria (1pt each, partial = 0.5) */
+  const coreEarned = maxPossibleScore > 0
+    ? Object.entries(criteria).reduce((sum, [key, c]) => {
+        if (weights[key] === undefined) return sum;
+        const s = String(c?.status || 'not_observed').toLowerCase().trim();
+        const score = STATUS_SCORES[s] ?? 0;
+        return score === -1 ? sum : sum + score;
+      }, 0)
+    : 0;
+  const totalCore = Object.keys(weights).length;
 
+  /* Exceptional service bonus: up to +10 */
+  const bonus = Math.min(10, params.exceptionalServiceScore ?? 0);
+
+  /* Raw score = ((coreEarned + bonus) / totalCore) × 100, capped at 100 */
+  let rawScore = totalCore > 0 ? Math.round(((coreEarned + bonus) / totalCore) * 100) : 0;
+  rawScore = Math.min(100, Math.max(0, rawScore));
+
+  /* ── Critical criteria check ── */
+  const fundamentals = params.fundamentals || { submitted_ticket: true, performed_triage: true };
+  let criticalFailure: string | null = null;
+
+  if (!fundamentals.submitted_ticket) criticalFailure = 'No ticket submitted';
+  else if (!fundamentals.performed_triage) criticalFailure = 'Ticket was not triaged';
+  else if (statusOf(criteria, 'safety') === 'fail') criticalFailure = 'Safety violation — unsafe action performed';
+  else if (statusOf(criteria, 'next_steps') === 'fail') criticalFailure = 'Customer left without clear next steps';
+
+  /* ── Fail gates ── */
   const redFlags = params.redFlags || [];
   const extractEvidence = (flagType: string): string[] => {
     const flag = redFlags.find(f => f?.type?.toString().toLowerCase().trim() === flagType);
@@ -414,18 +468,37 @@ export function scoreExtraction(params: {
     ...detectDerivedGates(criteria, rawScore),
   ];
 
+  /* Auto-fail gates that override everything */
+  const autoFailGates = ['severe_customer_abuse', 'unsafe_security_behaviour', 'refusal_to_help', 'hallucinated_fix', 'invented_fix_without_evidence', 'unprofessional_conduct'];
+  const hasAutoFail = redFlags.some(f => autoFailGates.includes(f?.type?.toString().toLowerCase().trim()));
+  if (hasAutoFail && !criticalFailure) {
+    criticalFailure = 'Critical behavioural failure';
+  }
+
+  /* ── Delegate score + readiness to computeFinalScore ── */
   const { score: finalScore, readiness } = computeFinalScore(rawScore, gateHits);
+
+  /* ── Verdict (PASS/FAIL) derived from final state ── */
+  const thresholds = params.thresholds || DEFAULT_THRESHOLDS;
+  let verdict: 'PASS' | 'FAIL' = 'PASS';
+  if (criticalFailure || finalScore < thresholds.needs_supervision_min) {
+    verdict = 'FAIL';
+  }
 
   return {
     score: finalScore,
     rawScoreBeforeCaps: rawScore,
     rating: readiness,
-    earnedScore,
-    maxPossibleScore,
-    failedRequiredChecks,
+    verdict,
+    criticalFailure,
+    earnedScore: coreEarned,
+    maxPossibleScore: totalCore,
+    failedRequiredChecks: [...new Set([...failedRequiredChecks])],
     triggeredDealbreakers: gateHits.map(g => g.id),
     gateHits,
     skillBreakdown,
+    bonus,
+    coreEarned,
   };
 }
 
@@ -434,6 +507,8 @@ export function buildFallbackResult(error: string): ScoringResult {
     score: 0,
     rawScoreBeforeCaps: 0,
     rating: 'not_ready',
+    verdict: 'FAIL',
+    criticalFailure: 'Analysis pipeline error',
     earnedScore: 0,
     maxPossibleScore: 0,
     failedRequiredChecks: [],
@@ -448,5 +523,7 @@ export function buildFallbackResult(error: string): ScoringResult {
       rationale: error,
     }],
     skillBreakdown: {},
+    bonus: 0,
+    coreEarned: 0,
   };
 }

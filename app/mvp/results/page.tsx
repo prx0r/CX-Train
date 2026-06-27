@@ -6,8 +6,13 @@ import type { CandidateAnalysisResult } from '@/components/mvp/results/Assessmen
 
 const MOCK_RESULTS: CandidateAnalysisResult = {
   overall_score: 42,
-  readiness_label: 'not_ready',
+  verdict: 'FAIL',
+  criticalFailure: 'Customer left without next steps',
   summary: 'The candidate missed most communication and diagnostic steps. The technical fix was correct but not verified with the customer.',
+  verdictLine: 'FAIL 42/100 — Customer left without next steps. Ticket missing urgency, impact, and verification.',
+  bonus: 0,
+  coreEarned: 8,
+  maxCore: 20,
   strengths: [
     'Successfully identified Outlook as the affected application',
     'Correctly disabled Work Offline mode',

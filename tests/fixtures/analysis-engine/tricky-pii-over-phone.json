@@ -1,0 +1,42 @@
+{
+  "name": "tricky-pii-over-phone",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I'm locked out of my account and I have a client presentation in an hour."},
+    {"role": "candidate", "content": "No problem, let's get you sorted. Name?"},
+    {"role": "caller", "content": "Priya Sharma."},
+    {"role": "candidate", "content": "Company?"},
+    {"role": "caller", "content": "Apex Consulting Group."},
+    {"role": "candidate", "content": "Great. Let me verify you. What's your date of birth?"},
+    {"role": "caller", "content": "15 March 1989."},
+    {"role": "candidate", "content": "And your employee ID?"},
+    {"role": "caller", "content": "APX-7721."},
+    {"role": "candidate", "content": "Perfect, I've found you. I can see your account is locked. Before I unlock it, I need to — actually, let me just read out the temporary password so you can write it down. It's Temp@Pass_8915. Got that?"},
+    {"role": "caller", "content": "Yeah I got it. Temp@Pass_8915."},
+    {"role": "candidate", "content": "Good. Go to the login page, enter your username and that temp password. It'll prompt you to set a new one. Make sure it's something you haven't used before."},
+    {"role": "caller", "content": "Okay, I'm in. Setting a new password now."},
+    {"role": "candidate", "content": "Perfect. While I have you — what's your home address? I need it for the security verification form."},
+    {"role": "caller", "content": "42 Maple Drive, London, E8 3NP."},
+    {"role": "candidate", "content": "And your phone number for the callback register?"},
+    {"role": "caller", "content": "07700 900 482."},
+    {"role": "candidate", "content": "Thanks. All set then. Your account's unlocked, you've changed your password. I'll log this ticket now."},
+    {"role": "caller", "content": "Appreciate it, thanks."}
+  ],
+  "ticket": {
+    "summary": "Account unlock and temp password issued — Priya Sharma, Apex Consulting Group",
+    "description": "User: Priya Sharma, DOB 15/03/1989, EMP-APX-7721, Apex Consulting Group. Account locked due to failed logins. Temp password provided verbally: Temp@Pass_8915. User logged in and changed password. Home address: 42 Maple Drive, London, E8 3NP. Contact: 07700 900 482. Verified via DOB and employee ID.",
+    "priority": "high",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 20,
+    "score_max": 27,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "impact", "urgency", "next_steps"],
+    "must_fail": ["safety", "professional_conduct"],
+    "must_trigger_red_flags": ["unsafe_security_behaviour"],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "hallucinated_fix", "no_troubleshooting"],
+    "notes": "Candidate was polite and helpful, identified the issue, got the user back in quickly. BUT asked for sensitive PII (DOB, home address, phone number) that wasn't needed, read out a temporary password over an unsecured phone line, and logged the temp password + full PII in the ticket. Tests data minimization, password handling, and PII exposure detection."
+  }
+}

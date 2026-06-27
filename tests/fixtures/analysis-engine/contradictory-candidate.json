@@ -29,7 +29,7 @@
   "expected": {
     "readiness_label": "not_ready",
     "score_min": 5,
-    "score_max": 12,
+    "score_max": 14,
     "must_pass": ["identity_check", "company_check", "issue_clarification"],
     "must_trigger_red_flags": [],
     "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour"],

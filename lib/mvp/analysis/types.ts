@@ -143,6 +143,7 @@ export interface StructuredOutput {
   evidence_extraction: EvidenceExtraction;
   deterministic_score: DeterministicScore;
   narrative: NarrativeFeedback;
+  compliance?: any;
 }
 
 export interface TaxonomyClassificationMatch {
@@ -167,6 +168,10 @@ export interface EvidenceTimelineEntry {
   label: string | null;
   result_text: string | null;
   is_red_flag: boolean;
+  timestamp_ms: number | null;
+  duration_ms: number | null;
+  action_id: string | null;
+  taxonomy_tags: string[];
 }
 
 export interface TimingMetrics {

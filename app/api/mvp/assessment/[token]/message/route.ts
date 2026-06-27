@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, initTables } from '@/lib/mvp/db';
-import { getAssessmentByToken, getSessionByAssessment, getMessages, makeId, getActiveScenario } from '@/lib/mvp/query';
+import { getAssessmentByToken, getSessionByAssessment, getMessages, makeId } from '@/lib/mvp/query';
 import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
 import { runAiTask } from '@/lib/ai/provider';
-import { getPackById } from '@/lib/mvp/sim/packRegistry';
 import { buildAiCustomerContext } from '@/lib/mvp/sim/aiCustomer';
-import { SimState } from '@/lib/mvp/sim/types';
-import { getCapabilitiesForType } from '@/lib/mvp/assignment-types';
+import { SimState, SimPack } from '@/lib/mvp/sim/types';
+import { getSnapshotFromAssessment, SimResolutionError } from '@/lib/mvp/sim/resolver';
+import type { PackSnapshot } from '@/lib/mvp/sim/snapshot';
 
 export async function POST(
   request: NextRequest,
@@ -33,7 +33,6 @@ export async function POST(
 
     const startedAtMs = body.started_at_ms || Date.now();
     const endedAtMs = body.ended_at_ms || Date.now();
-    const durationMs = body.duration_ms || null;
     const inputSource = body.input_source || 'text';
     const audioMetadata = body.audio_metadata || null;
 
@@ -51,7 +50,6 @@ export async function POST(
       text: candidateMessage,
       started_at_ms: startedAtMs,
       ended_at_ms: endedAtMs,
-      duration_ms: durationMs,
       input_source: inputSource as any,
       audio_metadata: audioMetadata,
     });
@@ -59,23 +57,44 @@ export async function POST(
     /* Build conversation history */
     const priorMessages = getMessages(session.id);
 
-    /* Determine AI caller prompt from assignment capabilities. assessment_mode remains a legacy fallback. */
-    const assignmentType = (assessment as any).assignment_type || ((assessment as any).assessment_mode === 'dashboard_sim' ? 'training_drill' : 'hiring_exam');
-    const capabilities = getCapabilitiesForType(assignmentType);
-    const hasRemoteTools = capabilities?.remoteDesktop || (assessment as any).assessment_mode === 'dashboard_sim';
+    /* Determine if this is a sim pack assessment or a legacy chat call */
+    const packId = (assessment as any).assessment_pack_id;
     let systemMessage: string;
 
-    if (hasRemoteTools) {
-      /* Load current sim state and build AI customer context */
-      const packId = (assessment as any).assessment_pack_id || 'pack-outlook-sim-v2';
-      const pack = getPackById(packId);
+    if (packId) {
+      /* Sim pack assessment — use pack snapshot for AI caller context */
+      let snapshot: PackSnapshot;
+      try {
+        snapshot = getSnapshotFromAssessment(assessment as unknown as Record<string, unknown>);
+      } catch (err) {
+        if (err instanceof SimResolutionError) {
+          return NextResponse.json({ error: err.message }, { status: 500 });
+        }
+        throw err;
+      }
 
-      const simSession = db.prepare('SELECT current_state_json FROM sim_sessions WHERE session_id = ?').get(session.id) as any;
+      const simSession = db.prepare('SELECT current_state_json FROM sim_sessions WHERE session_id = ?')
+        .get(session.id) as { current_state_json: string } | undefined;
       const currentState: SimState = simSession
-        ? JSON.parse(simSession.current_state_json)
-        : pack.initialState;
+        ? JSON.parse(simSession.current_state_json) as SimState
+        : snapshot.initial_state;
 
-      const ctx = buildAiCustomerContext(pack, currentState);
+      const ctx = buildAiCustomerContext({
+        customer: {
+          name: snapshot.customer.name,
+          company: snapshot.customer.company,
+          role: snapshot.customer.role,
+          temperament: snapshot.customer.temperament as any,
+          openingLine: snapshot.customer.opening_line,
+        },
+        callerBehavior: snapshot.caller_behavior,
+        hiddenTruth: {
+          rootCause: snapshot.hidden_truth.root_cause,
+          correctFix: snapshot.hidden_truth.correct_fix,
+          idealDiagnosticPath: snapshot.hidden_truth.ideal_diagnostic_path,
+          factsOnlyRevealAfter: snapshot.hidden_truth.facts_only_reveal_after,
+        },
+      } as unknown as SimPack, currentState);
       systemMessage = ctx.systemPrompt;
     } else {
       /* Legacy chat_call mode — use scenario-based prompt */
@@ -95,7 +114,7 @@ CRITICAL RULES:
 - If asked about hostname, reveal it
 - If asked about urgency/deadline, mention the 30-minute meeting
 - If asked about web/browser access, mention Outlook web works
-- Stay in character: frustrated accountant Sarah Thompson from Alder & Co
+- Stay in character and be realistic
 - Keep responses concise (1-3 sentences)
 - Never break character or mention that you are an AI`;
     }
@@ -122,7 +141,6 @@ CRITICAL RULES:
       callerReply = 'Alright, let me know if you need anything else. I really need to get this sorted before my meeting though.';
     }
 
-    /* Store caller reply */
     db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
       VALUES (?, ?, 'caller', ?, datetime('now'))`).run(makeId(), session.id, callerReply);
 

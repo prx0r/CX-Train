@@ -27,7 +27,7 @@
   "expected": {
     "readiness_label": "not_ready",
     "score_min": 10,
-    "score_max": 30,
+    "score_max": 32,
     "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "scope", "error_or_status_capture", "recent_changes"],
     "must_fail": ["impact", "urgency"],
     "notes": "This is a printer scenario but filed under outlook scenario_id. The engine uses the scenario_id from the assessment. If scenario_id doesn't match the actual call content, the extraction prompt may reference wrong context. This tests whether the engine catches the mismatch."

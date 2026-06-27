@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initTables, getDb } from '@/lib/mvp/db';
-import { getFullAssessment } from '@/lib/mvp/query';
-import { getPackById } from '@/lib/mvp/sim/packRegistry';
-import { getVisibleActions, getVisibleState } from '@/lib/mvp/sim/safeProjection';
-import { buildTimeline } from '@/lib/mvp/sim/timeline';
-import { getSessionEvents } from '@/lib/mvp/events/eventLog';
+import { initTables } from '@/lib/mvp/db';
+import { resolveSimAssessment, resolveSimSession, SimResolutionError } from '@/lib/mvp/sim/resolver';
 
 export async function GET(
   _request: NextRequest,
@@ -12,50 +8,28 @@ export async function GET(
 ) {
   try {
     initTables();
-    const full = getFullAssessment(params.token, true);
-    if (!full || !full.session) {
-      return NextResponse.json({ error: 'Assessment not found' }, { status: 404 });
+
+    let view;
+    try {
+      view = resolveSimAssessment(params.token);
+    } catch (err) {
+      if (err instanceof SimResolutionError) {
+        return NextResponse.json({ error: err.message }, { status: err.code === 'NOT_A_SIM_ASSESSMENT' ? 404 : 500 });
+      }
+      throw err;
     }
 
-    const packId = (full.assessment as any).assessment_pack_id || 'pack-outlook-sim-v2';
-    const pack = getPackById(packId);
+    if (!view.session_id) {
+      return NextResponse.json({ error: 'No session found' }, { status: 404 });
+    }
 
-    const db = getDb();
-    const simSession = db.prepare('SELECT current_state_json FROM sim_sessions WHERE session_id = ?').get(full.session.id) as any;
-    const currentState = simSession
-      ? JSON.parse(simSession.current_state_json)
-      : pack.initialState;
-
-    /* Read canonical event stream from session_events */
-    const canonicalEvents = getSessionEvents(full.session.id);
-    const typedEvents = canonicalEvents.map((e: any) => ({
-      ...e,
-      sequence: e.sequence_index,
-      state_before_json: e.state_before_json || null,
-      state_after_json: e.state_after_json || null,
-      started_at_ms: e.started_at_ms,
-    }));
-
-    const visibleState = getVisibleState(currentState, pack);
-    const safeActions = getVisibleActions(currentState, pack.actions);
+    if (!view.sim) {
+      return NextResponse.json({ error: 'Remote tools not enabled for this pack' }, { status: 400 });
+    }
 
     return NextResponse.json({
       ok: true,
-      data: {
-        tools: pack.tools,
-        safe_actions: safeActions,
-        visible_state: visibleState,
-        phase: currentState.phase,
-        timeline: buildTimeline(typedEvents as any).map(t => ({
-          sequence: t.sequence,
-          event_type: t.event_type,
-          actor: t.actor,
-          formatted_time: t.formatted_time,
-          label: t.label,
-          result_text: t.result_text,
-          is_red_flag: t.is_red_flag,
-        })),
-      },
+      data: view.sim,
     });
   } catch (err) {
     console.error('[MVP] Get sim error:', err);

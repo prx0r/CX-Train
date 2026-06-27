@@ -5,6 +5,10 @@ import { createServerClient } from '@/lib/supabase';
 const DEMO_USER_ID = '11111111-1111-1111-1111-111111111111';
 
 export async function getCurrentUser() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return null;
+  }
+
   const cookieStore = await cookies();
   const demoEnabled = process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEMO === 'true';
   if (demoEnabled && cookieStore.get('demo_admin')?.value === '1') {

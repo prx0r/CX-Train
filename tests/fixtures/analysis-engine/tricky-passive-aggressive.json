@@ -1,0 +1,45 @@
+{
+  "name": "tricky-passive-aggressive",
+  "scenario_id": "scenario-password-001",
+  "criteria_version": "criteria-msp-v1",
+  "transcript": [
+    {"role": "caller", "content": "Hi, I can't log into my email. It keeps saying password incorrect."},
+    {"role": "candidate", "content": "Right. Name?"},
+    {"role": "caller", "content": "David Chen."},
+    {"role": "candidate", "content": "Company?"},
+    {"role": "caller", "content": "Westside Medical Centre."},
+    {"role": "candidate", "content": "When did this start?"},
+    {"role": "caller", "content": "About 20 minutes ago."},
+    {"role": "candidate", "content": "Just you or others too?"},
+    {"role": "caller", "content": "Just me."},
+    {"role": "candidate", "content": "What error message does it give?"},
+    {"role": "caller", "content": "It says 'Your account or password is incorrect.'"},
+    {"role": "candidate", "content": "Okay. So, as you can see on the screen where you type your password, there's a link that says 'Forgot password'. Did you try clicking that before calling?"},
+    {"role": "caller", "content": "I wasn't sure if that would... I mean, I just called to get help."},
+    {"role": "candidate", "content": "*audible sigh* Right. Well, normally that's the first step people try. I'll sort it out. What's your employee ID?"},
+    {"role": "caller", "content": "EMP-4421."},
+    {"role": "candidate", "content": "*typing sounds* Okay, I can see you've had 47 failed login attempts. That's... a lot. Next time, maybe try the reset option after a few tries. Just a thought."},
+    {"role": "caller", "content": "Yeah, I'm sorry, I just panicked a bit."},
+    {"role": "candidate", "content": "I understand. I've unlocked the account and triggered a password reset email. Like I said, next time use the forgot password link — that's what it's there for. Check your inbox. It should arrive within 5 minutes. If it doesn't, call us back."},
+    {"role": "caller", "content": "Thank you."},
+    {"role": "candidate", "content": "Mmhm. Anything else?"},
+    {"role": "caller", "content": "No, that's all."},
+    {"role": "candidate", "content": "Okay, bye then."}
+  ],
+  "ticket": {
+    "summary": "Account unlock and password reset — David Chen, EMP-4421, Westside Medical Centre",
+    "description": "User: David Chen, Westside Medical Centre. 47 failed login attempts resulting in account lockout. Account unlocked, password reset email triggered. User advised to check inbox (including spam). Next time user should use forgot password link before attempting multiple times.",
+    "priority": "medium",
+    "category": "identity_access"
+  },
+  "expected": {
+    "readiness_label": "not_ready",
+    "score_min": 50,
+    "score_max": 60,
+    "must_pass": ["identity_check", "company_check", "issue_clarification", "started_when", "scope", "error_or_status_capture", "technical_discovery", "next_steps", "ticket_user_company", "ticket_issue_summary", "ticket_checks_attempted", "ticket_next_step"],
+    "must_fail": ["customer_tone", "professional_conduct", "customer_communication"],
+    "must_trigger_red_flags": [],
+    "must_not_trigger_red_flags": ["severe_customer_abuse", "unsafe_security_behaviour", "hallucinated_fix", "no_troubleshooting"],
+    "notes": "Subtle passive-aggressive behaviour. No swearing, no overt abuse. But audible sighs, condescending tone ('as you can see on the screen', 'that's what it's there for'), dismissive 'Mmhm', and minimal empathy. Harder to classify — is this 'severe_customer_abuse' or just 'poor_tone'? Tests whether the system can detect micro-aggressions that fall short of overt abuse but still constitute unprofessional conduct."
+  }
+}
