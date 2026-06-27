@@ -1,10 +1,11 @@
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { evaluateAllFrameworks } from '@/lib/mvp/compliance/evaluator';
 import { DEFAULT_FRAMEWORKS } from '@/lib/mvp/compliance/frameworks';
 import { computeScoredAssessment, buildCriteriaFromFrameworks } from '@/lib/mvp/results/scoring-calculator';
 
 const FIXTURES_DIR = join(process.cwd(), 'tests', 'fixtures', 'analysis-engine');
+const AI_RESULTS_DIR = join(FIXTURES_DIR, 'ai-results');
 
 const RED_FLAG_INFO: Record<string, { label: string; color: string }> = {
   severe_customer_abuse: { label: 'Severe Customer Abuse', color: '#dc2626' },
@@ -15,36 +16,67 @@ const RED_FLAG_INFO: Record<string, { label: string; color: string }> = {
   no_troubleshooting: { label: 'No Troubleshooting', color: '#d97706' },
 };
 
+/* ── Compute using REAL AI results ── */
+
 function compute(name: string) {
-  const fx = JSON.parse(readFileSync(join(FIXTURES_DIR, `${name}.json`), 'utf-8'));
-  const exp = fx.expected;
-  const passSet = new Set(exp.must_pass || []);
-  const failSet = new Set(exp.must_fail || []);
-  const flagSet = new Set(exp.must_trigger_red_flags || []);
+  /* Load AI result (falls back to fixture if AI result not available) */
+  const aiPath = join(AI_RESULTS_DIR, `${name}.json`);
+  const useAi = existsSync(aiPath);
+  const aiData = useAi ? JSON.parse(readFileSync(aiPath, 'utf-8')) : null;
+
+  const fixturePath = join(FIXTURES_DIR, `${name}.json`);
+  const fx = JSON.parse(readFileSync(fixturePath, 'utf-8'));
+
   const transcriptText = fx.transcript.map((m: any) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
   const ticketText = [fx.ticket.summary, fx.ticket.description].join('\n');
 
-  /* Build evidence pool from fixture expectations */
-  const allCriteria: Record<string, { status: string }> = {};
+  /* Build evidence pool from AI results or fallback to fixture expectations */
   const allIds = new Set<string>();
-  for (const fw of DEFAULT_FRAMEWORKS) {
-    for (const c of fw.criteria) allIds.add(c.id);
-  }
-  for (const k of allIds) {
-    if (passSet.has(k)) allCriteria[k] = { status: 'pass' };
-    else if (failSet.has(k)) allCriteria[k] = { status: 'fail' };
-    else allCriteria[k] = { status: 'not_observed' };
+  for (const fw of DEFAULT_FRAMEWORKS) for (const c of fw.criteria) allIds.add(c.id);
+
+  const aiCriteria: Record<string, { status: string; evidence?: string[] }> = {};
+  const redFlags: Array<{ type: string; severity?: string; evidence?: string }> = [];
+  let flagSet = new Set<string>();
+
+  if (useAi && aiData.ai) {
+    /* Use real AI output */
+    for (const k of allIds) {
+      const aiResult = aiData.ai.criteria?.[k];
+      if (aiResult) {
+        aiCriteria[k] = {
+          status: aiResult.status || 'not_observed',
+          evidence: aiResult.evidence || [],
+        };
+      } else {
+        aiCriteria[k] = { status: 'not_observed' };
+      }
+    }
+    for (const rf of (aiData.ai.red_flags || [])) {
+      redFlags.push({ type: rf.type, severity: rf.severity || 'medium', evidence: rf.evidence || '' });
+      flagSet.add(rf.type);
+    }
+  } else {
+    /* Fallback to fixture expectations */
+    const passSet = new Set(fx.expected.must_pass || []);
+    const failSet = new Set(fx.expected.must_fail || []);
+    flagSet = new Set(fx.expected.must_trigger_red_flags || []);
+    for (const k of allIds) {
+      if (passSet.has(k)) aiCriteria[k] = { status: 'pass', evidence: [] };
+      else if (failSet.has(k)) aiCriteria[k] = { status: 'fail', evidence: [] };
+      else aiCriteria[k] = { status: 'not_observed' };
+    }
+    for (const rf of flagSet) redFlags.push({ type: rf, severity: 'high', evidence: '' });
   }
 
   const evidencePool = {
-    aiCriteria: allCriteria as any,
+    aiCriteria,
     events: [],
     transcriptText,
     ticketText,
     triage: {},
     ticketSubmitted: true,
     triagePerformed: false,
-    redFlagsTriggered: Array.from(flagSet) as string[],
+    redFlagsTriggered: Array.from(flagSet),
   };
 
   const fwResults = evaluateAllFrameworks(evidencePool, DEFAULT_FRAMEWORKS, null);
@@ -62,14 +94,35 @@ function compute(name: string) {
   }));
 
   const criteria = buildCriteriaFromFrameworks(frameworkResults);
+
+  /* Override evidence with AI-provided quotes (the buildCriteriaFromFrameworks
+     uses the evaluator's evidence strings, but we want the AI's original quotes) */
+  if (useAi && aiData.ai) {
+    for (const c of criteria) {
+      const aiEntry = aiData.ai.criteria?.[c.id];
+      if (aiEntry?.evidence && aiEntry.evidence.length > 0) {
+        c.evidence = aiEntry.evidence;
+      }
+    }
+  }
+
   const assessed = computeScoredAssessment(criteria, transcriptText);
 
-  return { fx, assessed, frameworkResults, redFlags: Array.from(flagSet) as string[], criteria };
+  return {
+    fx,
+    assessed,
+    frameworkResults,
+    redFlags: redFlags.map(r => r.type),
+    criteria,
+    useRealAi: useAi && aiData.ai !== null,
+  };
 }
+
+/* ── Page ── */
 
 export default function ResultsPage({ searchParams }: { searchParams: { t?: string } }) {
   const transcript = searchParams.t || 'tricky-passive-aggressive';
-  const { fx, assessed, frameworkResults, redFlags, criteria } = compute(transcript);
+  const { fx, assessed, frameworkResults, redFlags, criteria, useRealAi } = compute(transcript);
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
@@ -77,10 +130,16 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
 
       {/* HEADER */}
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{fx.name.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</h1>
-            <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>{fx.scenario_id} · {new Date().toLocaleDateString()}</p>
+            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
+              {fx.name.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+            </h1>
+            <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>
+              {fx.scenario_id} · {new Date().toLocaleDateString()}
+              {useRealAi && <span style={{ color: '#059669', marginLeft: 8 }}>· Real AI analysis</span>}
+              {!useRealAi && <span style={{ color: '#d97706', marginLeft: 8 }}>· Fixture data (no AI)</span>}
+            </p>
           </div>
           <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
             <div style={{ textAlign: 'center' }}>
@@ -100,11 +159,6 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                   </div>
                 </div>
               </>
-            )}
-            {assessed.validatedScore < assessed.rawScore && (
-              <div style={{ padding: '4px 10px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, fontSize: 10, color: '#92400e', maxWidth: 180 }}>
-                {assessed.findings.length} criteria flagged — {assessed.pointsAtRisk}pts at risk. Validated score is raw minus flagged contributions.
-              </div>
             )}
             <div style={{
               padding: '4px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700,
@@ -130,28 +184,28 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
           {assessed.validatedScore >= 70
             ? `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Ready for independent work.`
             : assessed.validatedScore >= 50
-              ? `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Borderline — needs supervision on specific areas.`
+              ? `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Borderline — needs supervision.`
               : `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Not ready for independent work.`}
-          {' '}{assessed.applicableCriteria} criteria were applicable across {frameworkResults.length} frameworks.
+          {' '}{assessed.applicableCriteria} criteria applicable across {frameworkResults.length} frameworks.
+          {useRealAi && <span style={{ color: '#059669', marginLeft: 4 }}>Evidence validated by deepseek-v4-flash AI.</span>}
         </div>
 
         {/* Validation Findings */}
         {assessed.findings.length > 0 && (
           <div style={{ marginTop: 12, padding: 12, background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>
-              {assessed.findings.length} Criteria Flagged — Scores May Be Overstated
+              {assessed.findings.length} Criteria Without Transcript Evidence
             </div>
-            <div style={{ fontSize: 11, color: '#475569', marginBottom: 8 }}>
-              These criteria have no verifiable evidence in the transcript. Criteria with a ✅ have a matching quote found verbatim in the transcript. The validated score only counts criteria with verified evidence.
-            </div>
-            {assessed.findings.map(f => (
+            {assessed.findings.slice(0, 10).map(f => (
               <div key={f.criterionId} style={{ fontSize: 11, padding: '4px 8px', background: '#fff', border: '1px solid #fde68a', borderRadius: 4, marginBottom: 4 }}>
-                <strong style={{ color: '#92400e' }}>{f.label}</strong>
+                <strong>{f.label}</strong>
                 <span style={{ color: '#64748b' }}> ({f.frameworkName})</span>
-                <span style={{ color: '#92400e' }}> — {f.reason}</span>
-                <span style={{ color: '#64748b', fontSize: 10, marginLeft: 4 }}>({f.pointsAtRisk}pts at risk)</span>
+                <span style={{ color: '#d97706' }}> — {f.reason}</span>
               </div>
             ))}
+            {assessed.findings.length > 10 && (
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>...and {assessed.findings.length - 10} more</div>
+            )}
           </div>
         )}
       </div>
@@ -179,49 +233,42 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
             <div style={{ padding: '4px 16px 12px', fontSize: 11 }}>
               {fw.criteriaResults.map((c: any) => {
                 const finding = assessed.findings.find(f => f.criterionId === c.criterionId);
-                const isFlagged = !!finding;
                 const critRecord = criteria.find(cr => cr.id === c.criterionId);
                 const evStatus = critRecord?.evidenceStatus;
                 const isVerified = evStatus === 'verified';
 
                 return (
                   <div key={c.criterionId} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
                     padding: '6px 8px', marginBottom: 2, borderRadius: 4,
-                    background: isFlagged ? '#fffbeb' : isVerified ? '#f0fdf4' : 'transparent',
-                    border: isFlagged ? '1px solid #fde68a' : isVerified ? '1px solid #bbf7d0' : '1px solid transparent',
+                    background: isVerified ? '#f0fdf4' : finding ? '#fffbeb' : 'transparent',
+                    border: isVerified ? '1px solid #bbf7d0' : finding ? '1px solid #fde68a' : '1px solid transparent',
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, minWidth: 0 }}>
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        width: 18, height: 18, borderRadius: 4, fontSize: 10, fontWeight: 700,
+                        width: 18, height: 18, borderRadius: 4, fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1,
                         background: c.status === 'pass' ? '#d1fae5' : c.status === 'fail' ? '#fee2e2' : '#f1f5f9',
                         color: c.status === 'pass' ? '#059669' : c.status === 'fail' ? '#dc2626' : '#94a3b8',
                       }}>
                         {c.status === 'pass' ? '✓' : c.status === 'fail' ? '✗' : '–'}
                       </span>
-                      <div>
-                        <span style={{ color: '#1e293b' }}>{c.label}</span>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 1, flexWrap: 'wrap' }}>
-                          {evStatus === 'verified' && critRecord?.evidenceQuote && (
-                            <span style={{ fontSize: 9, color: '#059669', display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <span style={{ fontSize: 12 }}>✅</span>
-                              <span style={{ fontStyle: 'italic' }}>"{critRecord.evidenceQuote.substring(0, 90)}{critRecord.evidenceQuote.length > 90 ? '...' : ''}"</span>
-                            </span>
-                          )}
-                          {evStatus === 'verified' && !critRecord?.evidenceQuote && (
-                            <span style={{ fontSize: 9, color: '#94a3b8' }}>— Not observed, no quote expected</span>
-                          )}
-                          {evStatus === 'no_evidence' && (
-                            <span style={{ fontSize: 9, color: '#d97706' }}>⚠ No matching evidence found in transcript</span>
-                          )}
-                        </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: '#1e293b', fontWeight: 500 }}>{c.label}</div>
+                        {isVerified && critRecord?.evidenceQuote && (
+                          <div style={{ fontSize: 9, color: '#059669', marginTop: 2, fontStyle: 'italic', wordBreak: 'break-word' }}>
+                            ✅ "{critRecord.evidenceQuote.substring(0, 100)}{critRecord.evidenceQuote.length > 100 ? '...' : ''}"
+                          </div>
+                        )}
+                        {finding && (
+                          <div style={{ fontSize: 9, color: '#d97706', marginTop: 1 }}>⚠ {finding.reason}</div>
+                        )}
                       </div>
                     </div>
-                    <div style={{ color: '#94a3b8', fontSize: 9, whiteSpace: 'nowrap' }}>
+                    <div style={{ color: '#94a3b8', fontSize: 9, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8 }}>
                       {c.status} · {c.pointsEarned}/{c.pointsMax}
                       {isVerified && <span style={{ color: '#059669', fontWeight: 600, marginLeft: 4 }}>✅</span>}
-                      {isFlagged && <span style={{ color: '#d97706', fontWeight: 600, marginLeft: 4 }}>FLAGGED</span>}
+                      {finding && <span style={{ color: '#d97706', fontWeight: 600, marginLeft: 4 }}>FLAGGED</span>}
                     </div>
                   </div>
                 );

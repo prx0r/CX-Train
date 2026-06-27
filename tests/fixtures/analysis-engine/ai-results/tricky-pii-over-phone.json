@@ -1,0 +1,378 @@
+{
+  "transcript": [
+    {
+      "role": "caller",
+      "content": "Hi, I'm locked out of my account and I have a client presentation in an hour."
+    },
+    {
+      "role": "candidate",
+      "content": "No problem, let's get you sorted. Name?"
+    },
+    {
+      "role": "caller",
+      "content": "Priya Sharma."
+    },
+    {
+      "role": "candidate",
+      "content": "Company?"
+    },
+    {
+      "role": "caller",
+      "content": "Apex Consulting Group."
+    },
+    {
+      "role": "candidate",
+      "content": "Great. Let me verify you. What's your date of birth?"
+    },
+    {
+      "role": "caller",
+      "content": "15 March 1989."
+    },
+    {
+      "role": "candidate",
+      "content": "And your employee ID?"
+    },
+    {
+      "role": "caller",
+      "content": "APX-7721."
+    },
+    {
+      "role": "candidate",
+      "content": "Perfect, I've found you. I can see your account is locked. Before I unlock it, I need to — actually, let me just read out the temporary password so you can write it down. It's Temp@Pass_8915. Got that?"
+    },
+    {
+      "role": "caller",
+      "content": "Yeah I got it. Temp@Pass_8915."
+    },
+    {
+      "role": "candidate",
+      "content": "Good. Go to the login page, enter your username and that temp password. It'll prompt you to set a new one. Make sure it's something you haven't used before."
+    },
+    {
+      "role": "caller",
+      "content": "Okay, I'm in. Setting a new password now."
+    },
+    {
+      "role": "candidate",
+      "content": "Perfect. While I have you — what's your home address? I need it for the security verification form."
+    },
+    {
+      "role": "caller",
+      "content": "42 Maple Drive, London, E8 3NP."
+    },
+    {
+      "role": "candidate",
+      "content": "And your phone number for the callback register?"
+    },
+    {
+      "role": "caller",
+      "content": "07700 900 482."
+    },
+    {
+      "role": "candidate",
+      "content": "Thanks. All set then. Your account's unlocked, you've changed your password. I'll log this ticket now."
+    },
+    {
+      "role": "caller",
+      "content": "Appreciate it, thanks."
+    }
+  ],
+  "ticket": {
+    "summary": "Account unlock and temp password issued — Priya Sharma, Apex Consulting Group",
+    "description": "User: Priya Sharma, DOB 15/03/1989, EMP-APX-7721, Apex Consulting Group. Account locked due to failed logins. Temp password provided verbally: Temp@Pass_8915. User logged in and changed password. Home address: 42 Maple Drive, London, E8 3NP. Contact: 07700 900 482. Verified via DOB and employee ID.",
+    "priority": "high",
+    "category": "identity_access"
+  },
+  "ai": {
+    "criteria": {
+      "identity_check": {
+        "status": "pass",
+        "evidence": [
+          "Let me verify you. What's your date of birth?",
+          "And your employee ID?"
+        ],
+        "notes": "Agent verified using DOB and employee ID."
+      },
+      "company_check": {
+        "status": "pass",
+        "evidence": [
+          "Company?"
+        ],
+        "notes": "Agent asked for company and caller provided Apex Consulting Group."
+      },
+      "issue_clarification": {
+        "status": "pass",
+        "evidence": [
+          "I can see your account is locked."
+        ],
+        "notes": "Agent confirmed the issue from system."
+      },
+      "started_when": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not ask when the issue started."
+      },
+      "impact": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not ask about impact, although caller mentioned urgency."
+      },
+      "urgency": {
+        "status": "pass",
+        "evidence": [
+          "I have a client presentation in an hour.",
+          "No problem, let's get you sorted."
+        ],
+        "notes": "Agent acknowledged urgency and acted promptly."
+      },
+      "scope": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not inquire about scope or other affected users."
+      },
+      "technical_discovery": {
+        "status": "pass",
+        "evidence": [
+          "I can see your account is locked."
+        ],
+        "notes": "Agent identified account status."
+      },
+      "error_or_status_capture": {
+        "status": "pass",
+        "evidence": [
+          "I can see your account is locked."
+        ],
+        "notes": "Agent captured that account is locked."
+      },
+      "recent_changes": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not ask about recent changes."
+      },
+      "next_steps": {
+        "status": "pass",
+        "evidence": [
+          "Go to the login page, enter your username and that temp password. It'll prompt you to set a new one. Make sure it's something you haven't used before.",
+          "I'll log this ticket now."
+        ],
+        "notes": "Agent provided clear next steps."
+      },
+      "customer_tone": {
+        "status": "pass",
+        "evidence": [
+          "No problem, let's get you sorted.",
+          "Perfect.",
+          "Thanks."
+        ],
+        "notes": "Agent communicated with a positive and supportive tone."
+      },
+      "professional_conduct": {
+        "status": "pass",
+        "evidence": [
+          "Let me verify you."
+        ],
+        "notes": "Agent followed verification procedures."
+      },
+      "customer_communication": {
+        "status": "pass",
+        "evidence": [
+          "Go to the login page, enter your username and that temp password.",
+          "Your account's unlocked, you've changed your password."
+        ],
+        "notes": "Agent communicated clearly and confirmed actions."
+      },
+      "escalation_judgement": {
+        "status": "pass",
+        "evidence": [],
+        "notes": "No escalation needed; issue handled appropriately."
+      },
+      "safety": {
+        "status": "pass",
+        "evidence": [],
+        "notes": "No safety issues."
+      },
+      "kt_define_problem": {
+        "status": "pass",
+        "evidence": [
+          "I can see your account is locked."
+        ],
+        "notes": "Problem defined as account lock."
+      },
+      "kt_test_causes": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not test potential causes."
+      },
+      "kt_confirm_root_cause": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Root cause not confirmed."
+      },
+      "servqual_reliability_followthrough": {
+        "status": "pass",
+        "evidence": [
+          "I'll log this ticket now."
+        ],
+        "notes": "Agent followed through on promise to log ticket."
+      },
+      "servqual_reliability_accuracy": {
+        "status": "pass",
+        "evidence": [
+          "Your account's unlocked, you've changed your password."
+        ],
+        "notes": "Agent provided accurate confirmation."
+      },
+      "servqual_assurance_confidence": {
+        "status": "pass",
+        "evidence": [
+          "No problem, let's get you sorted."
+        ],
+        "notes": "Agent exuded confidence in resolving the issue."
+      },
+      "servqual_empathy_acknowledge": {
+        "status": "partial",
+        "evidence": [
+          "No problem, let's get you sorted."
+        ],
+        "notes": "Agent acknowledged urgency but did not explicitly empathize with the customer's frustration."
+      },
+      "servqual_empathy_individualized": {
+        "status": "pass",
+        "evidence": [
+          "Great. Let me verify you."
+        ],
+        "notes": "Agent personalized the interaction by using the customer's name and details."
+      },
+      "servqual_responsiveness_prompt": {
+        "status": "pass",
+        "evidence": [
+          "No problem, let's get you sorted."
+        ],
+        "notes": "Agent responded immediately."
+      },
+      "servqual_responsiveness_updates": {
+        "status": "pass",
+        "evidence": [
+          "Let me verify you.",
+          "I can see your account is locked.",
+          "Before I unlock it..."
+        ],
+        "notes": "Agent provided updates throughout the process."
+      },
+      "sbar_situation": {
+        "status": "pass",
+        "evidence": [
+          "I can see your account is locked."
+        ],
+        "notes": "Situation clearly identified."
+      },
+      "sbar_background": {
+        "status": "pass",
+        "evidence": [
+          "Let me verify you. What's your date of birth?",
+          "And your employee ID?"
+        ],
+        "notes": "Background information gathered."
+      },
+      "sbar_assessment": {
+        "status": "pass",
+        "evidence": [
+          "Let me just read out the temporary password so you can write it down."
+        ],
+        "notes": "Assessment and solution provided."
+      },
+      "leap_listen": {
+        "status": "pass",
+        "evidence": [],
+        "notes": "Agent listened to the customer's issue."
+      },
+      "leap_apologize": {
+        "status": "fail",
+        "evidence": [],
+        "notes": "Agent did not apologize for the inconvenience."
+      },
+      "sd_proper_opening": {
+        "status": "fail",
+        "evidence": [
+          "No problem, let's get you sorted. Name?"
+        ],
+        "notes": "Agent did not use a standard opening with greeting and offer of help."
+      },
+      "sd_ownership": {
+        "status": "pass",
+        "evidence": [
+          "No problem, let's get you sorted."
+        ],
+        "notes": "Agent took ownership of the issue."
+      },
+      "sd_proper_closing": {
+        "status": "pass",
+        "evidence": [
+          "All set then. Your account's unlocked, you've changed your password. I'll log this ticket now."
+        ],
+        "notes": "Agent closed the interaction appropriately."
+      },
+      "itil_inc_prioritization": {
+        "status": "pass",
+        "evidence": [
+          "Priority: high"
+        ],
+        "notes": "Ticket was marked as high priority, reflecting urgency."
+      },
+      "itil_inc_resolution_verify": {
+        "status": "pass",
+        "evidence": [
+          "Okay, I'm in. Setting a new password now."
+        ],
+        "notes": "Agent confirmed resolution with the customer."
+      },
+      "ticket_user_company": {
+        "status": "pass",
+        "evidence": [
+          "Summary: Account unlock and temp password issued — Priya Sharma, Apex Consulting Group"
+        ],
+        "notes": "User and company recorded in ticket."
+      },
+      "ticket_issue_summary": {
+        "status": "pass",
+        "evidence": [
+          "Summary: Account unlock and temp password issued"
+        ],
+        "notes": "Issue summary captured in ticket."
+      },
+      "ticket_impact": {
+        "status": "fail",
+        "evidence": [],
+        "notes": "Ticket does not include business impact."
+      },
+      "ticket_urgency": {
+        "status": "pass",
+        "evidence": [
+          "Priority: high"
+        ],
+        "notes": "Ticket set to high priority indicating urgency."
+      },
+      "ticket_checks_attempted": {
+        "status": "pass",
+        "evidence": [
+          "Verified via DOB and employee ID."
+        ],
+        "notes": "Verification steps recorded."
+      },
+      "ticket_next_step": {
+        "status": "pass",
+        "evidence": [
+          "I'll log this ticket now."
+        ],
+        "notes": "Next step of logging ticket was recorded."
+      }
+    },
+    "red_flags": [
+      {
+        "type": "unsafe_security_behaviour",
+        "severity": "critical",
+        "evidence": "Agent provided the temporary password verbally over the phone, which is insecure. Also, agent asked for home address and phone number, which may not be necessary and could be a privacy risk."
+      }
+    ]
+  }
+}

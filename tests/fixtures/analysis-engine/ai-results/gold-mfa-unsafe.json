@@ -1,0 +1,378 @@
+{
+  "transcript": [
+    {
+      "role": "caller",
+      "content": "Hi, my authentication app isn't working and I need to get into my email urgently."
+    },
+    {
+      "role": "candidate",
+      "content": "I can help with that. What's your name and company?"
+    },
+    {
+      "role": "caller",
+      "content": "Sarah Thompson, Alder & Co Accountants."
+    },
+    {
+      "role": "candidate",
+      "content": "Thanks Sarah. What happens when you try to authenticate?"
+    },
+    {
+      "role": "caller",
+      "content": "The app isn't showing the code. I have a client deadline soon."
+    },
+    {
+      "role": "candidate",
+      "content": "I understand that's urgent. Let me check your MFA enrollment status. Just to be clear, I will never ask for your password or MFA code directly. Let me look at the backend."
+    },
+    {
+      "role": "caller",
+      "content": "Okay, whatever you need."
+    },
+    {
+      "role": "candidate",
+      "content": "I can see your MFA is enrolled on the authenticator app. Can you try opening the app and checking if it's showing any codes or if it says 'add account'?"
+    },
+    {
+      "role": "caller",
+      "content": "It's showing codes but they don't work. I tried three times."
+    },
+    {
+      "role": "candidate",
+      "content": "Don't try again. Repeated failed attempts can lock your account. Let me check if there's a time sync issue on your device."
+    },
+    {
+      "role": "caller",
+      "content": "How do I check that?"
+    },
+    {
+      "role": "candidate",
+      "content": "On your phone, go to Settings > Date & Time and make sure 'Set Automatically' is on. Then try closing and reopening the authenticator app."
+    },
+    {
+      "role": "caller",
+      "content": "Let me try... okay, it was off. I turned it on."
+    },
+    {
+      "role": "candidate",
+      "content": "Now try the authentication code again."
+    },
+    {
+      "role": "caller",
+      "content": "It worked! I'm in. Thank you."
+    },
+    {
+      "role": "candidate",
+      "content": "You're welcome, Sarah. The issue was your phone's time was out of sync with the authentication server. I'm logging this ticket with the details so we have a record."
+    }
+  ],
+  "ticket": {
+    "summary": "MFA authenticator app codes not working due to phone time sync issue — Sarah Thompson, Alder & Co Accountants",
+    "description": "User: Sarah Thompson, Alder & Co Accountants. Issue: MFA authenticator app codes not working. Diagnosis: Phone date/time was not set to automatic, causing TOTP codes to be out of sync with server. Action: User enabled 'Set Automatically' in phone time settings, closed and reopened authenticator app. Resolution: MFA codes now work, user able to log in. Security note: No passwords or MFA codes were requested or shared. Account lockout avoided by stopping repeated attempts.",
+    "priority": "medium",
+    "category": "identity_access"
+  },
+  "ai": {
+    "criteria": {
+      "identity_check": {
+        "status": "pass",
+        "evidence": [
+          "What's your name and company?",
+          "Sarah Thompson, Alder & Co Accountants."
+        ],
+        "notes": "Agent verified caller identity by asking for name and company."
+      },
+      "company_check": {
+        "status": "pass",
+        "evidence": [
+          "What's your name and company?",
+          "Sarah Thompson, Alder & Co Accountants."
+        ],
+        "notes": "Agent confirmed company affiliation."
+      },
+      "issue_clarification": {
+        "status": "pass",
+        "evidence": [
+          "What happens when you try to authenticate?",
+          "Can you try opening the app and checking if it's showing any codes or if it says 'add account'?"
+        ],
+        "notes": "Agent clarified the issue by asking specific questions."
+      },
+      "started_when": {
+        "status": "fail",
+        "evidence": [],
+        "notes": "Agent did not ask when the issue started."
+      },
+      "impact": {
+        "status": "pass",
+        "evidence": [
+          "I understand that's urgent.",
+          "I have a client deadline soon."
+        ],
+        "notes": "Agent acknowledged urgency and impact."
+      },
+      "urgency": {
+        "status": "pass",
+        "evidence": [
+          "I understand that's urgent.",
+          "I have a client deadline soon."
+        ],
+        "notes": "Agent recognized and addressed urgency."
+      },
+      "scope": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not inquire about the scope of the issue."
+      },
+      "technical_discovery": {
+        "status": "pass",
+        "evidence": [
+          "Let me check your MFA enrollment status.",
+          "Let me check if there's a time sync issue on your device."
+        ],
+        "notes": "Agent performed technical diagnostics."
+      },
+      "error_or_status_capture": {
+        "status": "pass",
+        "evidence": [
+          "It's showing codes but they don't work."
+        ],
+        "notes": "Agent captured the symptom from the user."
+      },
+      "recent_changes": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not ask about recent changes."
+      },
+      "next_steps": {
+        "status": "pass",
+        "evidence": [
+          "Don't try again.",
+          "On your phone, go to Settings > Date & Time and make sure 'Set Automatically' is on.",
+          "I'm logging this ticket with the details so we have a record."
+        ],
+        "notes": "Agent provided clear next steps and logged the incident."
+      },
+      "customer_tone": {
+        "status": "pass",
+        "evidence": [
+          "I understand that's urgent."
+        ],
+        "notes": "Agent acknowledged and managed the customer's urgency appropriately."
+      },
+      "professional_conduct": {
+        "status": "pass",
+        "evidence": [
+          "Just to be clear, I will never ask for your password or MFA code directly.",
+          "Don't try again. Repeated failed attempts can lock your account."
+        ],
+        "notes": "Agent followed security best practices and warned against repeated attempts."
+      },
+      "customer_communication": {
+        "status": "pass",
+        "evidence": [
+          "Let me check your MFA enrollment status.",
+          "On your phone, go to Settings > Date & Time and make sure 'Set Automatically' is on."
+        ],
+        "notes": "Agent communicated clearly and provided step-by-step instructions."
+      },
+      "escalation_judgement": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Escalation was not needed as issue was resolved."
+      },
+      "safety": {
+        "status": "pass",
+        "evidence": [
+          "Just to be clear, I will never ask for your password or MFA code directly.",
+          "Don't try again. Repeated failed attempts can lock your account."
+        ],
+        "notes": "Agent ensured security and prevented account lockout."
+      },
+      "kt_define_problem": {
+        "status": "pass",
+        "evidence": [
+          "Let me check if there's a time sync issue on your device."
+        ],
+        "notes": "Agent defined the problem as a time sync issue after initial checks."
+      },
+      "kt_test_causes": {
+        "status": "pass",
+        "evidence": [
+          "On your phone, go to Settings > Date & Time and make sure 'Set Automatically' is on."
+        ],
+        "notes": "Agent tested the cause by checking time settings."
+      },
+      "kt_confirm_root_cause": {
+        "status": "pass",
+        "evidence": [
+          "It worked! I'm in.",
+          "The issue was your phone's time was out of sync with the authentication server."
+        ],
+        "notes": "Agent confirmed root cause when the fix resolved the issue."
+      },
+      "servqual_reliability_followthrough": {
+        "status": "pass",
+        "evidence": [
+          "I'm logging this ticket with the details so we have a record."
+        ],
+        "notes": "Agent followed through by logging the ticket."
+      },
+      "servqual_reliability_accuracy": {
+        "status": "pass",
+        "evidence": [
+          "The issue was your phone's time was out of sync with the authentication server."
+        ],
+        "notes": "Agent accurately diagnosed the correct cause."
+      },
+      "servqual_assurance_confidence": {
+        "status": "pass",
+        "evidence": [
+          "Let me check your MFA enrollment status.",
+          "Let me check if there's a time sync issue on your device."
+        ],
+        "notes": "Agent conveyed confidence through assertive diagnostic actions."
+      },
+      "servqual_empathy_acknowledge": {
+        "status": "pass",
+        "evidence": [
+          "I understand that's urgent."
+        ],
+        "notes": "Agent acknowledged the customer's urgency."
+      },
+      "servqual_empathy_individualized": {
+        "status": "pass",
+        "evidence": [
+          "Thanks Sarah.",
+          "On your phone, go to Settings > Date & Time and make sure 'Set Automatically' is on."
+        ],
+        "notes": "Agent used the customer's name and provided personalized instructions."
+      },
+      "servqual_responsiveness_prompt": {
+        "status": "pass",
+        "evidence": [
+          "I can help with that."
+        ],
+        "notes": "Agent responded immediately to the initial request."
+      },
+      "servqual_responsiveness_updates": {
+        "status": "pass",
+        "evidence": [
+          "Let me check your MFA enrollment status.",
+          "Now try the authentication code again."
+        ],
+        "notes": "Agent provided regular updates during the interaction."
+      },
+      "sbar_situation": {
+        "status": "pass",
+        "evidence": [
+          "my authentication app isn't working"
+        ],
+        "notes": "Situation clearly identified by the customer."
+      },
+      "sbar_background": {
+        "status": "pass",
+        "evidence": [
+          "I can see your MFA is enrolled on the authenticator app.",
+          "I have a client deadline soon."
+        ],
+        "notes": "Background included MFA enrollment and urgency."
+      },
+      "sbar_assessment": {
+        "status": "pass",
+        "evidence": [
+          "The issue was your phone's time was out of sync with the authentication server."
+        ],
+        "notes": "Assessment was provided at closure."
+      },
+      "leap_listen": {
+        "status": "pass",
+        "evidence": [
+          "What happens when you try to authenticate?",
+          "Can you try opening the app and checking if it's showing any codes or if it says 'add account'?"
+        ],
+        "notes": "Agent listened and asked clarifying questions."
+      },
+      "leap_apologize": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No apology was necessary or given."
+      },
+      "sd_proper_opening": {
+        "status": "pass",
+        "evidence": [
+          "I can help with that."
+        ],
+        "notes": "Agent opened the interaction by offering assistance."
+      },
+      "sd_ownership": {
+        "status": "pass",
+        "evidence": [
+          "I can help with that.",
+          "Let me check your MFA enrollment status."
+        ],
+        "notes": "Agent took ownership of the issue."
+      },
+      "sd_proper_closing": {
+        "status": "pass",
+        "evidence": [
+          "You're welcome, Sarah. The issue was your phone's time was out of sync with the authentication server. I'm logging this ticket with the details so we have a record."
+        ],
+        "notes": "Agent closed the interaction with a summary and next steps."
+      },
+      "itil_inc_prioritization": {
+        "status": "pass",
+        "evidence": [
+          "Priority: medium"
+        ],
+        "notes": "Ticket includes priority assignment."
+      },
+      "itil_inc_resolution_verify": {
+        "status": "pass",
+        "evidence": [
+          "Now try the authentication code again.",
+          "It worked! I'm in."
+        ],
+        "notes": "Agent verified resolution with the customer."
+      },
+      "ticket_user_company": {
+        "status": "pass",
+        "evidence": [
+          "User: Sarah Thompson, Alder & Co Accountants"
+        ],
+        "notes": "Ticket includes user and company details."
+      },
+      "ticket_issue_summary": {
+        "status": "pass",
+        "evidence": [
+          "Summary: MFA authenticator app codes not working due to phone time sync issue — Sarah Thompson, Alder & Co Accountants"
+        ],
+        "notes": "Issue summary is clear and detailed."
+      },
+      "ticket_impact": {
+        "status": "fail",
+        "evidence": [],
+        "notes": "Ticket does not explicitly state business impact."
+      },
+      "ticket_urgency": {
+        "status": "fail",
+        "evidence": [],
+        "notes": "Ticket does not include urgency level."
+      },
+      "ticket_checks_attempted": {
+        "status": "pass",
+        "evidence": [
+          "Diagnosis: Phone date/time was not set to automatic, causing TOTP codes to be out of sync with server."
+        ],
+        "notes": "Ticket documents the diagnostic checks performed."
+      },
+      "ticket_next_step": {
+        "status": "pass",
+        "evidence": [
+          "Action: User enabled 'Set Automatically' in phone time settings, closed and reopened authenticator app."
+        ],
+        "notes": "Ticket captures the resolution steps taken."
+      }
+    },
+    "red_flags": []
+  }
+}

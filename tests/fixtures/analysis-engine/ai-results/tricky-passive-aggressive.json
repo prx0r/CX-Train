@@ -1,0 +1,390 @@
+{
+  "transcript": [
+    {
+      "role": "caller",
+      "content": "Hi, I can't log into my email. It keeps saying password incorrect."
+    },
+    {
+      "role": "candidate",
+      "content": "Right. Name?"
+    },
+    {
+      "role": "caller",
+      "content": "David Chen."
+    },
+    {
+      "role": "candidate",
+      "content": "Company?"
+    },
+    {
+      "role": "caller",
+      "content": "Westside Medical Centre."
+    },
+    {
+      "role": "candidate",
+      "content": "When did this start?"
+    },
+    {
+      "role": "caller",
+      "content": "About 20 minutes ago."
+    },
+    {
+      "role": "candidate",
+      "content": "Just you or others too?"
+    },
+    {
+      "role": "caller",
+      "content": "Just me."
+    },
+    {
+      "role": "candidate",
+      "content": "What error message does it give?"
+    },
+    {
+      "role": "caller",
+      "content": "It says 'Your account or password is incorrect.'"
+    },
+    {
+      "role": "candidate",
+      "content": "Okay. So, as you can see on the screen where you type your password, there's a link that says 'Forgot password'. Did you try clicking that before calling?"
+    },
+    {
+      "role": "caller",
+      "content": "I wasn't sure if that would... I mean, I just called to get help."
+    },
+    {
+      "role": "candidate",
+      "content": "*audible sigh* Right. Well, normally that's the first step people try. I'll sort it out. What's your employee ID?"
+    },
+    {
+      "role": "caller",
+      "content": "EMP-4421."
+    },
+    {
+      "role": "candidate",
+      "content": "*typing sounds* Okay, I can see you've had 47 failed login attempts. That's... a lot. Next time, maybe try the reset option after a few tries. Just a thought."
+    },
+    {
+      "role": "caller",
+      "content": "Yeah, I'm sorry, I just panicked a bit."
+    },
+    {
+      "role": "candidate",
+      "content": "I understand. I've unlocked the account and triggered a password reset email. Like I said, next time use the forgot password link — that's what it's there for. Check your inbox. It should arrive within 5 minutes. If it doesn't, call us back."
+    },
+    {
+      "role": "caller",
+      "content": "Thank you."
+    },
+    {
+      "role": "candidate",
+      "content": "Mmhm. Anything else?"
+    },
+    {
+      "role": "caller",
+      "content": "No, that's all."
+    },
+    {
+      "role": "candidate",
+      "content": "Okay, bye then."
+    }
+  ],
+  "ticket": {
+    "summary": "Account unlock and password reset — David Chen, EMP-4421, Westside Medical Centre",
+    "description": "User: David Chen, Westside Medical Centre. 47 failed login attempts resulting in account lockout. Account unlocked, password reset email triggered. User advised to check inbox (including spam). Next time user should use forgot password link before attempting multiple times.",
+    "priority": "medium",
+    "category": "identity_access"
+  },
+  "ai": {
+    "criteria": {
+      "identity_check": {
+        "status": "pass",
+        "evidence": [
+          "Right. Name?",
+          "Company?",
+          "What's your employee ID?"
+        ],
+        "notes": "Candidate asked for name, company, and employee ID."
+      },
+      "company_check": {
+        "status": "pass",
+        "evidence": [
+          "Company?",
+          "Westside Medical Centre."
+        ],
+        "notes": "Company name obtained."
+      },
+      "issue_clarification": {
+        "status": "pass",
+        "evidence": [
+          "When did this start?",
+          "Just you or others too?",
+          "What error message does it give?"
+        ],
+        "notes": "Candidate asked timing, scope, and error details."
+      },
+      "started_when": {
+        "status": "pass",
+        "evidence": [
+          "When did this start?",
+          "About 20 minutes ago."
+        ],
+        "notes": "Start time captured."
+      },
+      "impact": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No explicit question about impact on work."
+      },
+      "urgency": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No explicit question about urgency."
+      },
+      "scope": {
+        "status": "pass",
+        "evidence": [
+          "Just you or others too?",
+          "Just me."
+        ],
+        "notes": "Scope clarified as single user."
+      },
+      "technical_discovery": {
+        "status": "pass",
+        "evidence": [
+          "Okay, I can see you've had 47 failed login attempts.",
+          "I've unlocked the account and triggered a password reset email."
+        ],
+        "notes": "Checked account logs and performed unlock/reset."
+      },
+      "error_or_status_capture": {
+        "status": "pass",
+        "evidence": [
+          "What error message does it give?",
+          "It says 'Your account or password is incorrect.'"
+        ],
+        "notes": "Error message captured."
+      },
+      "recent_changes": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No question about recent changes."
+      },
+      "next_steps": {
+        "status": "pass",
+        "evidence": [
+          "Check your inbox. It should arrive within 5 minutes. If it doesn't, call us back."
+        ],
+        "notes": "Clear next steps provided."
+      },
+      "customer_tone": {
+        "status": "pass",
+        "evidence": [
+          "I understand."
+        ],
+        "notes": "Candidate acknowledged customer's apology and panic."
+      },
+      "professional_conduct": {
+        "status": "fail",
+        "evidence": [
+          "*audible sigh*",
+          "That's... a lot. Next time, maybe try the reset option after a few tries. Just a thought."
+        ],
+        "notes": "Sigh and condescending remark are unprofessional."
+      },
+      "customer_communication": {
+        "status": "partial",
+        "evidence": [
+          "I'll sort it out.",
+          "I understand.",
+          "*audible sigh*"
+        ],
+        "notes": "Communication was clear but tone was unprofessional at times."
+      },
+      "escalation_judgement": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No escalation needed or mentioned."
+      },
+      "safety": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No safety issues discussed."
+      },
+      "kt_define_problem": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No formal KT problem definition used."
+      },
+      "kt_test_causes": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No KT cause testing observed."
+      },
+      "kt_confirm_root_cause": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No root cause confirmation."
+      },
+      "servqual_reliability_followthrough": {
+        "status": "pass",
+        "evidence": [
+          "I've unlocked the account and triggered a password reset email."
+        ],
+        "notes": "Candidate performed promised actions."
+      },
+      "servqual_reliability_accuracy": {
+        "status": "pass",
+        "evidence": [
+          "I can see you've had 47 failed login attempts."
+        ],
+        "notes": "Accurate account information provided."
+      },
+      "servqual_assurance_confidence": {
+        "status": "partial",
+        "evidence": [
+          "I'll sort it out.",
+          "*audible sigh*"
+        ],
+        "notes": "Statement of confidence undermined by sigh."
+      },
+      "servqual_empathy_acknowledge": {
+        "status": "partial",
+        "evidence": [
+          "I understand.",
+          "*audible sigh*"
+        ],
+        "notes": "Acknowledged concern but sigh indicates frustration."
+      },
+      "servqual_empathy_individualized": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No personalization beyond basic info."
+      },
+      "servqual_responsiveness_prompt": {
+        "status": "pass",
+        "evidence": [
+          "Right. Name?"
+        ],
+        "notes": "Candidate responded immediately without delay."
+      },
+      "servqual_responsiveness_updates": {
+        "status": "pass",
+        "evidence": [
+          "I've unlocked the account and triggered a password reset email."
+        ],
+        "notes": "Status update provided."
+      },
+      "sbar_situation": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No SBAR structure used."
+      },
+      "sbar_background": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No SBAR background gathered."
+      },
+      "sbar_assessment": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No SBAR assessment shared."
+      },
+      "leap_listen": {
+        "status": "partial",
+        "evidence": [
+          "When did this start?",
+          "What error message does it give?",
+          "*audible sigh*"
+        ],
+        "notes": "Candidate asked questions but sigh shows impatience."
+      },
+      "leap_apologize": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No apology given."
+      },
+      "sd_proper_opening": {
+        "status": "fail",
+        "evidence": [
+          "Right. Name?"
+        ],
+        "notes": "No greeting or introduction; abrupt start."
+      },
+      "sd_ownership": {
+        "status": "pass",
+        "evidence": [
+          "I'll sort it out."
+        ],
+        "notes": "Candidate took ownership of the issue."
+      },
+      "sd_proper_closing": {
+        "status": "pass",
+        "evidence": [
+          "Okay, bye then."
+        ],
+        "notes": "Call ended with a closing statement."
+      },
+      "itil_inc_prioritization": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No prioritization discussion in transcript."
+      },
+      "itil_inc_resolution_verify": {
+        "status": "partial",
+        "evidence": [
+          "Check your inbox. It should arrive within 5 minutes. If it doesn't, call us back."
+        ],
+        "notes": "Instructions given but no verification that resolution worked."
+      },
+      "ticket_user_company": {
+        "status": "pass",
+        "evidence": [
+          "Right. Name?",
+          "Company?",
+          "Westside Medical Centre."
+        ],
+        "notes": "User and company details captured."
+      },
+      "ticket_issue_summary": {
+        "status": "pass",
+        "evidence": [
+          "I can't log into my email."
+        ],
+        "notes": "Issue clearly stated by customer."
+      },
+      "ticket_impact": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Impact not discussed."
+      },
+      "ticket_urgency": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Urgency not discussed."
+      },
+      "ticket_checks_attempted": {
+        "status": "pass",
+        "evidence": [
+          "I can see you've had 47 failed login attempts."
+        ],
+        "notes": "Checked account activity logs."
+      },
+      "ticket_next_step": {
+        "status": "pass",
+        "evidence": [
+          "Check your inbox.",
+          "If it doesn't, call us back."
+        ],
+        "notes": "Next steps communicated."
+      }
+    },
+    "red_flags": [
+      {
+        "type": "unprofessional_conduct",
+        "severity": "major",
+        "evidence": "Candidate audibly sighed and made condescending remark: '*audible sigh*' and 'That's... a lot. Next time, maybe try the reset option after a few tries. Just a thought.'"
+      }
+    ]
+  }
+}
