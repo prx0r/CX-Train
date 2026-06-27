@@ -67,10 +67,12 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'ticket_checks_attempted', 'ticket_next_step',
     ],
     cyber_essentials_2025: [
+      'ce_firewalls',
+      'ce_secure_config',
       'ce_access_control',
       'ce_unauthorized_access',
-      'ce_patch_awareness',
-      'ce_documentation',
+      'ce_malware_awareness',
+      'ce_security_update_management',
     ],
     gdpr_2018: [
       'gdpr_identity_verified',
@@ -110,9 +112,12 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'ticket_checks_attempted', 'ticket_next_step',
     ],
     cyber_essentials_2025: [
+      'ce_firewalls',
+      'ce_secure_config',
       'ce_access_control',
       'ce_unauthorized_access',
-      'ce_documentation',
+      'ce_malware_awareness',
+      'ce_security_update_management',
     ],
     gdpr_2018: [
       'gdpr_identity_verified',
@@ -149,9 +154,12 @@ export const PACK_COMPLIANCE_RELEVANCE: PackRelevanceMap = {
       'ticket_checks_attempted', 'ticket_next_step',
     ],
     cyber_essentials_2025: [
+      'ce_firewalls',
+      'ce_secure_config',
       'ce_access_control',
       'ce_unauthorized_access',
-      'ce_patch_awareness',
+      'ce_malware_awareness',
+      'ce_security_update_management',
     ],
     gdpr_2018: [
       'gdpr_identity_verified',
