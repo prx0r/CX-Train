@@ -1,15 +1,14 @@
-const MODEL_BY_TASK: Record<string, string | undefined> = {
-  caller: process.env.AI_CALLER_MODEL,
-  evaluator: process.env.AI_EVALUATOR_MODEL,
-  ticket: process.env.AI_TICKET_MODEL,
-  report: process.env.AI_REPORT_MODEL,
-};
-
 const FALLBACK_CALLER = process.env.AI_FALLBACK_MODEL || '';
-const BASE_URL = process.env.AI_BASE_URL || 'https://opencode.ai/zen/go/v1';
-const API_KEY = process.env.AI_API_KEY || '';
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 2000;
+
+function getBaseUrl(): string {
+  return process.env.AI_BASE_URL || 'https://opencode.ai/zen/go/v1';
+}
+
+function getApiKey(): string {
+  return process.env.AI_API_KEY || '';
+}
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -33,9 +32,10 @@ interface RunAiTaskResult {
 }
 
 function getModel(task: string): string {
-  const model = MODEL_BY_TASK[task];
+  const envKey = `AI_${task.toUpperCase()}_MODEL`;
+  const model = process.env[envKey];
   if (!model) {
-    throw new Error(`No model configured for task "${task}". Set AI_${task.toUpperCase()}_MODEL env var.`);
+    throw new Error(`No model configured for task "${task}". Set ${envKey} env var.`);
   }
   return model;
 }
@@ -60,10 +60,10 @@ async function attemptRequest(
     body.response_format = { type: 'json_object' };
   }
 
-  const response = await fetch(`${BASE_URL}/chat/completions`, {
+  const response = await fetch(`${getBaseUrl()}/chat/completions`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${API_KEY}`,
+      'Authorization': `Bearer ${getApiKey()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -142,7 +142,7 @@ export async function runAiTask(
     return runMockAiTask(task, opts);
   }
 
-  if (!API_KEY) {
+  if (!getApiKey()) {
     return { success: false, content: '', model: 'none', error: 'AI_API_KEY is not configured', durationMs: Date.now() - start };
   }
 

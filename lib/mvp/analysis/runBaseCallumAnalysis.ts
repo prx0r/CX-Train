@@ -105,7 +105,7 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
   db.prepare(`INSERT INTO analysis_runs (id, org_id, manager_id, session_id, assessment_id, assessment_pack_id, analysis_type, prompt_version, rubric_version, model_provider, model, temperature, input_hash, status, result_id, error_code, error_message, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`).run(
     analysisRunId, 'org-default', 'manager-default', context.session_id, assessmentId, null,
-    'base_callum', MILESTONE_C_VERSION, RUBRIC_VERSION, 'openrouter', model, 0, inputHash, 'running', null, null, null
+    'base_callum', MILESTONE_C_VERSION, RUBRIC_VERSION, 'opencode-go', model, 0, inputHash, 'running', null, null, null
   );
 
   // Step 1: Evidence extraction via AI (temperature 0)
