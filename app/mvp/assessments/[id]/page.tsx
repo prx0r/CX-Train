@@ -174,6 +174,61 @@ export default function ManagerDetailPage() {
     ready: 'text-green-400', needs_supervision: 'text-yellow-400', not_ready: 'text-red-400', analysis_failed: 'text-gray-500',
   };
 
+  /* Render a single framework with grouped subcategories */
+  const renderFramework = (fw: any) => {
+    const fwCriteria = (fw.criteriaResults || []).filter((c: any) => c.status !== 'not_applicable');
+    const total = fwCriteria.length;
+    const passed = fwCriteria.filter((c: any) => c.status === 'pass').length;
+    const score = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+    const groups = new Map<string, any[]>();
+    for (const c of fwCriteria) {
+      const key = c.subcategory || 'General';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(c);
+    }
+
+    return (
+      <details key={fw.frameworkId} style={{ marginBottom: 8, background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}>
+        <summary style={{ cursor: 'pointer', padding: '10px 14px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#e2e8f0' }}>
+          <span>
+            <span style={{ color: score >= 70 ? '#4ade80' : '#f87171', marginRight: 8 }}>{score >= 70 ? '✓' : '✗'}</span>
+            {fw.frameworkName}
+            <span style={{ fontSize: 10, color: '#64748b', marginLeft: 6, fontWeight: 400 }}>
+              {' '}{groups.size} areas · {passed}/{total}
+            </span>
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: score >= 70 ? '#4ade80' : score >= 50 ? '#fbbf24' : '#f87171' }}>{score}%</span>
+        </summary>
+        <div style={{ padding: '2px 14px 10px', fontSize: 11 }}>
+          {Array.from(groups.entries()).map(([groupKey, criteriaList]) => {
+            const groupPassed = criteriaList.filter((c: any) => c.status === 'pass').length;
+            return (
+              <details key={groupKey} style={{ marginBottom: 3 }} open>
+                <summary style={{ cursor: 'pointer', padding: '5px 8px', borderRadius: 4, background: '#0f172a', fontSize: 11, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#94a3b8' }}>
+                  <span>{groupKey}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: groupPassed === criteriaList.length ? '#4ade80' : groupPassed > 0 ? '#fbbf24' : '#f87171' }}>
+                    {groupPassed}/{criteriaList.length}
+                  </span>
+                </summary>
+                <div style={{ padding: '3px 0 3px 10px' }}>
+                  {criteriaList.map((c: any) => (
+                    <div key={c.criterionId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '3px 6px', marginBottom: 1, borderRadius: 4, color: '#cbd5e1' }}>
+                      <span style={{ fontSize: 10 }}>{c.label.split(' — ').slice(1).join(' — ') || c.label}</span>
+                      <span style={{ color: c.status === 'pass' ? '#4ade80' : '#f87171', fontSize: 10, fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>
+                        {c.status === 'pass' ? '1' : c.status === 'fail' ? '0' : '–'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </details>
+    );
+  };
+
   return (
     <ManagerShell>
     <div className="max-w-4xl">
@@ -475,6 +530,21 @@ export default function ManagerDetailPage() {
                   <div className="mt-3 bg-gray-800 rounded p-3">
                     <h4 className="text-sm text-cyan-400 font-semibold mb-1">Ticket Feedback</h4>
                     <p className="text-sm text-gray-300">{analysisResult.structured.narrative.ticket_feedback}</p>
+                  </div>
+                )}
+
+                {/* Multi-framework compliance data (new pipeline) */}
+                {data?.complianceData?.frameworks?.length > 0 && (
+                  <div className="mt-4 border-t border-gray-700 pt-4">
+                    <h3 className="text-sm text-gray-300 font-semibold mb-3">🧰 Skills Assessment</h3>
+                    {data.complianceData.frameworks
+                      .filter((fw: any) => fw.frameworkType === 'skills_framework' || fw.frameworkType === 'baseline')
+                      .map((fw: any) => renderFramework(fw))}
+
+                    <h3 className="text-sm text-gray-300 font-semibold mb-3 mt-5">📋 Compliance Standards</h3>
+                    {data.complianceData.frameworks
+                      .filter((fw: any) => fw.frameworkType === 'compliance_standard')
+                      .map((fw: any) => renderFramework(fw))}
                   </div>
                 )}
 

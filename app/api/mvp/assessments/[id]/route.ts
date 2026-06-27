@@ -20,6 +20,21 @@ export async function GET(
     const assessmentMode = (full.assessment as any).assessment_mode || 'chat_call';
     const result: any = { ...full, assessment_mode: assessmentMode };
 
+    /* Multi-framework compliance + category scores from assessment_results */
+    if (full.assessment) {
+      const db = getDb();
+      const ar = db.prepare(`
+        SELECT compliance_json, category_scores_json, recording_analysis_json, recording_path
+        FROM assessment_results WHERE assessment_id = ? ORDER BY created_at DESC LIMIT 1
+      `).get(params.id) as { compliance_json?: string; category_scores_json?: string; recording_analysis_json?: string; recording_path?: string } | undefined;
+      if (ar) {
+        if (ar.compliance_json) result.complianceData = JSON.parse(ar.compliance_json);
+        if (ar.category_scores_json) result.categoryScores = JSON.parse(ar.category_scores_json);
+        if (ar.recording_analysis_json) result.recordingAnalysis = JSON.parse(ar.recording_analysis_json);
+        if (ar.recording_path) result.recordingPath = ar.recording_path;
+      }
+    }
+
     /* Canonical event stream from session_events */
     if (full.session) {
       const sessionEvents = getSessionEvents(full.session.id);

@@ -56,6 +56,7 @@ export interface CriterionResult {
 export interface FrameworkResult {
   frameworkId: string;
   frameworkName: string;
+  frameworkType?: string;
   score: number;
   passed: boolean;
   criticalFailures: string[];
@@ -229,6 +230,7 @@ export function evaluateSingleFramework(
   return {
     frameworkId: fw.id,
     frameworkName: fw.name,
+    frameworkType: fw.type,
     score,
     passed,
     criticalFailures,
