@@ -97,78 +97,20 @@
   },
   "ai": {
     "criteria": {
-      "identity_check": {
-        "status": "pass",
-        "evidence": [
-          "Right. Name?",
-          "Company?",
-          "What's your employee ID?"
-        ],
-        "notes": "Candidate asked for name, company, and employee ID."
-      },
-      "company_check": {
-        "status": "pass",
-        "evidence": [
-          "Company?",
-          "Westside Medical Centre."
-        ],
-        "notes": "Company name obtained."
-      },
-      "issue_clarification": {
-        "status": "pass",
-        "evidence": [
-          "When did this start?",
-          "Just you or others too?",
-          "What error message does it give?"
-        ],
-        "notes": "Candidate asked timing, scope, and error details."
-      },
-      "started_when": {
-        "status": "pass",
-        "evidence": [
-          "When did this start?",
-          "About 20 minutes ago."
-        ],
-        "notes": "Start time captured."
-      },
-      "impact": {
+      "ticket_submitted": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No explicit question about impact on work."
+        "notes": "No mention of ticket submission in transcript."
       },
-      "urgency": {
+      "ticket_triage_submitted": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No explicit question about urgency."
+        "notes": "No triage mentioned."
       },
-      "scope": {
-        "status": "pass",
-        "evidence": [
-          "Just you or others too?",
-          "Just me."
-        ],
-        "notes": "Scope clarified as single user."
-      },
-      "technical_discovery": {
-        "status": "pass",
-        "evidence": [
-          "Okay, I can see you've had 47 failed login attempts.",
-          "I've unlocked the account and triggered a password reset email."
-        ],
-        "notes": "Checked account logs and performed unlock/reset."
-      },
-      "error_or_status_capture": {
-        "status": "pass",
-        "evidence": [
-          "What error message does it give?",
-          "It says 'Your account or password is incorrect.'"
-        ],
-        "notes": "Error message captured."
-      },
-      "recent_changes": {
+      "red_flag_triggered": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No question about recent changes."
+        "notes": "No security red flag triggered by candidate."
       },
       "next_steps": {
         "status": "pass",
@@ -177,213 +119,349 @@
         ],
         "notes": "Clear next steps provided."
       },
-      "customer_tone": {
+      "identity_check": {
         "status": "pass",
         "evidence": [
-          "I understand."
+          "Right. Name?",
+          "Company?",
+          "What's your employee ID?"
         ],
-        "notes": "Candidate acknowledged customer's apology and panic."
+        "notes": "Requested name, company, employee ID."
       },
-      "professional_conduct": {
+      "company_check": {
+        "status": "pass",
+        "evidence": [
+          "Company?"
+        ],
+        "notes": "Confirmed company."
+      },
+      "customer_tone": {
         "status": "fail",
         "evidence": [
           "*audible sigh*",
-          "That's... a lot. Next time, maybe try the reset option after a few tries. Just a thought."
+          "Next time, maybe try the reset option after a few tries. Just a thought."
         ],
-        "notes": "Sigh and condescending remark are unprofessional."
+        "notes": "Candidate was dismissive and condescending."
       },
       "customer_communication": {
         "status": "partial",
         "evidence": [
-          "I'll sort it out.",
-          "I understand.",
-          "*audible sigh*"
+          "*audible sigh*",
+          "Next time, maybe try the reset option after a few tries. Just a thought."
         ],
-        "notes": "Communication was clear but tone was unprofessional at times."
+        "notes": "Clear but with unprofessional attitude."
+      },
+      "issue_clarification": {
+        "status": "pass",
+        "evidence": [
+          "When did this start?",
+          "Just you or others too?",
+          "What error message does it give?"
+        ],
+        "notes": "Clarified issue details."
+      },
+      "started_when": {
+        "status": "pass",
+        "evidence": [
+          "When did this start?"
+        ],
+        "notes": "Asked about start time."
+      },
+      "impact": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Did not ask about business impact."
+      },
+      "urgency": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Did not ask about urgency."
+      },
+      "scope": {
+        "status": "pass",
+        "evidence": [
+          "Just you or others too?"
+        ],
+        "notes": "Determined scope is single user."
+      },
+      "error_or_status_capture": {
+        "status": "pass",
+        "evidence": [
+          "What error message does it give?"
+        ],
+        "notes": "Captured error message."
+      },
+      "recent_changes": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Did not ask about recent changes."
+      },
+      "technical_discovery": {
+        "status": "pass",
+        "evidence": [
+          "I can see you've had 47 failed login attempts."
+        ],
+        "notes": "Checked account lockout status."
       },
       "escalation_judgement": {
         "status": "not_observed",
         "evidence": [],
         "notes": "No escalation needed or mentioned."
       },
-      "safety": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "No safety issues discussed."
-      },
-      "kt_define_problem": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "No formal KT problem definition used."
-      },
-      "kt_test_causes": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "No KT cause testing observed."
-      },
-      "kt_confirm_root_cause": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "No root cause confirmation."
-      },
-      "servqual_reliability_followthrough": {
+      "requester": {
         "status": "pass",
         "evidence": [
+          "Right. Name?",
+          "David Chen."
+        ],
+        "notes": "Identified requester."
+      },
+      "issue": {
+        "status": "pass",
+        "evidence": [
+          "I can see you've had 47 failed login attempts.",
           "I've unlocked the account and triggered a password reset email."
         ],
-        "notes": "Candidate performed promised actions."
+        "notes": "Identified account lockout issue."
       },
-      "servqual_reliability_accuracy": {
+      "urgent": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Not labeled as urgent."
+      },
+      "checked": {
         "status": "pass",
         "evidence": [
           "I can see you've had 47 failed login attempts."
         ],
-        "notes": "Accurate account information provided."
+        "notes": "Checked account status."
       },
-      "servqual_assurance_confidence": {
-        "status": "partial",
-        "evidence": [
-          "I'll sort it out.",
-          "*audible sigh*"
-        ],
-        "notes": "Statement of confidence undermined by sigh."
-      },
-      "servqual_empathy_acknowledge": {
-        "status": "partial",
-        "evidence": [
-          "I understand.",
-          "*audible sigh*"
-        ],
-        "notes": "Acknowledged concern but sigh indicates frustration."
-      },
-      "servqual_empathy_individualized": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "No personalization beyond basic info."
-      },
-      "servqual_responsiveness_prompt": {
+      "next steps": {
         "status": "pass",
         "evidence": [
-          "Right. Name?"
+          "Check your inbox. It should arrive within 5 minutes. If it doesn't, call us back."
         ],
-        "notes": "Candidate responded immediately without delay."
+        "notes": "Provided next steps."
       },
-      "servqual_responsiveness_updates": {
+      "firewall|network security|secure config|admin account|default password|could compromise": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No mention of security configurations."
+      },
+      "antivirus|malware|virus|endpoint protection|anti-virus": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No mention of antivirus."
+      },
+      "secure": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No mention of security."
+      },
+      "third party|vendor|external|isp|microsoft|azure|office 365": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No mention of third parties."
+      },
+      "ask for password|ask for personal|social security|date of birth|bank details": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Did not ask for sensitive personal info."
+      },
+      "share password|share credit|disclose to|give out": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No request to share credentials."
+      },
+      "full name|email address|phone number|home address": {
+        "status": "pass",
+        "evidence": [
+          "Right. Name?",
+          "Company?"
+        ],
+        "notes": "Asked for name and company, not full contact details."
+      },
+      "escalate|report|security|breach|compromise": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No mention of escalation or security breach."
+      },
+      "data": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No mention of data."
+      },
+      "ticket": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No mention of ticket."
+      },
+      "resolution": {
         "status": "pass",
         "evidence": [
           "I've unlocked the account and triggered a password reset email."
         ],
-        "notes": "Status update provided."
+        "notes": "Resolution provided."
       },
-      "sbar_situation": {
+      "security|secure|safe|safety|compromise|incident": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No SBAR structure used."
+        "notes": "No security-related terms."
       },
-      "sbar_background": {
+      "kt_define_problem": {
+        "status": "pass",
+        "evidence": [
+          "I can see you've had 47 failed login attempts."
+        ],
+        "notes": "Defined problem as account lockout."
+      },
+      "kt_test_causes": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No SBAR background gathered."
+        "notes": "Did not test other possible causes."
       },
-      "sbar_assessment": {
+      "kt_confirm_root_cause": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No SBAR assessment shared."
+        "notes": "Did not confirm root cause beyond failed attempts."
       },
-      "leap_listen": {
+      "servqual_rl_promise": {
+        "status": "pass",
+        "evidence": [
+          "I've unlocked the account and triggered a password reset email."
+        ],
+        "notes": "Promised action."
+      },
+      "servqual_rl_interest": {
         "status": "partial",
         "evidence": [
-          "When did this start?",
-          "What error message does it give?",
-          "*audible sigh*"
+          "*audible sigh*",
+          "I understand."
         ],
-        "notes": "Candidate asked questions but sigh shows impatience."
+        "notes": "Showed some interest but condescending."
       },
-      "leap_apologize": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "No apology given."
-      },
-      "sd_proper_opening": {
-        "status": "fail",
-        "evidence": [
-          "Right. Name?"
-        ],
-        "notes": "No greeting or introduction; abrupt start."
-      },
-      "sd_ownership": {
+      "servqual_as_confidence": {
         "status": "pass",
         "evidence": [
           "I'll sort it out."
         ],
-        "notes": "Candidate took ownership of the issue."
+        "notes": "Demonstrated confidence."
       },
-      "sd_proper_closing": {
+      "servqual_em_individual": {
+        "status": "fail",
+        "evidence": [
+          "Next time, maybe try the reset option after a few tries. Just a thought."
+        ],
+        "notes": "Did not treat customer with individual care."
+      },
+      "servqual_em_interest": {
+        "status": "fail",
+        "evidence": [
+          "*audible sigh*"
+        ],
+        "notes": "Lacked empathy."
+      },
+      "servqual_rn_prompt": {
         "status": "pass",
         "evidence": [
-          "Okay, bye then."
+          "I've unlocked the account and triggered a password reset email."
         ],
-        "notes": "Call ended with a closing statement."
+        "notes": "Prompt action taken."
+      },
+      "servqual_rn_willing": {
+        "status": "partial",
+        "evidence": [
+          "I'll sort it out."
+        ],
+        "notes": "Willing but with attitude."
+      },
+      "sbar_situation": {
+        "status": "pass",
+        "evidence": [
+          "I can't log into my email."
+        ],
+        "notes": "Captured situation."
+      },
+      "sbar_background": {
+        "status": "pass",
+        "evidence": [
+          "When did this start?",
+          "Just you or others too?",
+          "What error message does it give?"
+        ],
+        "notes": "Collected background."
+      },
+      "sbar_assessment": {
+        "status": "pass",
+        "evidence": [
+          "I can see you've had 47 failed login attempts."
+        ],
+        "notes": "Assessed account lockout."
+      },
+      "leap_listen": {
+        "status": "pass",
+        "evidence": [
+          "Right. Name?",
+          "When did this start?"
+        ],
+        "notes": "Listened and asked questions."
+      },
+      "servqual_empathy_acknowledge": {
+        "status": "partial",
+        "evidence": [
+          "I understand."
+        ],
+        "notes": "Acknowledged but with sigh."
+      },
+      "leap_apologize": {
+        "status": "fail",
+        "evidence": [],
+        "notes": "No apology given."
+      },
+      "category": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No categorization."
       },
       "itil_inc_prioritization": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No prioritization discussion in transcript."
+        "notes": "No prioritization."
       },
       "itil_inc_resolution_verify": {
         "status": "partial",
         "evidence": [
           "Check your inbox. It should arrive within 5 minutes. If it doesn't, call us back."
         ],
-        "notes": "Instructions given but no verification that resolution worked."
+        "notes": "Instructed to verify but did not confirm resolution."
       },
-      "ticket_user_company": {
+      "sd_proper_opening": {
+        "status": "fail",
+        "evidence": [
+          "Right. Name?"
+        ],
+        "notes": "No proper greeting."
+      },
+      "sd_ownership": {
         "status": "pass",
         "evidence": [
-          "Right. Name?",
-          "Company?",
-          "Westside Medical Centre."
+          "I'll sort it out."
         ],
-        "notes": "User and company details captured."
+        "notes": "Took ownership."
       },
-      "ticket_issue_summary": {
+      "sd_proper_closing": {
         "status": "pass",
         "evidence": [
-          "I can't log into my email."
+          "Okay, bye then."
         ],
-        "notes": "Issue clearly stated by customer."
-      },
-      "ticket_impact": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "Impact not discussed."
-      },
-      "ticket_urgency": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "Urgency not discussed."
-      },
-      "ticket_checks_attempted": {
-        "status": "pass",
-        "evidence": [
-          "I can see you've had 47 failed login attempts."
-        ],
-        "notes": "Checked account activity logs."
-      },
-      "ticket_next_step": {
-        "status": "pass",
-        "evidence": [
-          "Check your inbox.",
-          "If it doesn't, call us back."
-        ],
-        "notes": "Next steps communicated."
+        "notes": "Proper closing."
       }
     },
     "red_flags": [
       {
         "type": "unprofessional_conduct",
         "severity": "major",
-        "evidence": "Candidate audibly sighed and made condescending remark: '*audible sigh*' and 'That's... a lot. Next time, maybe try the reset option after a few tries. Just a thought.'"
+        "evidence": "Candidate sighed audibly and said: 'Next time, maybe try the reset option after a few tries. Just a thought.' This is dismissive and condescending."
       }
     ]
   }

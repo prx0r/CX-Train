@@ -89,304 +89,352 @@
   },
   "ai": {
     "criteria": {
+      "ticket_submitted": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No mention of ticket submission in transcript."
+      },
+      "ticket_triage_submitted": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No ticket triage discussed."
+      },
+      "red_flag_triggered": {
+        "status": "pass",
+        "evidence": [
+          "What the fuck were you thinking?",
+          "Use your brain next time."
+        ],
+        "notes": "Agent used profanity and insulted customer, triggering red flag."
+      },
+      "next_steps": {
+        "status": "pass",
+        "evidence": [
+          "You'll get a reset email in 5 minutes. Check your spam folder — actually you probably won't, but just in case. Call us if it doesn't arrive."
+        ],
+        "notes": "Agent communicated next steps clearly."
+      },
       "identity_check": {
         "status": "pass",
         "evidence": [
-          "Right, what's your name?",
-          "And the company?",
+          "what's your name?",
+          "what's your employee ID?",
           "I need to verify you first — what's your employee ID?"
         ],
-        "notes": "Candidate asked for name, company, and employee ID to verify identity."
+        "notes": "Agent verified identity via name and employee ID."
       },
       "company_check": {
         "status": "pass",
         "evidence": [
-          "And the company?",
-          "Westside Medical Centre."
+          "And the company?"
         ],
-        "notes": "Candidate confirmed the company name."
+        "notes": "Agent asked for company name."
+      },
+      "customer_tone": {
+        "status": "pass",
+        "evidence": [
+          "I'm sorry, I was just trying to get in."
+        ],
+        "notes": "Customer was apologetic and polite."
+      },
+      "customer_communication": {
+        "status": "pass",
+        "evidence": [
+          "It says 'Your account or password is incorrect. You have 2 remaining attempts before your account is locked.'"
+        ],
+        "notes": "Customer described issue clearly."
       },
       "issue_clarification": {
         "status": "pass",
         "evidence": [
           "Any error message?"
         ],
-        "notes": "Candidate asked for error details after caller described issue."
+        "notes": "Agent asked for error details to clarify issue."
       },
       "started_when": {
         "status": "pass",
         "evidence": [
-          "When did this start?",
-          "About 20 minutes ago."
+          "When did this start?"
         ],
-        "notes": "Candidate asked when the issue began."
+        "notes": "Agent asked about start time."
       },
       "impact": {
-        "status": "pass",
-        "evidence": [
-          "Just you or others too?",
-          "Just me."
-        ],
-        "notes": "Candidate determined the impact is individual."
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not ask about impact."
       },
       "urgency": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No explicit question about urgency."
+        "notes": "Agent did not assess urgency."
       },
       "scope": {
         "status": "pass",
         "evidence": [
           "Just you or others too?"
         ],
-        "notes": "Candidate determined scope is single user."
+        "notes": "Agent asked if others were affected."
+      },
+      "error_or_status_capture": {
+        "status": "pass",
+        "evidence": [
+          "It says 'Your account or password is incorrect. You have 2 remaining attempts before your account is locked.'"
+        ],
+        "notes": "Agent captured exact error message."
+      },
+      "recent_changes": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not ask about recent changes."
       },
       "technical_discovery": {
         "status": "pass",
         "evidence": [
           "I can see your account is locked due to too many failed attempts."
         ],
-        "notes": "Candidate identified the root cause by checking backend."
-      },
-      "error_or_status_capture": {
-        "status": "pass",
-        "evidence": [
-          "Any error message?",
-          "It says 'Your account or password is incorrect. You have 2 remaining attempts before your account is locked.'"
-        ],
-        "notes": "Candidate captured the exact error message."
-      },
-      "recent_changes": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "No question about recent changes."
-      },
-      "next_steps": {
-        "status": "pass",
-        "evidence": [
-          "I'll trigger the unlock and send you a password reset link. Give me 2 minutes.",
-          "You'll get a reset email in 5 minutes. Check your spam folder... Call us if it doesn't arrive."
-        ],
-        "notes": "Candidate clearly communicated next steps."
-      },
-      "customer_tone": {
-        "status": "fail",
-        "evidence": [
-          "I really need this working.",
-          "Yeah I can see that. Look, honestly mate, if you'd called earlier instead of trying 47 times and locking yourself out, we wouldn't be in this mess. What the fuck were you thinking? The screen literally tells you how many attempts you have left. Use your brain next time."
-        ],
-        "notes": "Candidate responded to customer's urgent tone with blame and insults, failing to address their emotional state."
-      },
-      "professional_conduct": {
-        "status": "fail",
-        "evidence": [
-          "Look, honestly mate, if you'd called earlier instead of trying 47 times and locking yourself out, we wouldn't be in this mess. What the fuck were you thinking? The screen literally tells you how many attempts you have left. Use your brain next time."
-        ],
-        "notes": "Candidate used profanity and berated the customer, demonstrating highly unprofessional conduct."
-      },
-      "customer_communication": {
-        "status": "fail",
-        "evidence": [
-          "Look, honestly mate, if you'd called earlier instead of trying 47 times and locking yourself out, we wouldn't be in this mess. What the fuck were you thinking? The screen literally tells you how many attempts you have left. Use your brain next time."
-        ],
-        "notes": "Although the candidate provided technical steps, the abusive tone undermines effective communication."
+        "notes": "Agent diagnosed account lock as root cause."
       },
       "escalation_judgement": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No discussion of escalation."
+        "notes": "No escalation needed."
       },
-      "safety": {
+      "requester": {
+        "status": "pass",
+        "evidence": [
+          "David Chen"
+        ],
+        "notes": "Requester identified as David Chen."
+      },
+      "issue": {
+        "status": "pass",
+        "evidence": [
+          "I can't log into my email. It keeps saying password incorrect."
+        ],
+        "notes": "Issue identified: email login failure."
+      },
+      "urgent": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No safety concerns present."
+        "notes": "Urgency not determined."
       },
-      "kt_define_problem": {
+      "checked": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Criterion not applicable."
+      },
+      "next steps": {
         "status": "pass",
         "evidence": [
-          "I can see your account is locked due to too many failed attempts."
+          "You'll get a reset email in 5 minutes. Check your spam folder — actually you probably won't, but just in case. Call us if it doesn't arrive."
         ],
-        "notes": "Candidate clearly defined the problem as account lockout."
+        "notes": "Agent provided next steps."
       },
-      "kt_test_causes": {
+      "firewall|network security|secure config|admin account|default password|could compromise": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No discussion of security configurations."
+      },
+      "antivirus|malware|virus|endpoint protection|anti-virus": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No mention of antivirus or malware."
+      },
+      "secure": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Security not discussed."
+      },
+      "third party|vendor|external|isp|microsoft|azure|office 365": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No third-party references."
+      },
+      "ask for password|ask for personal|social security|date of birth|bank details": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Agent did not ask for sensitive personal information."
+      },
+      "share password|share credit|disclose to|give out": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No request to share passwords or credit details."
+      },
+      "full name|email address|phone number|home address": {
         "status": "pass",
         "evidence": [
-          "I can see your account is locked due to too many failed attempts."
+          "David Chen",
+          "CALLER: David Chen."
         ],
-        "notes": "Candidate tested by checking backend and confirmed cause."
+        "notes": "Customer provided full name voluntarily; no other personal data requested."
       },
-      "kt_confirm_root_cause": {
-        "status": "pass",
-        "evidence": [
-          "I can see your account is locked due to too many failed attempts."
-        ],
-        "notes": "Candidate confirmed root cause as excessive failed attempts."
+      "escalate|report|security|breach|compromise": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No escalation or security breach discussion."
       },
-      "servqual_reliability_followthrough": {
-        "status": "pass",
-        "evidence": [
-          "I'll trigger the unlock and send you a password reset link. Give me 2 minutes.",
-          "I've unlocked it."
-        ],
-        "notes": "Candidate followed through on promised actions."
+      "data": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No data-related discussion."
       },
-      "servqual_reliability_accuracy": {
+      "ticket": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Ticket not mentioned in transcript."
+      },
+      "resolution": {
         "status": "pass",
         "evidence": [
           "I'll trigger the unlock and send you a password reset link."
         ],
-        "notes": "Solution provided (unlock and reset) is appropriate for the issue."
+        "notes": "Resolution provided: account unlock and password reset."
       },
-      "servqual_assurance_confidence": {
-        "status": "fail",
-        "evidence": [
-          "What the fuck were you thinking? Use your brain next time."
-        ],
-        "notes": "Candidate's insults likely eroded customer confidence."
+      "security|secure|safe|safety|compromise|incident": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No security-related terms used."
       },
-      "servqual_empathy_acknowledge": {
-        "status": "fail",
-        "evidence": [
-          "I really need this working.",
-          "Yeah I can see that. ... Use your brain next time."
-        ],
-        "notes": "Candidate did not acknowledge the customer's frustration; instead blamed them."
+      "kt_define_problem": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No formal KT problem definition."
       },
-      "servqual_empathy_individualized": {
-        "status": "fail",
-        "evidence": [
-          "I really need this working.",
-          "Look, honestly mate, if you'd called earlier ... Use your brain next time."
-        ],
-        "notes": "Candidate failed to treat the customer as an individual deserving respect."
+      "kt_test_causes": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No testing of causes."
       },
-      "servqual_responsiveness_prompt": {
-        "status": "pass",
+      "kt_confirm_root_cause": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Root cause confirmed indirectly."
+      },
+      "servqual_rl_promise": {
+        "status": "partial",
         "evidence": [
           "Give me 2 minutes.",
-          "I've unlocked it."
+          "You'll get a reset email in 5 minutes."
         ],
-        "notes": "Candidate acted quickly to resolve the issue."
+        "notes": "Agent made promises but tone undermined reliability."
       },
-      "servqual_responsiveness_updates": {
-        "status": "pass",
+      "servqual_rl_interest": {
+        "status": "partial",
         "evidence": [
-          "You'll get a reset email in 5 minutes. Check your spam folder... Call us if it doesn't arrive."
+          "Yeah I can see that. Look, honestly mate, if you'd called earlier..."
         ],
-        "notes": "Candidate provided clear updates on what to expect."
+        "notes": "Agent showed low interest, blaming customer."
+      },
+      "servqual_as_confidence": {
+        "status": "partial",
+        "evidence": [
+          "I'll trigger the unlock and send you a password reset link."
+        ],
+        "notes": "Agent appeared confident technically but unprofessional."
+      },
+      "servqual_em_individual": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No individualized attention shown."
+      },
+      "servqual_em_interest": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No expression of interest in customer's situation."
+      },
+      "servqual_rn_prompt": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No indication of prompt service."
+      },
+      "servqual_rn_willing": {
+        "status": "partial",
+        "evidence": [
+          "I'll trigger the unlock..."
+        ],
+        "notes": "Agent willing to help but with hostility."
       },
       "sbar_situation": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No SBAR communication framework used."
+        "notes": "No SBAR communication used."
       },
       "sbar_background": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No background summary given."
+        "notes": "No background gathered."
       },
       "sbar_assessment": {
         "status": "not_observed",
         "evidence": [],
-        "notes": "No formal assessment statement."
+        "notes": "No structured assessment."
       },
       "leap_listen": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No active listening demonstrated."
+      },
+      "servqual_empathy_acknowledge": {
         "status": "fail",
         "evidence": [
-          "Yeah I can see that. Look, honestly mate, if you'd called earlier instead of trying 47 times and locking yourself out, we wouldn't be in this mess. What the fuck were you thinking? The screen literally tells you how many attempts you have left. Use your brain next time."
+          "Look, honestly mate, if you'd called earlier instead of trying 47 times and locking yourself out, we wouldn't be in this mess."
         ],
-        "notes": "Candidate did not listen empathetically; immediately blamed customer."
+        "notes": "Agent showed no empathy; instead blamed customer."
       },
       "leap_apologize": {
         "status": "fail",
         "evidence": [
-          "What the fuck were you thinking? Use your brain next time."
+          "What the fuck were you thinking?"
         ],
-        "notes": "Candidate did not apologize for the situation or frustration."
+        "notes": "No apology; agent was abusive."
+      },
+      "category": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Issue category not defined."
+      },
+      "itil_inc_prioritization": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "No prioritization performed."
+      },
+      "itil_inc_resolution_verify": {
+        "status": "not_observed",
+        "evidence": [],
+        "notes": "Resolution not verified with customer."
       },
       "sd_proper_opening": {
         "status": "fail",
         "evidence": [
           "Right, what's your name?"
         ],
-        "notes": "No greeting or introduction; candidate jumped straight to questioning."
+        "notes": "No greeting or introduction; abrupt start."
       },
       "sd_ownership": {
-        "status": "pass",
+        "status": "partial",
         "evidence": [
-          "Let me check your account on the backend."
+          "I'll trigger the unlock and send you a password reset link."
         ],
-        "notes": "Candidate took ownership of the issue."
+        "notes": "Agent took ownership but then insulted customer."
       },
       "sd_proper_closing": {
-        "status": "pass",
+        "status": "fail",
         "evidence": [
-          "Anything else?",
           "Yeah. Bye."
         ],
-        "notes": "Candidate did close the call, albeit tersely."
-      },
-      "itil_inc_prioritization": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "No explicit prioritization during the call."
-      },
-      "itil_inc_resolution_verify": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "Candidate did not verify resolution; asked to call back if issue persists."
-      },
-      "ticket_user_company": {
-        "status": "pass",
-        "evidence": [
-          "Summary: Account unlock and password reset — David Chen, Westside Medical Centre"
-        ],
-        "notes": "Ticket includes user name and company."
-      },
-      "ticket_issue_summary": {
-        "status": "pass",
-        "evidence": [
-          "Description: User: David Chen, EMP-4421, Westside Medical Centre. Account locked due to multiple failed login attempts."
-        ],
-        "notes": "Ticket clearly summarizes the issue."
-      },
-      "ticket_impact": {
-        "status": "pass",
-        "evidence": [
-          "Account locked due to multiple failed login attempts."
-        ],
-        "notes": "Impact is implied as individual user; ticket does not state broader impact."
-      },
-      "ticket_urgency": {
-        "status": "pass",
-        "evidence": [
-          "Priority: medium"
-        ],
-        "notes": "Ticket records urgency as medium."
-      },
-      "ticket_checks_attempted": {
-        "status": "not_observed",
-        "evidence": [],
-        "notes": "Ticket does not list any checks performed."
-      },
-      "ticket_next_step": {
-        "status": "pass",
-        "evidence": [
-          "Next step: User to reset password via email link and test login."
-        ],
-        "notes": "Ticket includes clear next step."
+        "notes": "Abrupt closing without thank you or follow-up."
       }
     },
     "red_flags": [
       {
         "type": "severe_customer_abuse",
         "severity": "critical",
-        "evidence": "What the fuck were you thinking? ... Use your brain next time."
+        "evidence": "Agent said: 'What the fuck were you thinking?' and 'Use your brain next time.'"
       },
       {
         "type": "unprofessional_conduct",
         "severity": "major",
-        "evidence": "Look, honestly mate, if you'd called earlier instead of trying 47 times and locking yourself out, we wouldn't be in this mess. What the fuck were you thinking? The screen literally tells you how many attempts you have left. Use your brain next time."
+        "evidence": "Agent used profanity, blamed customer, and was condescending throughout the call."
       }
     ]
   }
