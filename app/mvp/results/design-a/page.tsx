@@ -1,13 +1,10 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { scoreExtraction, DEFAULT_WEIGHTS } from '@/lib/mvp/analysis/scoring';
 import { evaluateAllFrameworks } from '@/lib/mvp/compliance/evaluator';
 import { DEFAULT_FRAMEWORKS } from '@/lib/mvp/compliance/frameworks';
-import { computeScoredAssessment, DEFAULT_CATEGORY_DEFS } from '@/lib/mvp/results/scoring-calculator';
-import type { ValidationFlags } from '@/lib/mvp/results/scoring-calculator';
+import { computeScoredAssessment, buildCriteriaFromFrameworks } from '@/lib/mvp/results/scoring-calculator';
 
 const FIXTURES_DIR = join(process.cwd(), 'tests', 'fixtures', 'analysis-engine');
-const ALL_W = Object.keys(DEFAULT_WEIGHTS);
 
 const RED_FLAG_INFO: Record<string, { label: string; color: string }> = {
   severe_customer_abuse: { label: 'Severe Customer Abuse', color: '#dc2626' },
@@ -18,38 +15,32 @@ const RED_FLAG_INFO: Record<string, { label: string; color: string }> = {
   no_troubleshooting: { label: 'No Troubleshooting', color: '#d97706' },
 };
 
-const CAT_COLORS: Record<string, string> = {
-  security_compliance: '#dc2626',
-  technical_troubleshooting: '#2563eb',
-  customer_experience: '#059669',
-  process_professionalism: '#7c3aed',
-  msp_custom: '#d97706',
-};
-
-/* ── Server-side computation ── */
-
 function compute(name: string) {
   const fx = JSON.parse(readFileSync(join(FIXTURES_DIR, `${name}.json`), 'utf-8'));
   const exp = fx.expected;
   const passSet = new Set(exp.must_pass || []);
   const failSet = new Set(exp.must_fail || []);
   const flagSet = new Set(exp.must_trigger_red_flags || []);
+  const transcriptText = fx.transcript.map((m: any) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+  const ticketText = [fx.ticket.summary, fx.ticket.description].join('\n');
 
-  const criteria: Record<string, { status: string }> = {};
-  for (const k of ALL_W) {
-    if (passSet.has(k)) criteria[k] = { status: 'pass' };
-    else if (failSet.has(k)) criteria[k] = { status: 'fail' };
-    else criteria[k] = { status: 'not_observed' };
+  /* Build evidence pool from fixture expectations */
+  const allCriteria: Record<string, { status: string }> = {};
+  const allIds = new Set<string>();
+  for (const fw of DEFAULT_FRAMEWORKS) {
+    for (const c of fw.criteria) allIds.add(c.id);
+  }
+  for (const k of allIds) {
+    if (passSet.has(k)) allCriteria[k] = { status: 'pass' };
+    else if (failSet.has(k)) allCriteria[k] = { status: 'fail' };
+    else allCriteria[k] = { status: 'not_observed' };
   }
 
-  const redFlags = Array.from(flagSet).map(r => ({ type: r as string, severity: 'high', evidence: '' }));
-  const scoring = scoreExtraction({ criteria, redFlags });
-
   const evidencePool = {
-    aiCriteria: criteria as any,
+    aiCriteria: allCriteria as any,
     events: [],
-    transcriptText: fx.transcript.map((m: any) => `${m.role}: ${m.content}`).join('\n'),
-    ticketText: [fx.ticket.summary, fx.ticket.description].join('\n'),
+    transcriptText,
+    ticketText,
     triage: {},
     ticketSubmitted: true,
     triagePerformed: false,
@@ -57,246 +48,173 @@ function compute(name: string) {
   };
 
   const fwResults = evaluateAllFrameworks(evidencePool, DEFAULT_FRAMEWORKS, null);
-
-  /* Build the data structure the calculator expects */
   const frameworkResults = (fwResults?.frameworks || []).map((f: any) => ({
-    id: f.frameworkId,
-    name: f.frameworkName,
-    category: f.frameworkId, // not used yet
-    score: f.score,
-    criteria: (f.criteriaResults || []).map((c: any) => ({
-      id: c.criterionId,
+    frameworkId: f.frameworkId,
+    frameworkName: f.frameworkName,
+    criteriaResults: (f.criteriaResults || []).map((c: any) => ({
+      criterionId: c.criterionId,
       label: c.label,
       status: c.status,
-      weight: c.pointsMax || 1,
-      evidence: c.evidence ? [c.evidence] : [],
+      evidence: c.evidence,
+      pointsEarned: c.pointsEarned,
+      pointsMax: c.pointsMax,
     })),
   }));
 
-  /* Use the transparent calculator */
-  const assessed = computeScoredAssessment(frameworkResults, DEFAULT_CATEGORY_DEFS);
+  const criteria = buildCriteriaFromFrameworks(frameworkResults);
+  const assessed = computeScoredAssessment(criteria);
 
-  return { fx, scoring, assessed, redFlags: Array.from(flagSet) as string[] };
+  return { fx, assessed, frameworkResults, redFlags: Array.from(flagSet) as string[] };
 }
-
-/* ── Sub-components ── */
-
-function Bar({ score, max, color, height = 8 }: { score: number; max: number; color: string; height?: number }) {
-  const pct = Math.min(100, Math.round((score / max) * 100));
-  return (
-    <div style={{ height, background: '#e5e7eb', borderRadius: height, overflow: 'hidden', width: '100%' }}>
-      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: height }} />
-    </div>
-  );
-}
-
-/* ── Page ── */
 
 export default function ResultsPage({ searchParams }: { searchParams: { t?: string } }) {
   const transcript = searchParams.t || 'tricky-passive-aggressive';
-  const { fx, scoring, assessed, redFlags } = compute(transcript);
-
-  const transcriptText = fx.transcript.map((m: any) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+  const { fx, assessed, frameworkResults, redFlags } = compute(transcript);
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#111' }}>
-      <a href="/mvp/results/design-a/list" style={{ fontSize: 12, color: '#6b7280', textDecoration: 'none', marginBottom: 16, display: 'block' }}>← All transcripts</a>
+    <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
+      <a href="/mvp/results/design-a/list" style={{ fontSize: 12, color: '#64748b', textDecoration: 'none', marginBottom: 16, display: 'block' }}>← All transcripts</a>
 
-      {/* ── HEADER ── */}
-      <div style={{
-        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-        border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, marginBottom: 20,
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      {/* HEADER */}
+      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#0f172a' }}>
-              {fx.name.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
-            </h1>
-            <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>
-              {fx.scenario_id} · {new Date().toLocaleDateString()}
-            </p>
-            {redFlags.length > 0 && (
-              <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {redFlags.map((r: string) => (
-                  <span key={r} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, color: '#fff', background: RED_FLAG_INFO[r]?.color || '#6b7280' }}>
-                    ⚠ {RED_FLAG_INFO[r]?.label || r}
-                  </span>
-                ))}
+            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{fx.name.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</h1>
+            <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>{fx.scenario_id} · {new Date().toLocaleDateString()}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>RAW</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: assessed.rawScore >= 60 ? '#059669' : '#dc2626' }}>{assessed.rawScore}</div>
+            </div>
+            {assessed.findings.length > 0 && (
+              <>
+                <div style={{ width: 1, height: 40, background: '#e2e8f0' }} />
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>VALIDATED</div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: assessed.validatedScore >= 60 ? '#059669' : '#dc2626' }}>
+                    {assessed.validatedScore}
+                    {assessed.rawScore !== assessed.validatedScore && (
+                      <span style={{ fontSize: 11, color: '#f59e0b', marginLeft: 4 }}>(−{assessed.rawScore - assessed.validatedScore})</span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+            {assessed.validatedScore < assessed.rawScore && (
+              <div style={{ padding: '4px 10px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, fontSize: 10, color: '#92400e', maxWidth: 180 }}>
+                {assessed.findings.length} criteria flagged — {assessed.pointsAtRisk}pts at risk. Validated score is raw minus flagged contributions.
               </div>
             )}
-          </div>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>RAW SCORE</div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: assessed.totalScore >= 60 ? '#059669' : '#dc2626' }}>{assessed.totalScore}</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>VALIDATED</div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: assessed.validatedScore >= 60 ? '#059669' : '#dc2626' }}>{assessed.validatedScore}</div>
-            </div>
-            <div style={{ textAlign: 'center', padding: '4px 12px', borderRadius: 6, background: assessed.validation.confidence >= 80 ? '#d1fae5' : assessed.validation.confidence >= 60 ? '#fef3c7' : '#fee2e2' }}>
-              <div style={{ fontSize: 10, color: '#64748b' }}>CONFIDENCE</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: assessed.validation.confidence >= 80 ? '#065f46' : assessed.validation.confidence >= 60 ? '#92400e' : '#991b1b' }}>
-                {assessed.validation.confidence}%
-              </div>
-            </div>
-            <div style={{ padding: '4px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, background: scoring.rating === 'ready' ? '#d1fae5' : scoring.rating === 'needs_supervision' ? '#fef3c7' : '#fee2e2', color: scoring.rating === 'ready' ? '#065f46' : scoring.rating === 'needs_supervision' ? '#92400e' : '#991b1b' }}>
-              {scoring.rating.toUpperCase()}
+            <div style={{
+              padding: '4px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700,
+              background: assessed.validatedScore >= 70 ? '#d1fae5' : assessed.validatedScore >= 50 ? '#fef3c7' : '#fee2e2',
+              color: assessed.validatedScore >= 70 ? '#065f46' : assessed.validatedScore >= 50 ? '#92400e' : '#991b1b',
+            }}>
+              {assessed.validatedScore >= 70 ? 'READY' : assessed.validatedScore >= 50 ? 'BORDERLINE' : 'NOT READY'}
             </div>
           </div>
         </div>
 
-        {/* Validation warnings */}
-        {assessed.validation.warnings.length > 0 && (
-          <div style={{ marginTop: 12, padding: 10, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#991b1b', marginBottom: 4 }}>Validation Warnings</div>
-            {assessed.validation.warnings.map((w, i) => (
-              <div key={i} style={{ fontSize: 10, color: '#b91c1c', marginBottom: 2 }}>⚠ {w}</div>
-            ))}
-          </div>
-        )}
-        {assessed.validation.extremeFlags.length > 0 && (
-          <div style={{ marginTop: 8, padding: 10, background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6 }}>
-            {assessed.validation.extremeFlags.map((f, i) => (
-              <div key={i} style={{ fontSize: 10, color: '#92400e' }}>⚠ {f}</div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── SCORE MATH BREAKDOWN ── */}
-      <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Score Breakdown</h2>
-      <p style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>
-        Each criterion has a weight. Framework score = (earned / max) × 100. Category = weighted average of its frameworks. Total = weighted average of categories.
-      </p>
-
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        {assessed.categories.map(cat => (
-          <div key={cat.id} style={{
-            flex: '1 1 150px', minWidth: 140,
-            background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#0f172a' }}>{cat.label}</span>
-              <span style={{ fontSize: 11, color: '#64748b' }}>({cat.weight}%)</span>
-            </div>
-            <Bar score={cat.rawScore} max={100} color={CAT_COLORS[cat.id] || '#6b7280'} height={6} />
-            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: cat.rawScore >= 70 ? '#059669' : cat.rawScore >= 50 ? '#d97706' : '#dc2626' }}>
-              {cat.rawScore}
-            </div>
-            <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 4 }}>
-              contributes {cat.weightedContribution.toFixed(1)} to total
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── DETAILED FRAMEWORK BREAKDOWN ── */}
-      <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Framework Details</h2>
-      <div style={{ display: 'grid', gap: 8, marginBottom: 24 }}>
-        {assessed.categories.map(cat => (
-          <details key={cat.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0 12px' }}>
-            <summary style={{ cursor: 'pointer', padding: '10px 0', fontSize: 13, fontWeight: 600, color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>
-                <span style={{ color: cat.rawScore >= 60 ? '#059669' : '#dc2626', marginRight: 8 }}>{cat.rawScore >= 60 ? '✓' : '✗'}</span>
-                {cat.label}
+        {redFlags.length > 0 && (
+          <div style={{ marginBottom: 12, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {redFlags.map((r: string) => (
+              <span key={r} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, color: '#fff', background: RED_FLAG_INFO[r]?.color || '#6b7280' }}>
+                ⚠ {RED_FLAG_INFO[r]?.label || r}
               </span>
-              <span style={{ fontSize: 12, color: cat.rawScore >= 60 ? '#059669' : '#dc2626', fontWeight: 700 }}>{cat.rawScore}/100</span>
+            ))}
+          </div>
+        )}
+
+        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+          {assessed.validatedScore >= 70
+            ? `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Ready for independent work.`
+            : assessed.validatedScore >= 50
+              ? `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Borderline — needs supervision on specific areas.`
+              : `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Not ready for independent work.`}
+          {' '}{assessed.applicableCriteria} criteria were applicable across {frameworkResults.length} frameworks.
+        </div>
+
+        {/* Validation Findings */}
+        {assessed.findings.length > 0 && (
+          <div style={{ marginTop: 12, padding: 12, background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>
+              {assessed.findings.length} Criteria Flagged — Scores May Be Overstated
+            </div>
+            <div style={{ fontSize: 11, color: '#475569', marginBottom: 8 }}>
+              These criteria were marked as pass or fail but have no supporting evidence quotes. The validated score excludes their contribution.
+            </div>
+            {assessed.findings.map(f => (
+              <div key={f.criterionId} style={{ fontSize: 11, padding: '4px 8px', background: '#fff', border: '1px solid #fde68a', borderRadius: 4, marginBottom: 4 }}>
+                <strong style={{ color: '#92400e' }}>{f.label}</strong>
+                <span style={{ color: '#64748b' }}> ({f.frameworkName})</span>
+                <span style={{ color: '#92400e' }}> — {f.reason}</span>
+                <span style={{ color: '#64748b', fontSize: 10, marginLeft: 4 }}>({f.pointsAtRisk}pts at risk)</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* FRAMEWORK BREAKDOWN */}
+      <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Framework Breakdown</h2>
+
+      {frameworkResults.map((fw: any) => {
+        const totalPoints = fw.criteriaResults.reduce((s: number, c: any) => s + (c.status === 'not_applicable' ? 0 : c.pointsMax), 0);
+        const earnedPoints = fw.criteriaResults.reduce((s: number, c: any) => s + (c.status === 'not_applicable' ? 0 : c.pointsEarned), 0);
+        const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+
+        return (
+          <details key={fw.frameworkId} style={{ marginBottom: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+            <summary style={{ cursor: 'pointer', padding: '12px 16px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>
+                <span style={{ color: score >= 70 ? '#059669' : '#dc2626', marginRight: 8 }}>{score >= 70 ? '✓' : '✗'}</span>
+                {fw.frameworkName}
+                <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 8, fontWeight: 400 }}>
+                  {earnedPoints}/{totalPoints}pts
+                </span>
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: score >= 70 ? '#059669' : score >= 50 ? '#d97706' : '#dc2626' }}>{score}%</span>
             </summary>
-            <div style={{ padding: '0 0 12px 16px', borderLeft: '2px solid #e2e8f0', marginLeft: 4 }}>
-              {cat.frameworks.map(fw => (
-                <details key={fw.id} style={{ marginBottom: 6 }}>
-                  <summary style={{ cursor: 'pointer', padding: '4px 0', fontSize: 11, color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>
-                      <span style={{ color: fw.rawScore >= 70 ? '#059669' : '#dc2626', fontWeight: 700, marginRight: 4 }}>
-                        {fw.rawScore >= 70 ? '✓' : '✗'}
+            <div style={{ padding: '4px 16px 12px', fontSize: 11 }}>
+              {fw.criteriaResults.map((c: any) => {
+                const finding = assessed.findings.find(f => f.criterionId === c.criterionId);
+                const isFlagged = !!finding;
+
+                return (
+                  <div key={c.criterionId} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '6px 8px', marginBottom: 2, borderRadius: 4,
+                    background: isFlagged ? '#fffbeb' : 'transparent',
+                    border: isFlagged ? '1px solid #fde68a' : '1px solid transparent',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 18, height: 18, borderRadius: 4, fontSize: 10, fontWeight: 700,
+                        background: c.status === 'pass' ? '#d1fae5' : c.status === 'fail' ? '#fee2e2' : '#f1f5f9',
+                        color: c.status === 'pass' ? '#059669' : c.status === 'fail' ? '#dc2626' : '#94a3b8',
+                      }}>
+                        {c.status === 'pass' ? '✓' : c.status === 'fail' ? '✗' : '–'}
                       </span>
-                      {fw.name}
-                      <span style={{ color: '#94a3b8', marginLeft: 4 }}>(weight: {fw.weight}% of category)</span>
-                    </span>
-                    <span style={{ fontWeight: 600, color: fw.rawScore >= 70 ? '#059669' : fw.rawScore >= 50 ? '#d97706' : '#dc2626' }}>
-                      {fw.rawScore}/100
-                    </span>
-                  </summary>
-                  <div style={{ padding: '4px 0 2px 12px', fontSize: 10 }}>
-                    {/* Math: sum(earned) / sum(max) × 100 */}
-                    <div style={{ color: '#94a3b8', marginBottom: 6, fontSize: 9 }}>
-                      {fw.criteria.filter((c: any) => c.status !== 'not_applicable').reduce((s: number, c: any) => s + c.earned, 0).toFixed(0)} earned / {fw.criteria.filter((c: any) => c.status !== 'not_applicable').reduce((s: number, c: any) => s + c.maxPossible, 0).toFixed(0)} max = {fw.rawScore}/100
-                    </div>
-                    {fw.criteria.map(c => (
-                      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid #f1f5f9' }}>
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1 }}>
-                          <span style={{
-                            display: 'inline-block', width: 14, height: 14, borderRadius: 3,
-                            background: c.status === 'pass' ? '#d1fae5' : c.status === 'fail' ? '#fee2e2' : '#f1f5f9',
-                            color: c.status === 'pass' ? '#059669' : c.status === 'fail' ? '#dc2626' : '#94a3b8',
-                            fontSize: 9, lineHeight: '14px', textAlign: 'center', fontWeight: 700,
-                          }}>
-                            {c.status === 'pass' ? '✓' : c.status === 'fail' ? '✗' : '–'}
-                          </span>
-                          <span style={{ color: '#334155' }}>{c.label}</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ color: '#94a3b8', fontSize: 9 }}>
-                            ×{c.multiplier.toFixed(1)} of {c.weight}pts
-                          </span>
-                          <span style={{
-                            fontWeight: 600, fontSize: 11, width: 24, textAlign: 'right',
-                            color: c.status === 'pass' ? '#059669' : c.status === 'fail' ? '#dc2626' : '#94a3b8',
-                          }}>
-                            {c.status === 'not_applicable' ? '—' : c.earned.toFixed(0)}
-                          </span>
-                        </div>
+                      <div>
+                        <span style={{ color: '#1e293b' }}>{c.label}</span>
+                        {finding && (
+                          <div style={{ fontSize: 9, color: '#d97706', marginTop: 1 }}>⚠ {finding.reason}</div>
+                        )}
                       </div>
-                    ))}
+                    </div>
+                    <div style={{ color: '#94a3b8', fontSize: 9, whiteSpace: 'nowrap' }}>
+                      {c.status} · {c.pointsEarned}/{c.pointsMax}
+                      {isFlagged && <span style={{ color: '#d97706', fontWeight: 600, marginLeft: 4 }}>FLAGGED</span>}
+                    </div>
                   </div>
-                </details>
-              ))}
+                );
+              })}
             </div>
           </details>
-        ))}
-      </div>
-
-      {/* ── VALIDATION PASS DETAIL ── */}
-      <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Validation Pass</h2>
-      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-          {([
-            { label: 'Relevance Ratio', value: `${assessed.validation.relevanceRatio}%`, desc: '% of criteria that were applicable', good: assessed.validation.relevanceRatio >= 50 },
-            { label: 'Un-evidenced Passes', value: String(assessed.validation.lowEvidenceCount), desc: 'pass criteria missing evidence quotes', good: assessed.validation.lowEvidenceCount === 0 },
-            { label: 'Category Balance', value: `σ=${assessed.validation.categoryImbalance}`, desc: 'standard deviation across categories', good: assessed.validation.categoryImbalance < 30 },
-          ] as const).map(v => (
-            <div key={v.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, padding: 10 }}>
-              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>{v.label}</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: v.good ? '#059669' : '#d97706' }}>{v.value}</div>
-              <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 2 }}>{v.desc}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: 10, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6 }}>
-          <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Confidence Calculation</div>
-          <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.6 }}>
-            Base confidence: 100%<br />
-            {assessed.validation.lowEvidenceCount > 0 && <>− {assessed.validation.lowEvidenceCount} un-evidenced passes × 5% = −{assessed.validation.lowEvidenceCount * 5}%<br /></>}
-            {assessed.validation.categoryImbalance > 20 && <>− ({assessed.validation.categoryImbalance} imbalance − 20) × 2% = −{(assessed.validation.categoryImbalance - 20) * 2}%<br /></>}
-            {assessed.validation.relevanceRatio < 60 && <>− (60 − {assessed.validation.relevanceRatio}%) × 1% = −{60 - assessed.validation.relevanceRatio}%<br /></>}
-            <strong>Final confidence: {assessed.validation.confidence}%</strong><br />
-            {assessed.validation.confidence >= 80
-              ? '✓ High confidence — validated score matches raw score'
-              : `⚠ Lower confidence — validated score adjusted toward 50 (${assessed.totalScore} → ${assessed.validatedScore})`}
-          </div>
-        </div>
-      </div>
-
-      {/* ── TRANSCRIPT ── */}
-      <details>
-        <summary style={{ fontSize: 12, color: '#64748b', cursor: 'pointer', fontWeight: 600, padding: '8px 0' }}>
-          View Transcript ({fx.transcript.length} messages)
-        </summary>
-        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: 12, marginTop: 4, fontFamily: 'monospace', fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: '#334155' }}>
-          {transcriptText}
-        </div>
-      </details>
+        );
+      })}
     </div>
   );
 }
