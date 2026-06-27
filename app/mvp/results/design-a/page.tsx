@@ -225,7 +225,7 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                 <span style={{ color: score >= 70 ? '#059669' : '#dc2626', marginRight: 8 }}>{score >= 70 ? '✓' : '✗'}</span>
                 {fw.frameworkName}
                 <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 8, fontWeight: 400 }}>
-                  {earnedPoints}/{totalPoints}pts
+                  {earnedPoints}/{totalPoints}
                 </span>
               </span>
               <span style={{ fontSize: 14, fontWeight: 700, color: score >= 70 ? '#059669' : score >= 50 ? '#d97706' : '#dc2626' }}>{score}%</span>
@@ -247,17 +247,17 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, minWidth: 0 }}>
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        width: 18, height: 18, borderRadius: 4, fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1,
+                        width: 20, height: 20, borderRadius: 4, fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1,
                         background: c.status === 'pass' ? '#d1fae5' : c.status === 'fail' ? '#fee2e2' : '#f1f5f9',
                         color: c.status === 'pass' ? '#059669' : c.status === 'fail' ? '#dc2626' : '#94a3b8',
                       }}>
-                        {c.status === 'pass' ? '✓' : c.status === 'fail' ? '✗' : '–'}
+                        {c.status === 'pass' ? '1' : c.status === 'fail' ? '0' : '–'}
                       </span>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ color: '#1e293b', fontWeight: 500 }}>{c.label}</div>
                         {isVerified && critRecord?.evidenceQuote && (
                           <div style={{ fontSize: 9, color: '#059669', marginTop: 2, fontStyle: 'italic', wordBreak: 'break-word' }}>
-                            ✅ "{critRecord.evidenceQuote.substring(0, 100)}{critRecord.evidenceQuote.length > 100 ? '...' : ''}"
+                            "{critRecord.evidenceQuote.substring(0, 90)}{critRecord.evidenceQuote.length > 90 ? '...' : ''}" ✅
                           </div>
                         )}
                         {finding && (
@@ -265,11 +265,11 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                         )}
                       </div>
                     </div>
-                    <div style={{ color: '#94a3b8', fontSize: 9, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8 }}>
-                      {c.status} · {c.pointsEarned}/{c.pointsMax}
-                      {isVerified && <span style={{ color: '#059669', fontWeight: 600, marginLeft: 4 }}>✅</span>}
-                      {finding && <span style={{ color: '#d97706', fontWeight: 600, marginLeft: 4 }}>FLAGGED</span>}
-                    </div>
+                      <div style={{ color: '#94a3b8', fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8 }}>
+                        {c.status === 'pass' ? '1' : c.status === 'fail' ? '0' : '–'}
+                        {isVerified && <span style={{ color: '#059669', marginLeft: 4 }}>✅</span>}
+                        {finding && <span style={{ color: '#d97706', fontWeight: 600, marginLeft: 4 }}>FLAGGED</span>}
+                      </div>
                   </div>
                 );
               })}
