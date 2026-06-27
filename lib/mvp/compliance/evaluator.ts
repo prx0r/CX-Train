@@ -11,6 +11,7 @@ export interface FrameworkCriterion {
   label: string;
   weight: number;
   category: string;
+  subcategory?: string;
   critical: boolean;
   checkType: 'ai_criteria'
     | 'event_check'
@@ -40,6 +41,7 @@ export interface FrameworkDefinition {
 export interface CriterionResult {
   criterionId: string;
   label: string;
+  subcategory?: string;
   status: 'pass' | 'fail' | 'not_assessable' | 'not_applicable';
   evidence: string;
   pointsEarned: number;
@@ -195,6 +197,7 @@ export function evaluateSingleFramework(
     criteriaResults.push({
       criterionId: criterion.id,
       label: criterion.label,
+      subcategory: criterion.subcategory,
       status,
       evidence: evidenceStr,
       pointsEarned: earned,

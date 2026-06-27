@@ -486,7 +486,7 @@ export function computeScoredAssessment(criteria: CriterionResult[], transcriptT
 /* ── Builder ── */
 
 export function buildCriteriaFromFrameworks(
-  frameworkResults: Array<{ frameworkId: string; frameworkName: string; criteriaResults: Array<{ criterionId: string; label: string; status: string; evidence: string; pointsEarned: number; pointsMax: number }> }>,
+  frameworkResults: Array<{ frameworkId: string; frameworkName: string; criteriaResults: Array<{ criterionId: string; label: string; subcategory?: string; status: string; evidence: string; pointsEarned: number; pointsMax: number }> }>,
 ): CriterionResult[] {
   const results: CriterionResult[] = [];
   for (const fw of frameworkResults) {

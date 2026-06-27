@@ -194,11 +194,9 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
       <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Framework Breakdown</h2>
 
       {frameworkResults.map((fw: any) => {
-        /* Count binary pass/fail per criterion (ignoring weights) */
         const fwCriteria = fw.criteriaResults.filter((c: any) => c.status !== 'not_applicable');
         const total = fwCriteria.length;
         const passed = fwCriteria.filter((c: any) => c.status === 'pass').length;
-        // Check invalidation count from evidence status
         const invalidated = fwCriteria.filter((c: any) => {
           const cr = criteria.find(cr => cr.id === c.criterionId);
           return cr?.evidenceStatus === 'invalidated';
@@ -207,37 +205,28 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
         const relevantPassed = Math.min(passed, relevant);
         const score = relevant > 0 ? Math.round((relevantPassed / relevant) * 100) : 0;
 
+        /* Group criteria by subcategory */
+        const groups = new Map<string, { label: string; criteria: any[] }>();
+        for (const c of fwCriteria) {
+          const key = c.subcategory || 'General';
+          if (!groups.has(key)) groups.set(key, { label: key, criteria: [] });
+          groups.get(key)!.criteria.push(c);
+        }
+
         return (
           <details key={fw.frameworkId} style={{ marginBottom: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
             <summary style={{ cursor: 'pointer', padding: '12px 16px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>
                 <span style={{ color: score >= 70 ? '#059669' : '#dc2626', marginRight: 8 }}>{score >= 70 ? '✓' : '✗'}</span>
                 {fw.frameworkName}
-                {invalidated > 0 && (
-                  <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6, fontWeight: 400 }}>
-                    {relevantPassed}/{relevant} criteria · {invalidated} not relevant
-                  </span>
-                )}
-                {invalidated === 0 && (
-                  <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6, fontWeight: 400 }}>
-                    {passed}/{total}
-                  </span>
-                )}
+                <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6, fontWeight: 400 }}>
+                  {' '}{groups.size} areas · {passed}/{total}
+                </span>
               </span>
               <span style={{ fontSize: 14, fontWeight: 700, color: score >= 70 ? '#059669' : score >= 50 ? '#d97706' : '#dc2626' }}>{score}%</span>
             </summary>
             <div style={{ padding: '4px 16px 12px', fontSize: 11 }}>
               {(() => {
-                /* Split into relevant and irrelevant */
-                const relevant = fwCriteria.filter((c: any) => {
-                  const cr = criteria.find(cr => cr.id === c.criterionId);
-                  return cr?.evidenceStatus !== 'invalidated';
-                });
-                const irrelevant = fwCriteria.filter((c: any) => {
-                  const cr = criteria.find(cr => cr.id === c.criterionId);
-                  return cr?.evidenceStatus === 'invalidated';
-                });
-
                 const renderCriterion = (c: any) => {
                   const critRecord = criteria.find(cr => cr.id === c.criterionId);
                   const evStatus = critRecord?.evidenceStatus;
@@ -257,68 +246,51 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                   return (
                     <div key={c.criterionId} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                      padding: '6px 8px', marginBottom: 2, borderRadius: 4,
+                      padding: '4px 8px', marginBottom: 1, borderRadius: 4,
                       background: bgColor, border: `1px solid ${borderColor}`,
                     }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, minWidth: 0 }}>
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          width: 20, height: 20, borderRadius: 4, fontSize: 11, fontWeight: 700,
+                          width: 18, height: 18, borderRadius: 3, fontSize: 10, fontWeight: 700,
                           flexShrink: 0, marginTop: 1, background: statusBg, color: statusColor,
                         }}>{statusDisplay}</span>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ color: '#1e293b', fontWeight: 500 }}>{c.label}</div>
+                          <div style={{ color: '#1e293b', fontSize: 11 }}>{c.label.split(' — ').slice(1).join(' — ') || c.label}</div>
                           {critRecord?.description && (
-                            <div style={{ fontSize: 9, color: '#64748b', marginTop: 2, lineHeight: 1.3 }}>
+                            <div style={{ fontSize: 9, color: '#64748b', marginTop: 1, lineHeight: 1.2 }}>
                               {critRecord.description}
                             </div>
                           )}
                           {evStatus === 'verified' && critRecord?.evidenceQuote && (
-                            <div style={{ fontSize: 9, color: '#059669', marginTop: 2, fontStyle: 'italic', wordBreak: 'break-word' }}>
-                              "{critRecord.evidenceQuote.substring(0, 90)}{critRecord.evidenceQuote.length > 90 ? '...' : ''}"
+                            <div style={{ fontSize: 9, color: '#059669', marginTop: 1, fontStyle: 'italic', wordBreak: 'break-word' }}>
+                              "{critRecord.evidenceQuote.substring(0, 80)}{critRecord.evidenceQuote.length > 80 ? '...' : ''}"
                             </div>
                           )}
                         </div>
-                      </div>
-                      <div style={{
-                        fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8,
-                        color: evStatus === 'verified' ? '#059669' : '#94a3b8',
-                        fontWeight: evStatus === 'verified' ? 600 : 400,
-                      }}>
-                        {statusDisplay}
-                        {evStatus === 'verified' && c.status === 'pass' && <span style={{ marginLeft: 4 }}>✅</span>}
                       </div>
                     </div>
                   );
                 };
 
-                return (
-                  <>
-                    {relevant.map(renderCriterion)}
-                    {irrelevant.length > 0 && (
-                      <details style={{ marginTop: 8 }}>
-                        <summary style={{ fontSize: 10, color: '#9ca3af', cursor: 'pointer', padding: '4px 0' }}>
-                          {irrelevant.length} criteria not relevant to this call — view
-                        </summary>
-                        <div style={{ marginTop: 4 }}>
-                          {irrelevant.map((c: any) => {
-                            const critRecord = criteria.find(cr => cr.id === c.criterionId);
-                            return (
-                              <div key={c.criterionId} style={{
-                                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                                padding: '4px 8px', marginBottom: 1, borderRadius: 4,
-                                background: '#f9fafb', fontSize: 10, color: '#9ca3af',
-                              }}>
-                                <span>{c.label}</span>
-                                <span style={{ fontSize: 9 }}>⊘ Not discussed</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </details>
-                    )}
-                  </>
-                );
+                const groupEntries = Array.from(groups.entries());
+                return groupEntries.map(([groupKey, group]) => {
+                  const groupTotal = group.criteria.length;
+                  const groupPassed = group.criteria.filter(c => c.status === 'pass').length;
+                  return (
+                    <details key={groupKey} style={{ marginBottom: 4 }} open>
+                      <summary style={{ cursor: 'pointer', padding: '6px 8px', borderRadius: 4, background: '#f8fafc', fontSize: 11, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{groupKey}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: groupPassed === groupTotal ? '#059669' : groupPassed > 0 ? '#d97706' : '#dc2626' }}>
+                          {groupPassed}/{groupTotal}
+                        </span>
+                      </summary>
+                      <div style={{ padding: '4px 0 4px 12px' }}>
+                        {group.criteria.map(renderCriterion)}
+                      </div>
+                    </details>
+                  );
+                });
               })()}
             </div>
           </details>
