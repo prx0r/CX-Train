@@ -44,4 +44,5 @@ Thumbs.db
 .vercel
 data/mvp.db
 data/recordings/*
+data/models/*
 !data/recordings/.gitkeep
