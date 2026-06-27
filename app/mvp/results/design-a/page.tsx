@@ -186,37 +186,29 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
             : assessed.validatedScore >= 50
               ? `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Borderline — needs supervision.`
               : `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Not ready for independent work.`}
-          {' '}{assessed.applicableCriteria} criteria applicable across {frameworkResults.length} frameworks.
-          {useRealAi && <span style={{ color: '#059669', marginLeft: 4 }}>Evidence validated by deepseek-v4-flash AI.</span>}
+          {' '}{assessed.applicableCriteria} criteria across {frameworkResults.length} frameworks.
+          <span style={{ color: '#64748b', marginLeft: 4 }}>
+            · {assessed.verifiedCount} verified · {assessed.invalidatedCount} irrelevant (topic not in call) · {assessed.applicableCriteria - assessed.verifiedCount - assessed.invalidatedCount} not observed
+          </span>
         </div>
-
-        {/* Validation Findings */}
-        {assessed.findings.length > 0 && (
-          <div style={{ marginTop: 12, padding: 12, background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>
-              {assessed.findings.length} Criteria Without Transcript Evidence
-            </div>
-            {assessed.findings.slice(0, 10).map(f => (
-              <div key={f.criterionId} style={{ fontSize: 11, padding: '4px 8px', background: '#fff', border: '1px solid #fde68a', borderRadius: 4, marginBottom: 4 }}>
-                <strong>{f.label}</strong>
-                <span style={{ color: '#64748b' }}> ({f.frameworkName})</span>
-                <span style={{ color: '#d97706' }}> — {f.reason}</span>
-              </div>
-            ))}
-            {assessed.findings.length > 10 && (
-              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>...and {assessed.findings.length - 10} more</div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* FRAMEWORK BREAKDOWN */}
       <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Framework Breakdown</h2>
 
       {frameworkResults.map((fw: any) => {
-        const totalPoints = fw.criteriaResults.reduce((s: number, c: any) => s + (c.status === 'not_applicable' ? 0 : c.pointsMax), 0);
-        const earnedPoints = fw.criteriaResults.reduce((s: number, c: any) => s + (c.status === 'not_applicable' ? 0 : c.pointsEarned), 0);
-        const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+        /* Count binary pass/fail per criterion (ignoring weights) */
+        const fwCriteria = fw.criteriaResults.filter((c: any) => c.status !== 'not_applicable');
+        const total = fwCriteria.length;
+        const passed = fwCriteria.filter((c: any) => c.status === 'pass').length;
+        // Check invalidation count from evidence status
+        const invalidated = fwCriteria.filter((c: any) => {
+          const cr = criteria.find(cr => cr.id === c.criterionId);
+          return cr?.evidenceStatus === 'invalidated';
+        }).length;
+        const relevant = total - invalidated;
+        const relevantPassed = Math.min(passed, relevant);
+        const score = relevant > 0 ? Math.round((relevantPassed / relevant) * 100) : 0;
 
         return (
           <details key={fw.frameworkId} style={{ marginBottom: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
@@ -224,52 +216,88 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
               <span>
                 <span style={{ color: score >= 70 ? '#059669' : '#dc2626', marginRight: 8 }}>{score >= 70 ? '✓' : '✗'}</span>
                 {fw.frameworkName}
-                <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 8, fontWeight: 400 }}>
-                  {earnedPoints}/{totalPoints}
-                </span>
+                {invalidated > 0 && (
+                  <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6, fontWeight: 400 }}>
+                    {relevantPassed}/{relevant} criteria · {invalidated} not relevant
+                  </span>
+                )}
+                {invalidated === 0 && (
+                  <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6, fontWeight: 400 }}>
+                    {passed}/{total}
+                  </span>
+                )}
               </span>
               <span style={{ fontSize: 14, fontWeight: 700, color: score >= 70 ? '#059669' : score >= 50 ? '#d97706' : '#dc2626' }}>{score}%</span>
             </summary>
             <div style={{ padding: '4px 16px 12px', fontSize: 11 }}>
-              {fw.criteriaResults.map((c: any) => {
-                const finding = assessed.findings.find(f => f.criterionId === c.criterionId);
+              {fwCriteria.map((c: any) => {
                 const critRecord = criteria.find(cr => cr.id === c.criterionId);
                 const evStatus = critRecord?.evidenceStatus;
-                const isVerified = evStatus === 'verified';
+
+                /* Determine display style based on evidence state */
+                let bgColor = 'transparent';
+                let borderColor = 'transparent';
+                let statusDisplay: string;
+                let statusColor: string;
+                let statusBg: string;
+
+                if (evStatus === 'verified' && c.status === 'pass') {
+                  bgColor = '#f0fdf4'; borderColor = '#bbf7d0';
+                  statusDisplay = '1'; statusColor = '#059669'; statusBg = '#d1fae5';
+                } else if (evStatus === 'verified' && c.status === 'fail') {
+                  bgColor = '#fef2f2'; borderColor = '#fecaca';
+                  statusDisplay = '0'; statusColor = '#dc2626'; statusBg = '#fee2e2';
+                } else if (evStatus === 'invalidated') {
+                  bgColor = '#f9fafb'; borderColor = '#e5e7eb';
+                  statusDisplay = '—'; statusColor = '#9ca3af'; statusBg = '#f3f4f6';
+                } else {
+                  // not_observed
+                  statusDisplay = '–'; statusColor = '#94a3b8'; statusBg = '#f1f5f9';
+                }
 
                 return (
                   <div key={c.criterionId} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
                     padding: '6px 8px', marginBottom: 2, borderRadius: 4,
-                    background: isVerified ? '#f0fdf4' : finding ? '#fffbeb' : 'transparent',
-                    border: isVerified ? '1px solid #bbf7d0' : finding ? '1px solid #fde68a' : '1px solid transparent',
+                    background: bgColor, border: `1px solid ${borderColor}`,
                   }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, minWidth: 0 }}>
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        width: 20, height: 20, borderRadius: 4, fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1,
-                        background: c.status === 'pass' ? '#d1fae5' : c.status === 'fail' ? '#fee2e2' : '#f1f5f9',
-                        color: c.status === 'pass' ? '#059669' : c.status === 'fail' ? '#dc2626' : '#94a3b8',
+                        width: 20, height: 20, borderRadius: 4, fontSize: 11, fontWeight: 700,
+                        flexShrink: 0, marginTop: 1,
+                        background: statusBg, color: statusColor,
                       }}>
-                        {c.status === 'pass' ? '1' : c.status === 'fail' ? '0' : '–'}
+                        {statusDisplay}
                       </span>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ color: '#1e293b', fontWeight: 500 }}>{c.label}</div>
-                        {isVerified && critRecord?.evidenceQuote && (
-                          <div style={{ fontSize: 9, color: '#059669', marginTop: 2, fontStyle: 'italic', wordBreak: 'break-word' }}>
-                            "{critRecord.evidenceQuote.substring(0, 90)}{critRecord.evidenceQuote.length > 90 ? '...' : ''}" ✅
+                        {critRecord?.description && (
+                          <div style={{ fontSize: 9, color: '#64748b', marginTop: 2, lineHeight: 1.3 }}>
+                            {critRecord.description}
                           </div>
                         )}
-                        {finding && (
-                          <div style={{ fontSize: 9, color: '#d97706', marginTop: 1 }}>⚠ {finding.reason}</div>
+                        {evStatus === 'verified' && critRecord?.evidenceQuote && (
+                          <div style={{ fontSize: 9, color: '#059669', marginTop: 2, fontStyle: 'italic', wordBreak: 'break-word' }}>
+                            "{critRecord.evidenceQuote.substring(0, 90)}{critRecord.evidenceQuote.length > 90 ? '...' : ''}"
+                          </div>
+                        )}
+                        {evStatus === 'invalidated' && (
+                          <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2 }}>
+                            Topic not discussed in this call — criterion is not applicable.
+                          </div>
                         )}
                       </div>
                     </div>
-                      <div style={{ color: '#94a3b8', fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8 }}>
-                        {c.status === 'pass' ? '1' : c.status === 'fail' ? '0' : '–'}
-                        {isVerified && <span style={{ color: '#059669', marginLeft: 4 }}>✅</span>}
-                        {finding && <span style={{ color: '#d97706', fontWeight: 600, marginLeft: 4 }}>FLAGGED</span>}
-                      </div>
+                    <div style={{
+                      fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8,
+                      color: evStatus === 'verified' ? '#059669' : evStatus === 'invalidated' ? '#9ca3af' : '#94a3b8',
+                      fontWeight: evStatus === 'verified' ? 600 : 400,
+                    }}>
+                      {statusDisplay}
+                      {evStatus === 'verified' && c.status === 'pass' && <span style={{ marginLeft: 4 }}>✅</span>}
+                      {evStatus === 'invalidated' && <span style={{ marginLeft: 4 }}>⊘</span>}
+                    </div>
                   </div>
                 );
               })}
