@@ -279,17 +279,73 @@ Manager view at `/mvp/assessments/[id]` should show:
 └─────────────────────────────────────┘
 ```
 
-## Future (No-GPU) Enhancements
+## Speaker Diarization (sherpa-onnx-node) — Built
 
-1. **avr-vad** — swap amplitude VAD for Silero ONNX VAD (more accurate silence detection)
-2. **sherpa-onnx** — speaker diarization (separate candidate from customer audio without relying on turn events)
-3. **Pitch analysis** — detect vocal fry, upspeak, prosody patterns from PCM
-4. **Energy trajectory** — detect frustration/calm shifts over call duration
-5. **Word-level timing** — combine transcript word boundaries with audio for speech rate
+### What It Does
 
-## Non-Goals for v1
+Runs automatically after every recording upload. Uses sherpa-onnx-node with pyannote segmentation + 3D-Speaker embedding to separate the mixed recording into per-speaker segments, labeling each as "customer" (AI) or "candidate".
 
-- No real-time analysis (post-call only)
+### Pipeline Integration
+
+```
+POST /recording → save audio
+  → analyzeAudio() (amplitude VAD)
+  → runDiarization() (sherpa-onnx)
+    → both results merged into recording_analysis_json
+      → stored in assessment_results
+```
+
+### Models Downloaded
+
+| Model | Size | Source |
+|-------|------|--------|
+| pyannote segmentation | 6.8MB | `sherpa-onnx-pyannote-segmentation-3-0` |
+| 3D-Speaker embedding | 37.7MB | `3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k` |
+
+Total: ~45MB, stored in `data/models/`. All local, no GPU, no internet at inference time.
+
+### Config
+
+- Clustering: auto (numClusters=-1, threshold=0.5)
+- Min segment on: 0.2s
+- Min segment off: 0.5s
+- First detected speaker → "customer", second → "candidate"
+
+### Diarization Output
+
+```typescript
+interface DiarizationResult {
+  segments: Array<{
+    startMs: number;
+    endMs: number;
+    speaker: 'customer' | 'candidate';
+    confidence: number;          // always 1.0 (sherpa labels are discrete)
+  }>;
+  numSpeakers: number;
+  speakerLabels: string[];       // e.g. ["customer", "candidate"]
+  perSpeakerMetrics: Record<string, {
+    totalTalkMs: number;
+    talkRatio: number;           // 0.0–1.0
+    segmentCount: number;
+  }>;
+}
+```
+
+### What It Enables
+
+| Metric | Without Diarization | With Diarization |
+|--------|-------------------|------------------|
+| Talk ratio | Combined speech only | Per speaker: candidate vs customer |
+| Silence | Total silence | Now can distinguish "candidate thinking" from "customer paused" |
+| Interruptions | Not detectable | Overlapping speaker segments |
+| Turn count | Estimated from VAD gaps | Exact: count speaker label changes |
+| Response latency | From event timestamps | Can cross-validate with acoustic boundaries |
+
+### Graceful Degradation
+
+If sherpa-onnx or models are unavailable, diarization is skipped silently. The acoustic VAD analysis still runs. This is handled in the POST /recording route — diarization is best-effort.
+
+### Non-Goals for v1 (updated)
+
 - No ML-based emotion detection (can be added later)
 - No external storage (local disk only)
-- No speaker diarization from raw audio (we use event-based turn tracking instead)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mvp/db';
 import { saveRecording, getRecordingStream, deleteRecording } from '@/lib/mvp/audio/recorder';
 import { analyzeAudio } from '@/lib/mvp/audio/analyzer';
+import { runDiarization, diarizationAvailable } from '@/lib/mvp/audio/diarizer';
 
 const MAX_RECORDING_SIZE = 50 * 1024 * 1024;
 
@@ -35,14 +36,28 @@ export async function POST(
 
     const recording = saveRecording(buffer, params.token, durationMs);
 
-    const analysis = await analyzeAudio(new Uint8Array(arrayBuffer));
+    const audioBytes = new Uint8Array(arrayBuffer);
+
+    const analysis = await analyzeAudio(audioBytes);
+
+    /* Run speaker diarization if models are available */
+    let diarization = null;
+    if (diarizationAvailable()) {
+      try {
+        diarization = await runDiarization(audioBytes, 16000);
+      } catch (err) {
+        console.warn('[Recording] Diarization failed (non-fatal):', err);
+      }
+    }
+
+    const combined = { ...analysis, diarization };
 
     const db = getDb();
     db.prepare(`
       UPDATE assessment_results
       SET recording_path = ?, recording_analysis_json = ?
       WHERE assessment_id = (SELECT id FROM assessments WHERE invite_token = ?)
-    `).run(recording.filePath, JSON.stringify(analysis), params.token);
+    `).run(recording.filePath, JSON.stringify(combined), params.token);
 
     return NextResponse.json({
       id: recording.id,
@@ -54,6 +69,11 @@ export async function POST(
         talkRatio: analysis.talkRatio,
         longestSilenceMs: analysis.longestSilenceMs,
         silenceSegments: analysis.silenceSegments,
+        diarization: diarization ? {
+          numSpeakers: diarization.numSpeakers,
+          speakerLabels: diarization.speakerLabels,
+          perSpeakerMetrics: diarization.perSpeakerMetrics,
+        } : null,
       },
     });
   } catch (err: any) {
