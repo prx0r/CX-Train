@@ -62,14 +62,14 @@ function compute(name: string) {
   }));
 
   const criteria = buildCriteriaFromFrameworks(frameworkResults);
-  const assessed = computeScoredAssessment(criteria);
+  const assessed = computeScoredAssessment(criteria, transcriptText);
 
-  return { fx, assessed, frameworkResults, redFlags: Array.from(flagSet) as string[] };
+  return { fx, assessed, frameworkResults, redFlags: Array.from(flagSet) as string[], criteria };
 }
 
 export default function ResultsPage({ searchParams }: { searchParams: { t?: string } }) {
   const transcript = searchParams.t || 'tricky-passive-aggressive';
-  const { fx, assessed, frameworkResults, redFlags } = compute(transcript);
+  const { fx, assessed, frameworkResults, redFlags, criteria } = compute(transcript);
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
@@ -142,7 +142,7 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
               {assessed.findings.length} Criteria Flagged — Scores May Be Overstated
             </div>
             <div style={{ fontSize: 11, color: '#475569', marginBottom: 8 }}>
-              These criteria were marked as pass or fail but have no supporting evidence quotes. The validated score excludes their contribution.
+              These criteria have no verifiable evidence in the transcript. Criteria with a ✅ have a matching quote found verbatim in the transcript. The validated score only counts criteria with verified evidence.
             </div>
             {assessed.findings.map(f => (
               <div key={f.criterionId} style={{ fontSize: 11, padding: '4px 8px', background: '#fff', border: '1px solid #fde68a', borderRadius: 4, marginBottom: 4 }}>
@@ -180,13 +180,15 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
               {fw.criteriaResults.map((c: any) => {
                 const finding = assessed.findings.find(f => f.criterionId === c.criterionId);
                 const isFlagged = !!finding;
+                const critRecord = criteria.find(cr => cr.id === c.criterionId);
+                const isVerified = critRecord?.quoteFound;
 
                 return (
                   <div key={c.criterionId} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '6px 8px', marginBottom: 2, borderRadius: 4,
-                    background: isFlagged ? '#fffbeb' : 'transparent',
-                    border: isFlagged ? '1px solid #fde68a' : '1px solid transparent',
+                    background: isFlagged ? '#fffbeb' : isVerified ? '#f0fdf4' : 'transparent',
+                    border: isFlagged ? '1px solid #fde68a' : isVerified ? '1px solid #bbf7d0' : '1px solid transparent',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
                       <span style={{
@@ -199,13 +201,24 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                       </span>
                       <div>
                         <span style={{ color: '#1e293b' }}>{c.label}</span>
-                        {finding && (
-                          <div style={{ fontSize: 9, color: '#d97706', marginTop: 1 }}>⚠ {finding.reason}</div>
-                        )}
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 1 }}>
+                          {isVerified && (
+                            <span style={{ fontSize: 9, color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <span style={{ fontSize: 12 }}>✅</span> Evidence verified: "{critRecord?.quoteText?.substring(0, 50)}{(critRecord?.quoteText?.length || 0) > 50 ? '...' : ''}"
+                            </span>
+                          )}
+                          {finding?.type === 'no_quote' && (
+                            <span style={{ fontSize: 9, color: '#d97706' }}>⚠ No evidence quote provided</span>
+                          )}
+                          {finding?.type === 'quote_not_found' && (
+                            <span style={{ fontSize: 9, color: '#dc2626' }}>🚫 Quote not found in transcript: "{finding.reason.substring(0, 50)}..."</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div style={{ color: '#94a3b8', fontSize: 9, whiteSpace: 'nowrap' }}>
                       {c.status} · {c.pointsEarned}/{c.pointsMax}
+                      {isVerified && <span style={{ color: '#059669', fontWeight: 600, marginLeft: 4 }}>✅</span>}
                       {isFlagged && <span style={{ color: '#d97706', fontWeight: 600, marginLeft: 4 }}>FLAGGED</span>}
                     </div>
                   </div>
