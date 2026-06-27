@@ -8,6 +8,86 @@ import { validateEvidenceGrounding } from '@/lib/mvp/analysis/validation';
 const FIXTURES_DIR = join(process.cwd(), 'tests', 'fixtures', 'analysis-engine');
 const AI_RESULTS_DIR = join(FIXTURES_DIR, 'ai-results');
 
+const TICKET_FIELDS: Record<string, { label: string; keywords: string[] }> = {
+  ticket_user_company: { label: 'User & company identification', keywords: ['user', 'name', 'company', 'requester'] },
+  ticket_issue_summary: { label: 'Issue summary', keywords: ['issue', 'problem', 'summary'] },
+  ticket_impact: { label: 'Business impact', keywords: ['impact', 'blocked', 'deadline', 'client'] },
+  ticket_urgency: { label: 'Urgency/deadline', keywords: ['urgent', 'priority', 'deadline', 'sla'] },
+  ticket_checks_attempted: { label: 'Diagnostic checks attempted', keywords: ['checked', 'tried', 'attempted', 'verified', 'tested', 'diagnos'] },
+  ticket_next_step: { label: 'Next step / follow-up plan', keywords: ['next step', 'follow up', 'will', 'action', 'pending'] },
+};
+
+function analyzeTicket(fx: any, frameworkResults: any[], criteria: any[]): { ticketFindings: string[]; ticketPassed: number; ticketTotal: number } {
+  const ticketText = [fx.ticket?.summary || '', fx.ticket?.description || ''].join('\n').toLowerCase();
+  const findings: string[] = [];
+  let passed = 0, total = 0;
+
+  for (const fw of frameworkResults) {
+    for (const c of fw.criteriaResults || []) {
+      if (!TICKET_FIELDS[c.criterionId]) continue;
+      total++;
+      const field = TICKET_FIELDS[c.criterionId];
+      const found = field.keywords.some(kw => ticketText.includes(kw));
+      if (found) {
+        passed++;
+      } else {
+        const match = fw.criteriaResults.find((cr: any) => cr.criterionId === c.criterionId);
+        findings.push(`${field.label}: ${match?.evidence === 'pass' ? 'present' : 'missing'}`);
+      }
+    }
+  }
+  return { ticketFindings: findings, ticketPassed: passed, ticketTotal: total };
+}
+
+function buildSummary(fx: any, frameworkResults: any[], redFlags: string[], criteria: any[]): { strengths: string[]; misses: string[]; coaching: string[] } {
+  const strengths: string[] = [];
+  const misses: string[] = [];
+  const coaching: string[] = [];
+
+  /* Find top strengths: frameworks with high scores */
+  const sorted = [...frameworkResults].sort((a: any, b: any) => {
+    const aPass = a.criteriaResults.filter((c: any) => c.status === 'pass').length;
+    const bPass = b.criteriaResults.filter((c: any) => c.status === 'pass').length;
+    return bPass - aPass;
+  });
+  for (const fw of sorted.slice(0, 3)) {
+    const passCt = fw.criteriaResults.filter((c: any) => c.status === 'pass').length;
+    const total = fw.criteriaResults.filter((c: any) => c.status !== 'not_applicable').length;
+    if (total > 0 && passCt / total >= 0.7) {
+      const passedCriterion = fw.criteriaResults.find((c: any) => c.status === 'pass');
+      const label = passedCriterion?.label?.split(' — ')[0] || fw.frameworkName;
+      const quote = criteria.find((cr: any) => {
+        const match = fw.criteriaResults.find((fc: any) => fc.criterionId === cr.id && fc.status === 'pass');
+        return match && cr.evidenceQuote;
+      })?.evidenceQuote;
+      strengths.push(`${label}: ${passCt}/${total} passed${quote ? ` — "${quote.substring(0, 80)}"` : ''}`);
+    }
+  }
+
+  /* Find top misses: failed criteria with evidence */
+  for (const fw of frameworkResults) {
+    const fails = fw.criteriaResults.filter((c: any) => c.status === 'fail');
+    for (const f of fails.slice(0, 2)) {
+      const critRecord = criteria.find((cr: any) => cr.id === f.criterionId);
+      const subcat = f.subcategory || fw.frameworkName;
+      const evidence = critRecord?.evidenceQuote || f.evidence || '';
+      misses.push(`${subcat}: ${f.label.split(' — ').slice(1).join(' — ') || f.label.split(' — ')[0]}${evidence ? ` (${evidence.substring(0, 60)})` : ''}`);
+      coaching.push(`Coach on "${subcat}": ${f.label.split(' — ').slice(-1)[0] || f.label}`);
+    }
+  }
+
+  /* Add red flag coaching */
+  for (const rf of redFlags) {
+    const info = RED_FLAG_INFO[rf];
+    if (info) {
+      misses.push(`⚠ ${info.label}`);
+      coaching.push(`Address ${info.label.toLowerCase()} — this is a critical failure that requires immediate coaching.`);
+    }
+  }
+
+  return { strengths: strengths.slice(0, 5), misses: misses.slice(0, 5), coaching: coaching.slice(0, 5) };
+}
+
 const RED_FLAG_INFO: Record<string, { label: string; color: string }> = {
   severe_customer_abuse: { label: 'Severe Customer Abuse', color: '#dc2626' },
   unsafe_security_behaviour: { label: 'Unsafe Security Behaviour', color: '#dc2626' },
@@ -118,6 +198,12 @@ function compute(name: string) {
     ? validateEvidenceGrounding(aiData.ai, { transcriptText, ticketText })
     : { data: null, warnings: [], details: [] };
 
+  /* Analyze ticket content against expected fields */
+  const { ticketFindings, ticketPassed, ticketTotal } = analyzeTicket(fx, frameworkResults, criteria);
+
+  /* Build summary insights */
+  const summary = buildSummary(fx, frameworkResults, redFlags.map(r => r.type), criteria);
+
   return {
     fx,
     assessed,
@@ -127,6 +213,10 @@ function compute(name: string) {
     useRealAi: useAi && aiData.ai !== null,
     validationDetails: validation.details,
     validationWarnings: validation.warnings,
+    ticketFindings,
+    ticketPassed,
+    ticketTotal,
+    summary,
   };
 }
 
@@ -134,7 +224,7 @@ function compute(name: string) {
 
 export default function ResultsPage({ searchParams }: { searchParams: { t?: string } }) {
   const transcript = searchParams.t || 'tricky-passive-aggressive';
-  const { fx, assessed, frameworkResults, redFlags, criteria, useRealAi, validationDetails, validationWarnings } = compute(transcript);
+  const { fx, assessed, frameworkResults, redFlags, criteria, useRealAi, validationDetails, validationWarnings, ticketFindings, ticketPassed, ticketTotal, summary } = compute(transcript);
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
@@ -207,6 +297,46 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
           </span>
         </div>
       </div>
+
+      {/* SUMMARY INSIGHTS */}
+      {summary.strengths.length > 0 || summary.misses.length > 0 ? (
+        <div style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {summary.strengths.length > 0 && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#065f46', marginBottom: 6 }}>✅ Strengths</div>
+              {summary.strengths.map((s: string, i: number) => (
+                <div key={i} style={{ fontSize: 10, color: '#047857', marginBottom: 3, lineHeight: 1.4 }}>{s}</div>
+              ))}
+            </div>
+          )}
+          {summary.misses.length > 0 && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#991b1b', marginBottom: 6 }}>✗ Biggest Misses</div>
+              {summary.misses.map((m: string, i: number) => (
+                <div key={i} style={{ fontSize: 10, color: '#b91c1c', marginBottom: 3, lineHeight: 1.4 }}>{m}</div>
+              ))}
+            </div>
+          )}
+          {summary.coaching.length > 0 && (
+            <div style={{ gridColumn: '1 / -1', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>🎯 Coaching Focus</div>
+              {summary.coaching.map((c: string, i: number) => (
+                <div key={i} style={{ fontSize: 10, color: '#a16207', marginBottom: 3, lineHeight: 1.4 }}>{c}</div>
+              ))}
+            </div>
+          )}
+          {ticketTotal > 0 && (
+            <div style={{ gridColumn: '1 / -1', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#075985', marginBottom: 6 }}>🎫 Ticket Quality ({ticketPassed}/{ticketTotal})</div>
+              {ticketFindings.length > 0 ? ticketFindings.map((f: string, i: number) => (
+                <div key={i} style={{ fontSize: 10, color: '#0369a1', marginBottom: 2, lineHeight: 1.4 }}>{f}</div>
+              )) : (
+                <div style={{ fontSize: 10, color: '#0369a1' }}>All ticket fields present</div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {/* VALIDATION DETAILS */}
       {useRealAi && validationDetails && validationDetails.length > 0 && (
