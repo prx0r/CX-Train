@@ -209,6 +209,76 @@ Columns on `assessment_results`:
 | **Candidate was calm and professional** | Moderate latency + balanced talk ratio + stable RMS |
 | **Call had awkward flow** | High silence ratio + imbalanced talk + high max pause |
 
+## Scoring Pipeline Integration — Needed
+
+Audio analysis is stored but **not yet fed into the scoring pipeline**. Currently it lives alongside results but doesn't affect any framework score.
+
+### What's Missing
+
+| Piece | Current State | Needed |
+|-------|--------------|--------|
+| **Evidence pool** | AI criteria + events + ticket text | Add `audioAnalysis?: AudioAnalysis` as a parallel evidence source |
+| **Framework criteria** | None read from audio analysis | New criteria like `audio_silence_ratio`, `audio_response_latency`, `audio_talk_balance` |
+| **Manager results page** | No audio section | Audio player + acoustic stats + timing grades displayed alongside transcript and scores |
+| **Feedback narrative** | AI prompt only gets text transcript | Include acoustic/timing insights so narrative can reference "you hesitated before answering" or "your tone was rushed" |
+
+### How It Should Work
+
+```
+POST /recording → saves + analyzes
+  → recording_analysis_json stored
+    → (/api/mvp/assessments/[id]) returns analysis alongside results
+      → Manager sees audio player + stats + timing grades
+      → AI narrative prompt receives acoustic context
+```
+
+### Evidence Pool Integration
+
+```typescript
+interface EvidencePool {
+  aiCriteria: Record<string, ...>;
+  events: [...];
+  transcriptText: string;
+  ticketText: string;
+  // NEW:
+  audioAnalysis?: AudioAnalysis;
+  turnTimeline?: TurnTimeline;
+}
+```
+
+Framework criteria would then use `checkType: 'audio_metric'` or read from shared checkTargets mapped to audio analysis fields:
+
+```typescript
+CHECK_TARGET_MAP = {
+  // Audio → framework criteria
+  audio_silence_ratio: ['responsiveness_prompt'],
+  audio_response_latency: ['servqual_rn_prompt'],
+  audio_interruption_count: ['professional_conduct'],
+  audio_talk_balance: ['customer_communication'],
+};
+```
+
+### Results Page Integration
+
+Manager view at `/mvp/assessments/[id]` should show:
+
+```
+┌─────────────────────────────────────┐
+│  Call Recording                      │
+│  ▶────────────────────── 00:00 / 4:32│
+│  Silence: 18% | Your talk: 62%      │
+│  Response time: 1.2s (responsive)   │
+│  Longest pause: 4.1s                │
+│  Flow: Balanced                      │
+├─────────────────────────────────────┤
+│  Timing Breakdown                    │
+│  Avg response: 1.2s  ●●●●●○○○○○     │
+│  Talk balance: 62/38 ●●●●●●●○○○     │
+│  Interruptions: 0    ●●●●●●●●●●     │
+│  Silence ratio: 18%  ●●●●●●●○○○     │
+└─────────────────────────────────────┘
+```
+
 ## Future (No-GPU) Enhancements
 
 1. **avr-vad** — swap amplitude VAD for Silero ONNX VAD (more accurate silence detection)
