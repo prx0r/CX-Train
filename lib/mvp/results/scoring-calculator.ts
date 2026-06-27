@@ -33,12 +33,72 @@ export interface ValidationFinding {
 export interface ScoredAssessment {
   rawScore: number;
   validatedScore: number;
+  evidenceQuality: number;    // validatedScore / rawScore — how much of the score is on verified evidence
   totalCriteria: number;
   applicableCriteria: number;
   verifiedCount: number;
   invalidatedCount: number;
   findings: ValidationFinding[];
   verdict: 'PASS' | 'FAIL';
+}
+
+/**
+ * CheckTarget mapping: framework criteria that read from shared AI extraction keys.
+ * Maps framework criterion ID → AI extraction key(s) to pull evidence from.
+ */
+const CHECK_TARGET_MAP: Record<string, string[]> = {
+  // Security criteria that read from Callum criteria
+  ce_access_control: ['identity_check'],
+  gdpr_identity_verified: ['identity_check'],
+  iso_access_control: ['identity_check'],
+  ce_patch_awareness: ['recent_changes'],
+  iso_patch_management: ['recent_changes'],
+  iso_escalation: ['escalation_judgement'],
+  // SERVQUAL criteria that read from Callum criteria
+  servqual_assurance_competence: ['technical_discovery'],
+  servqual_responsiveness_willingness: ['professional_conduct'],
+  // LEAP criteria that read from shared keys
+  leap_empathize: ['servqual_empathy_acknowledge'],
+  leap_take_action: ['next_steps'],
+  // SBAR that reads from shared keys
+  sbar_recommendation: ['next_steps'],
+  // ITIL Service Desk
+  sd_needs_assessment: ['issue_clarification'],
+  // ITIL Incident
+  itil_inc_initial_diagnosis: ['technical_discovery'],
+};
+
+/**
+ * Apply AI evidence quotes to framework criteria.
+ * Handles shared checkTargets — framework criteria that read from the same
+ * AI extraction key get the same evidence quote.
+ */
+export function applyAiEvidence(
+  criteria: CriterionResult[],
+  aiCriteria: Record<string, { status?: string; evidence?: string[] }>,
+): void {
+  const aiKeys = Object.keys(aiCriteria || {});
+
+  for (const c of criteria) {
+    // Try direct match
+    let aiEntry = aiCriteria?.[c.id];
+
+    // If not found, try checkTarget mapping
+    if (!aiEntry?.evidence || aiEntry.evidence.length === 0) {
+      const mappedKeys = CHECK_TARGET_MAP[c.id] || [];
+      for (const mk of mappedKeys) {
+        const mappedEntry = aiCriteria?.[mk];
+        if (mappedEntry?.evidence && mappedEntry.evidence.length > 0) {
+          aiEntry = mappedEntry;
+          break;
+        }
+      }
+    }
+
+    if (aiEntry?.evidence && aiEntry.evidence.length > 0) {
+      c.evidence = aiEntry.evidence;
+    }
+  }
 }
 
 /* ── Auto-generated evidence detection ── */
@@ -278,12 +338,14 @@ export function computeScoredAssessment(criteria: CriterionResult[], transcriptT
 
   const rawScore = rawMax > 0 ? Math.round((rawEarned / rawMax) * 100) : 0;
   const validatedScore = rawMax > 0 ? Math.round((validatedEarned / rawMax) * 100) : 0;
+  const evidenceQuality = rawScore > 0 ? Math.round((validatedScore / rawScore) * 100) : 0;
 
   const verdict = validatedScore >= 60 ? 'PASS' : 'FAIL';
 
   return {
     rawScore,
     validatedScore,
+    evidenceQuality,
     totalCriteria: criteria.length,
     applicableCriteria: applicableCount,
     verifiedCount,

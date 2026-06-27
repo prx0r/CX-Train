@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { evaluateAllFrameworks } from '@/lib/mvp/compliance/evaluator';
 import { DEFAULT_FRAMEWORKS } from '@/lib/mvp/compliance/frameworks';
-import { computeScoredAssessment, buildCriteriaFromFrameworks } from '@/lib/mvp/results/scoring-calculator';
+import { computeScoredAssessment, buildCriteriaFromFrameworks, applyAiEvidence } from '@/lib/mvp/results/scoring-calculator';
 
 const FIXTURES_DIR = join(process.cwd(), 'tests', 'fixtures', 'analysis-engine');
 const AI_RESULTS_DIR = join(FIXTURES_DIR, 'ai-results');
@@ -95,47 +95,9 @@ function compute(name: string) {
 
   const criteria = buildCriteriaFromFrameworks(frameworkResults);
 
-  /* Override evidence with AI-provided quotes.
-     The compliance evaluator generates auto-strings for evidence.
-     We want the original AI quotes instead.
-     Also handles shared checkTargets (e.g., servqual_assurance_competence reads from technical_discovery) */
+  /* Override evidence with AI-provided quotes (handles shared checkTargets) */
   if (useAi && aiData.ai) {
-    const aiKeys = Object.keys(aiData.ai.criteria || {});
-    for (const c of criteria) {
-      // Try direct match first
-      let aiEntry = aiData.ai.criteria?.[c.id];
-      // If not found, check if c.id matches an AI key that maps here
-      // (shared checkTargets like identity_check, technical_discovery, etc.)
-      if (!aiEntry?.evidence || aiEntry.evidence.length === 0) {
-        // Try common checkTarget mappings
-        const checkTargetMap: Record<string, string[]> = {
-          'ce_access_control': ['identity_check'],
-          'gdpr_identity_verified': ['identity_check'],
-          'iso_access_control': ['identity_check'],
-          'ce_patch_awareness': ['recent_changes'],
-          'iso_patch_management': ['recent_changes'],
-          'iso_escalation': ['escalation_judgement'],
-          'servqual_assurance_competence': ['technical_discovery'],
-          'servqual_responsiveness_willingness': ['professional_conduct'],
-          'leap_empathize': ['servqual_empathy_acknowledge'],
-          'leap_take_action': ['next_steps'],
-          'sbar_recommendation': ['next_steps'],
-          'sd_needs_assessment': ['issue_clarification'],
-          'itil_inc_initial_diagnosis': ['technical_discovery'],
-        };
-        const mappedKeys = checkTargetMap[c.id] || [];
-        for (const mk of mappedKeys) {
-          const mappedEntry = aiData.ai.criteria?.[mk];
-          if (mappedEntry?.evidence && mappedEntry.evidence.length > 0) {
-            aiEntry = mappedEntry;
-            break;
-          }
-        }
-      }
-      if (aiEntry?.evidence && aiEntry.evidence.length > 0) {
-        c.evidence = aiEntry.evidence;
-      }
-    }
+    applyAiEvidence(criteria, aiData.ai.criteria || {});
   }
 
   const assessed = computeScoredAssessment(criteria, transcriptText);
@@ -220,7 +182,10 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
               : `Candidate scored ${assessed.rawScore} (${assessed.validatedScore} validated). Not ready for independent work.`}
           {' '}{assessed.applicableCriteria} criteria across {frameworkResults.length} frameworks.
           <span style={{ color: '#64748b', marginLeft: 4 }}>
-            · {assessed.verifiedCount} verified · {assessed.invalidatedCount} irrelevant (topic not in call) · {assessed.applicableCriteria - assessed.verifiedCount - assessed.invalidatedCount} not observed
+            · {assessed.verifiedCount} verified · {assessed.invalidatedCount} irrelevant · {assessed.applicableCriteria - assessed.verifiedCount - assessed.invalidatedCount} not observed
+            · <span style={{ color: assessed.evidenceQuality >= 80 ? '#059669' : assessed.evidenceQuality >= 50 ? '#d97706' : '#dc2626', fontWeight: 600 }}>
+                evidence quality {assessed.evidenceQuality}%
+              </span>
           </span>
         </div>
       </div>
