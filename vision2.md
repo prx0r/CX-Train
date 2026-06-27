@@ -1066,3 +1066,221 @@ This fits perfectly with the training simulator:
 - The simulator creates the evidence
 - The profile stores the evidence
 - The company portal uses the evidence to hire and train better
+
+---
+
+# Part 4: Support Skills Passport — A Portfolio, Not Just a Score
+
+> The profile should not just be a score. It should be a **support-call portfolio**.
+> Like GitHub for developers, but for support workers.
+
+A candidate profile could include:
+
+- Selected call recordings
+- Transcripts
+- Ticket notes they wrote
+- Scenario scores
+- Compliance badges
+- AI-assisted triage badges
+- Improvement history
+- Manager-reviewed attempts
+- "Ready for L1 calls" status
+- Weak spots and retest history
+- Location and work preferences
+- Looking-for-work status
+
+Then companies can search or review based on real evidence.
+
+## The Killer Wedge
+
+Do not start as a broad call-centre hiring marketplace.
+
+Start as:
+
+> **Portable MSP service desk readiness profile.**
+
+MSP is specific enough that scenarios can be realistic:
+
+```
+Outlook not sending
+VPN disconnected
+MFA issue
+Password reset with identity check
+Phishing report
+Shared mailbox access
+Printer issue
+Slow laptop
+Angry client
+VIP escalation
+Ticket note quality
+AI-assisted triage
+```
+
+Generic customer service tools will not have this depth.
+
+## The Data Moat
+
+The moat is structured performance data, not just raw transcripts:
+
+```
+scenario
+  + transcript
+  + audio
+  + ticket note
+  + action timeline
+  + score
+  + manager correction
+  + later hiring outcome
+  + later job performance
+```
+
+Over time, CallCallum can answer:
+
+- Which assessment patterns predict good hires?
+- Which weak spots improve with training?
+- Which candidates are good at calls but bad at documentation?
+- Which candidates are safe for security-sensitive tickets?
+- Which candidates use AI responsibly?
+- Which scenarios separate strong hires from weak hires?
+
+That is valuable data no generic simulation platform will have.
+
+## What Companies Would Actually Pay For
+
+Companies won't pay just to "browse profiles" at first. They will pay for:
+
+| Product | What It Does |
+|---------|-------------|
+| **Candidate assessment links** | Send a CallCallum exam to applicants |
+| **Evidence-based shortlist** | See who can actually handle support calls |
+| **Company-specific assessment packs** | Test candidates against your way of working |
+| **Hiring pipeline management** | Applicants, assessment status, interviews, notes, manager reviews |
+| **AI review of calls** | Summary, risk flags, strengths, evidence quotes |
+| **Post-hire training continuation** | Candidate becomes trainee; weak spots become training drills |
+
+The magic is **continuity**:
+
+> Candidate profile → hiring assessment → interview → onboarding → training drills → readiness profile
+
+Most hiring tools stop at hiring. CallCallum follows the person into training.
+
+## Candidate Value
+
+Candidates need a reason to use it before employers are there. Give them:
+
+- Free practice calls
+- Instant AI feedback
+- CV badge and share link
+- Support readiness score
+- Public/private profile controls
+- Improvement plan
+- AI-assisted interview prep
+- Realistic MSP scenarios
+- Ability to prove skill without experience
+
+This is especially good for people trying to get their **first support job**.
+
+**The pitch to candidates:**
+
+> "Don't just say you can do IT support. Prove it with realistic call assessments."
+
+## Company Value
+
+**The pitch to MSPs:**
+
+> "Stop hiring from CV vibes. Hear the candidate handle real support calls before you interview them."
+
+And:
+
+> "No recruiter fee. No fake CV signal. Just practical evidence."
+
+## The Compliance/Trust Layer Is Essential
+
+Rules for the profile system:
+
+- Candidate owns their profile
+- Raw audio and transcripts are private by default
+- Sharing is explicit and revocable
+- Companies see only what the candidate permits
+- AI gives evidence-backed summaries, not black-box rejection
+- Manager makes the hiring decision
+- Every score shows rubric and evidence
+- No facial or emotion analysis
+- Clear consent before recording
+- Accessible alternative formats where needed
+
+This trust layer could become a **selling point**, not a burden.
+
+## Names for the Profile Concept
+
+| Option | Best For |
+|--------|----------|
+| CallCallum Profile | Product clarity |
+| Support Skills Passport | CV and shareability |
+| Service Desk Passport | Industry recognition |
+| Readiness Passport | Manager mindset |
+| Support Portfolio | Candidate mindset |
+
+**Recommended:** CallCallum Profile for the product, Support Skills Passport for marketing.
+
+## What to Build First
+
+Do not build the marketplace yet. Build the **object that makes the marketplace possible**:
+
+> Candidate Profile + Shareable Assessment Evidence
+
+**Minimum viable profile:**
+
+```
+Candidate has:
+  - name
+  - location
+  - looking for work: yes/no
+  - completed assessments
+  - scores
+  - selected transcript samples
+  - selected audio samples
+  - share link
+```
+
+**Then add:**
+
+```
+Company can:
+  - create assessment link
+  - review candidate evidence
+  - leave manager notes
+  - invite to interview
+```
+
+That alone is useful. The marketplace comes later.
+
+## The Strategic Sentence
+
+> **CallCallum is a portable proof-of-skill platform for support workers and an evidence-based hiring and training system for MSPs.**
+
+In the AI age:
+
+- CVs get easier to fake
+- Generic interviews get easier to rehearse
+- AI makes written applications noisier
+- Realistic performance evidence becomes more valuable
+
+So the profile concept matters.
+
+## Phased Rollup of the Entire Product
+
+| Phase | Layer | What |
+|-------|-------|------|
+| 1 | Training simulator | Realistic MSP call/ticket scenarios, scored against rubrics |
+| 2 | Standards repository | MSP procedures, client rules, escalation policies as structured data |
+| 3 | Candidate profiles | Evidence object per assessment, shareable portfolio |
+| 4 | Hiring pipeline | Company creates assessment links, reviews evidence, manages applicants |
+| 5 | Ticket QA | Score real tickets against the same standards |
+| 6 | AI policy middleware | Gate AI suggestions against MSP standards |
+| 7 | Talent marketplace | Opt-in searchable profiles, company subscriptions |
+| 8 | Compliance training packs | Phishing, security, data handling as practical simulations |
+| 9 | Focus Drills | Adaptive remediation from weak spots |
+| 10 | AI-assisted pack | Score AI-use judgment, not just support skills |
+
+Each phase feeds the next. The simulator creates the evidence. The profile stores it. The company uses it to hire. The hired person trains further. The training creates more evidence.
