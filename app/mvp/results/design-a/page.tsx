@@ -182,7 +182,7 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                 const isFlagged = !!finding;
                 const critRecord = criteria.find(cr => cr.id === c.criterionId);
                 const evStatus = critRecord?.evidenceStatus;
-                const isVerified = evStatus === 'verified_ai' || evStatus === 'verified_deterministic';
+                const isVerified = evStatus === 'verified';
 
                 return (
                   <div key={c.criterionId} style={{
@@ -203,19 +203,16 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                       <div>
                         <span style={{ color: '#1e293b' }}>{c.label}</span>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 1 }}>
-                          {evStatus === 'verified_ai' && (
+                          {evStatus === 'verified' && (
                             <span style={{ fontSize: 9, color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <span style={{ fontSize: 12 }}>✅</span> "{critRecord?.evidenceQuote?.substring(0, 50)}{(critRecord?.evidenceQuote?.length || 0) > 50 ? '...' : ''}"
+                              <span style={{ fontSize: 12 }}>✅</span> "{critRecord?.evidenceQuote?.substring(0, 55)}{(critRecord?.evidenceQuote?.length || 0) > 55 ? '...' : ''}"
                             </span>
                           )}
-                          {evStatus === 'verified_deterministic' && (
-                            <span style={{ fontSize: 9, color: '#64748b', fontWeight: 500 }}>✓ Deterministic check — no AI quote needed</span>
+                          {evStatus === 'no_evidence' && c.status !== 'not_observed' && (
+                            <span style={{ fontSize: 9, color: '#d97706' }}>⚠ No evidence quote provided</span>
                           )}
-                          {evStatus === 'no_evidence' && (
-                            <span style={{ fontSize: 9, color: '#d97706' }}>⚠ No evidence provided</span>
-                          )}
-                          {evStatus === 'ai_quote_not_found' && (
-                            <span style={{ fontSize: 9, color: '#dc2626' }}>🚫 Quote not found in transcript</span>
+                          {evStatus === 'no_evidence' && c.status === 'not_observed' && (
+                            <span style={{ fontSize: 9, color: '#94a3b8' }}>— Not observed, no quote expected</span>
                           )}
                         </div>
                       </div>
