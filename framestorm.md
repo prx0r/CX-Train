@@ -865,6 +865,58 @@ These edge cases probe the boundaries of the multi-framework architecture. They 
 
 ---
 
+---
+
+## Progress Status
+
+### Framework Definitions (10/10 complete)
+
+| Framework | Version | Criteria | Rubrics | Check Type | Status |
+|-----------|---------|----------|---------|------------|--------|
+| Callum Baseline | 1.0 | 23 | ✅ Paragraph rubrics | ai_criteria + event/ticket | ✅ Done |
+| Cyber Essentials 2025 | 2025 | 7 | ✅ Paragraph rubrics | ai_criteria + event | ✅ Done |
+| GDPR / UK DPA 2018 | 2018 | 6 | ✅ Paragraph rubrics | ai_criteria + ticket | ✅ Done |
+| ISO 27001:2022 | 2022 | 8 | ✅ Paragraph rubrics | ai_criteria + event/ticket | ✅ Done |
+| Kepner-Tregoe | 2.0 | 7 | ✅ KT IS/IS NOT method | ai_criteria | ✅ Done |
+| SERVQUAL | 2.0 | 13 | ✅ RATER dimensions | ai_criteria | ✅ Done |
+| SBAR | 2.0 | 4 | ✅ SBAR protocol | ai_criteria | ✅ Done |
+| LEAP/HEAT | 2.0 | 4 | ✅ LEAP/HEAT steps | ai_criteria | ✅ Done |
+| ITIL Incident Mgmt | 2.0 | 6 | ✅ ITIL 4 aligned | ai_criteria + event/ticket | ✅ Done |
+| ITIL Service Desk | 2.0 | 5 | ✅ ITIL 4 aligned | ai_criteria + ticket | ✅ Done |
+
+### Infrastructure (completed)
+
+| Component | Status |
+|-----------|--------|
+| Three-state evidence validation (verified/invalidated/not_observed) | ✅ Done |
+| FUNDAMENTAL_CRITERIA — never invalidate essential criteria | ✅ Done |
+| CHECK_TARGET_MAP — shared evidence across frameworks | ✅ Done |
+| applyAiEvidence() — AI quote overrides with checkTarget lookup | ✅ Done |
+| evidenceQuality ratio (validated/raw) | ✅ Done |
+| transcript_keyword → ai_criteria conversion (6 criteria) | ✅ Done |
+| Cleaned up dead SERVQUAL v1 IDs | ✅ Done |
+
+### Results Display
+
+| Component | Status |
+|-----------|--------|
+| Design A — single transcript, clean card layout | ✅ Built |
+| Expandable rubric criteria per framework | ✅ Built |
+| Framework totals as X/Y criteria, not weighted /55 | ✅ Built |
+| Invalidated criteria in collapsible "not relevant" section | ✅ Built |
+| Evidence quotes with verbatim transcript verification | ✅ Built |
+
+### Known Gaps
+
+| Gap | Impact | Fix |
+|-----|--------|-----|
+| AI evidence quote quality | Many criteria show "no evidence" because AI returns empty quotes | Prompt engineering: enforce evidence quotes in extraction prompt |
+| Pack-relevance not used in test page | Security/criteria scored as irrelevant on password calls | Pass packId through to results page |
+| event_check criteria need event data | submitted_ticket, performed_triage show as not_observed | Wire real event log to evidence pool |
+| CRITERION_DESCRIPTIONS in scoring-calculator.ts duplicate framework definitions | Maintenance burden — two places to update | Refactor to read descriptions from framework definitions |
+
+---
+
 ## Frameworks Assessed and Rejected
 
 | Framework | Why Rejected |
