@@ -202,17 +202,18 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                       </span>
                       <div>
                         <span style={{ color: '#1e293b' }}>{c.label}</span>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 1 }}>
-                          {evStatus === 'verified' && (
-                            <span style={{ fontSize: 9, color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <span style={{ fontSize: 12 }}>✅</span> "{critRecord?.evidenceQuote?.substring(0, 55)}{(critRecord?.evidenceQuote?.length || 0) > 55 ? '...' : ''}"
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 1, flexWrap: 'wrap' }}>
+                          {evStatus === 'verified' && critRecord?.evidenceQuote && (
+                            <span style={{ fontSize: 9, color: '#059669', display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <span style={{ fontSize: 12 }}>✅</span>
+                              <span style={{ fontStyle: 'italic' }}>"{critRecord.evidenceQuote.substring(0, 90)}{critRecord.evidenceQuote.length > 90 ? '...' : ''}"</span>
                             </span>
                           )}
-                          {evStatus === 'no_evidence' && c.status !== 'not_observed' && (
-                            <span style={{ fontSize: 9, color: '#d97706' }}>⚠ No evidence quote provided</span>
-                          )}
-                          {evStatus === 'no_evidence' && c.status === 'not_observed' && (
+                          {evStatus === 'verified' && !critRecord?.evidenceQuote && (
                             <span style={{ fontSize: 9, color: '#94a3b8' }}>— Not observed, no quote expected</span>
+                          )}
+                          {evStatus === 'no_evidence' && (
+                            <span style={{ fontSize: 9, color: '#d97706' }}>⚠ No matching evidence found in transcript</span>
                           )}
                         </div>
                       </div>
