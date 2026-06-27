@@ -3,6 +3,7 @@ import { join } from 'path';
 import { evaluateAllFrameworks } from '@/lib/mvp/compliance/evaluator';
 import { DEFAULT_FRAMEWORKS } from '@/lib/mvp/compliance/frameworks';
 import { computeScoredAssessment, buildCriteriaFromFrameworks, applyAiEvidence } from '@/lib/mvp/results/scoring-calculator';
+import { validateEvidenceGrounding } from '@/lib/mvp/analysis/validation';
 
 const FIXTURES_DIR = join(process.cwd(), 'tests', 'fixtures', 'analysis-engine');
 const AI_RESULTS_DIR = join(FIXTURES_DIR, 'ai-results');
@@ -112,6 +113,11 @@ function compute(name: string) {
 
   const assessed = computeScoredAssessment(criteria, transcriptText);
 
+  /* Run evidence grounding validation */
+  const validation = useAi && aiData.ai
+    ? validateEvidenceGrounding(aiData.ai, { transcriptText, ticketText })
+    : { data: null, warnings: [], details: [] };
+
   return {
     fx,
     assessed,
@@ -119,6 +125,8 @@ function compute(name: string) {
     redFlags: redFlags.map(r => r.type),
     criteria,
     useRealAi: useAi && aiData.ai !== null,
+    validationDetails: validation.details,
+    validationWarnings: validation.warnings,
   };
 }
 
@@ -126,7 +134,7 @@ function compute(name: string) {
 
 export default function ResultsPage({ searchParams }: { searchParams: { t?: string } }) {
   const transcript = searchParams.t || 'tricky-passive-aggressive';
-  const { fx, assessed, frameworkResults, redFlags, criteria, useRealAi } = compute(transcript);
+  const { fx, assessed, frameworkResults, redFlags, criteria, useRealAi, validationDetails, validationWarnings } = compute(transcript);
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
@@ -199,6 +207,37 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
           </span>
         </div>
       </div>
+
+      {/* VALIDATION DETAILS */}
+      {useRealAi && validationDetails && validationDetails.length > 0 && (
+        <details style={{ marginBottom: 12, background: '#fff8f0', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 11 }}>
+          <summary style={{ cursor: 'pointer', padding: '10px 14px', fontWeight: 600, color: '#9a3412' }}>
+            🔍 Evidence Validation — {validationWarnings.length} warning{validationWarnings.length !== 1 ? 's' : ''}
+            <span style={{ fontWeight: 400, marginLeft: 8, color: '#c2410c' }}>
+              ({validationDetails.filter((d: any) => d.severity === 'critical').length} critical, {validationDetails.filter((d: any) => d.severity === 'warning').length} warning, {validationDetails.filter((d: any) => d.severity === 'info').length} info)
+            </span>
+          </summary>
+          <div style={{ padding: '4px 14px 12px' }}>
+            {validationDetails.map((d: any, i: number) => {
+              const color = d.severity === 'critical' ? '#dc2626' : d.severity === 'warning' ? '#d97706' : '#64748b';
+              const icon = d.severity === 'critical' ? '✗' : d.severity === 'warning' ? '⚠' : 'ℹ';
+              return (
+                <div key={i} style={{ display: 'flex', gap: 6, padding: '3px 0', color }}>
+                  <span style={{ flexShrink: 0 }}>{icon}</span>
+                  <span>{d.message}</span>
+                  {d.criterion && <span style={{ color: '#94a3b8', fontSize: 10 }}>({d.criterion})</span>}
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
+
+      {!useRealAi && (
+        <div style={{ marginBottom: 12, padding: '8px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 11, color: '#92400e' }}>
+          ⚠️ Using fixture expectations — not real AI extraction. Validation only runs with real AI data.
+        </div>
+      )}
 
       {/* FRAMEWORK BREAKDOWN */}
       {(() => {
