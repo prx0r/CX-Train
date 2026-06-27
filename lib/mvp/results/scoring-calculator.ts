@@ -218,7 +218,8 @@ export function computeScoredAssessment(criteria: CriterionResult[], transcriptT
     if (ev.status === 'verified') {
       validatedEarned += earned;
       validatedMax += c.weight;
-    } else {
+    } else if (earned > 0) {
+      // Only flag criteria that actually contributed points but have no evidence
       findings.push({
         type: 'no_evidence',
         criterionId: c.id,
@@ -228,13 +229,19 @@ export function computeScoredAssessment(criteria: CriterionResult[], transcriptT
         pointsAtRisk: earned,
       });
     }
+    // If earned is 0 (failed or not_observed mapped to pass), no need to flag —
+    // the criterion didn't contribute points anyway.
   }
 
   const rawScore = rawMax > 0 ? Math.round((rawEarned / rawMax) * 100) : 0;
-  const validatedScore = validatedMax > 0 ? Math.round((validatedEarned / validatedMax) * 100) : 0;
+
+  // FIX: validated score uses SAME denominator as raw (rawMax), not validatedMax.
+  // Only the numerator changes — we only count verified criteria's earned points.
+  // This guarantees validated <= raw always.
+  const validatedScore = rawMax > 0 ? Math.round((validatedEarned / rawMax) * 100) : 0;
 
   if (findings.length > 0) {
-    warnings.push(`${findings.length} criteria flagged — no matching evidence found in transcript. Validated score only counts criteria with verified evidence.`);
+    warnings.push(`${findings.length} criteria flagged — no matching evidence found in transcript. ${validatedScore}/${rawScore}`);
   }
 
   const verdict = validatedScore >= 60 ? 'PASS' : 'FAIL';
