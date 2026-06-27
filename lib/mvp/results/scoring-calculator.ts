@@ -155,6 +155,15 @@ const CRITERION_DESCRIPTIONS: Record<string, string> = {
   servqual_rn_prompt: 'SERVQUAL RN2: Did the candidate respond promptly? Look for: quick acknowledgments, no unnecessary holds, good call pace, not leaving the customer waiting.',
   servqual_rn_willing: 'SERVQUAL RN3: Did the candidate show willingness to help? Look for: taking the issue on willingly, proactive offers of assistance, not deflecting.',
   servqual_rn_notbusy: 'SERVQUAL RN4: Did the candidate avoid rushing or dismissing the customer? Look for: adequate time given to the customer, not rushing to end the call, not sounding distracted.',
+  // Cyber Essentials — converted from transcript_keyword to ai_criteria
+  ce_secure_config: 'Cyber Essentials Secure Configuration: Did the candidate avoid recommending changes that would weaken security? Look for: not suggesting default passwords, not disabling firewalls/security features, checking configuration as a diagnostic step.',
+  ce_malware_awareness: 'Cyber Essentials Malware Protection: Did the candidate consider malware as a possible cause and avoid recommending disabling antivirus? Look for: asking about antivirus status when symptoms warrant, running scans, not suggesting disabling protection.',
+  ce_supply_chain: 'Cyber Essentials Supply Chain: Did the candidate consider whether external services or third-party vendors could be involved? Look for: checking cloud service status, asking about external dependencies, not assuming everything is internal.',
+  // GDPR — converted from transcript_keyword to ai_criteria
+  gdpr_no_data_sharing: 'GDPR Art.5(1)(f): Did the candidate avoid disclosing personal data to unauthorized parties? Look for: not reading out passwords, not discussing account details with unverified callers, using secure channels.',
+  gdpr_breach_awareness: 'GDPR Art.33-34: Did the candidate recognise a potential data breach and escalate appropriately? Look for: not treating security incidents as routine, escalating to security team, preserving evidence.',
+  // ISO 27001 — converted from transcript_keyword to ai_criteria
+  iso_security_awareness: 'ISO 27001 A.5.17: Did the candidate handle authentication information securely? Look for: never asking for passwords, using secure reset procedures, recognizing social engineering.',
 };
 
 /* ── Criteria that are fundamental to EVERY support call ── */
@@ -193,6 +202,12 @@ const FUNDAMENTAL_CRITERIA = new Set([
   'servqual_as_confidence', 'servqual_as_polite', 'servqual_as_knowledge',
   'servqual_em_individual', 'servqual_em_interest', 'servqual_em_needs',
   'servqual_rn_prompt', 'servqual_rn_willing', 'servqual_rn_notbusy',
+  // Cyber Essentials security awareness (converted from keyword to AI)
+  'ce_secure_config', 'ce_malware_awareness', 'ce_supply_chain',
+  // GDPR practices (converted from keyword to AI)
+  'gdpr_no_data_sharing', 'gdpr_breach_awareness',
+  // ISO 27001 (converted from keyword to AI)
+  'iso_security_awareness',
   // SBAR
   'sbar_situation', 'sbar_background', 'sbar_assessment', 'sbar_recommendation',
   // LEAP/HEAT
@@ -270,6 +285,15 @@ const EVIDENCE_PATTERNS: Record<string, string[]> = {
   sbar_assessment: ['i think', 'i believe', 'appears', 'looks like', 'seems'],
   sd_proper_opening: ['hello', 'hi', 'thanks for calling', 'good morning', 'help'],
   sd_ownership: ['i will', 'i\'ll', 'let me', 'i can', 'i\'m going to'],
+  // CE — converted from transcript_keyword
+  ce_secure_config: ['firewall', 'secure config', 'default password', 'admin account', 'security', 'configuration'],
+  ce_malware_awareness: ['antivirus', 'malware', 'virus', 'endpoint', 'scan'],
+  ce_supply_chain: ['third party', 'vendor', 'external', 'isp', 'microsoft', 'azure', 'office 365'],
+  // GDPR — converted from transcript_keyword
+  gdpr_no_data_sharing: ['share password', 'share credit', 'disclose', 'give out', 'unauthorised'],
+  gdpr_breach_awareness: ['escalate', 'report', 'security', 'breach', 'compromise', 'incident'],
+  // ISO — converted from transcript_keyword
+  iso_security_awareness: ['security', 'secure', 'safe', 'compromise', 'incident', 'authentication'],
 };
 
 /**
