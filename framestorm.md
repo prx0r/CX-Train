@@ -672,6 +672,166 @@ Add category combination logic to the analysis pipeline:
 
 ---
 
+---
+
+## Evolution Path: From Prompt-Based to Trained Model
+
+### The Core Insight
+
+The frameworks are the grading rubric. Every assessment produces a labeled training example:
+
+```
+Input:  transcript text + ticket text + action timeline
+Label:  framework criteria statuses (42 binary/ternary judgments)
+```
+
+After enough examples, a small model can learn to predict what the frameworks will output — effectively becoming the assessment engine without needing the prompt-based AI call.
+
+### Phase 1: Bootstrap (Current — Prompt-Based AI)
+
+```
+Transcript → deepseek-v4-flash (prompt) → criteria → frameworks score
+                                                         ↓
+                                                 Store as training data
+                                                (input = transcript, label = criteria)
+```
+
+- 1 AI call per assessment (~30s, ~$0.0012)
+- 100 assessments → 100 labeled examples
+- Prompt is the fallback generation mechanism
+
+### Phase 2: Distill (Fine-Tune Small Model)
+
+Use the labeled data from Phase 1 to fine-tune a small model.
+
+```
+Target: Qwen 2.5 0.5B or 1.5B (via LoRA)
+Data:   1,000+ (transcript → criteria labels)
+Task:   Multi-label classification (42 criteria × 5 statuses each)
+Hardware: RTX 3090 or better (1.5B fits in 8GB with 4-bit)
+Time:   ~2-3 hours for 1,000 examples at 1.5B
+```
+
+**Why Qwen specifically:**
+- 0.5B runs on CPU at ~100ms per inference
+- 1.5B runs on GPU at ~50ms per inference
+- Supports long context (32K tokens handles full transcripts)
+- Apache 2.0 license — no restrictions
+- Can be quantized to 4-bit with minimal accuracy loss
+
+**Fine-tuning approach:**
+```python
+# Training data format
+{
+  "transcript": "CALLER: Hi I can't log in...\nCANDIDATE: What's your name?...",
+  "ticket": "Summary: Password reset...",
+  "labels": {
+    "identity_check": "pass",
+    "company_check": "pass",
+    "technical_discovery": "fail",
+    "kt_define_problem": "pass",
+    # ... all 42 criteria
+  }
+}
+
+# LoRA fine-tuning
+# Model: Qwen2.5-1.5B-Instruct
+# Target modules: q_proj, v_proj (all attention layers)
+# Rank: 16, Alpha: 32
+# Loss: Binary cross-entropy per criterion
+```
+
+**Validation strategy:**
+- Hold out 20% of assessments as test set
+- Compare: trained model vs prompt-based AI on same transcripts
+- Metric: per-criterion accuracy, framework score RMSE, readiness label accuracy
+- Goal: >90% per-criterion agreement before replacing the AI call
+
+### Phase 3: Embed (Local Inference, No API Call)
+
+```
+Transcript → Qwen 0.5B (local, 100ms) → criteria → frameworks score
+                                             
+No API call. No prompt. No latency. No cost.
+```
+
+**What this unlocks:**
+
+| Capability | Before (Prompt AI) | After (Trained Model) |
+|-----------|-------------------|----------------------|
+| Cost per assessment | ~$0.0024 (2 calls) | **$0.00001** (electricity) |
+| Latency | 30-60 seconds | **50-200 milliseconds** |
+| API dependency | Full (OpenRouter/OpenAI) | **None — runs offline** |
+| Privacy | Data sent to external API | **Data stays local** |
+| Scaling bottleneck | API rate limits + cost | **Hardware only** |
+| Consistency | Prompt changes alter behavior | **Model is deterministic** |
+
+### Phase 4: Multi-Modal (Beyond Text)
+
+The simulator already records more than transcripts:
+
+| Data Source | Currently | Future Use |
+|------------|-----------|------------|
+| Chat transcript | ✅ Analyzed by AI | Still analyzed |
+| Ticket text | ✅ Analyzed by AI | Still analyzed |
+| Action timeline | ✅ Logged but not analyzed | **Model learns action patterns** |
+| Tool navigation | ❌ Not captured | **Record mouse/keyboard interactions** |
+| Remote desktop | ❌ Not captured | **Record screen + cursor movements** |
+| Call timing | ✅ Logged as metrics | **Model learns timing patterns** |
+
+**Remote desktop recording** is the big unlock. If you record the candidate's screen during the remote desktop session:
+- Did they look in the right menu?
+- Did they check event viewer before reinstalling?
+- Did they verify before applying a fix?
+- How fast did they navigate?
+
+A vision-language model (Qwen2.5-VL 7B) could process screen recordings frame-by-frame and score:
+```
+"At 02:15, candidate opens Event Viewer → checks System log → 
+ filters for Error → identifies source as 'WMI'. Correct diagnostic path."
+```
+
+Combined with the text model, you'd get a **holistic assessment**:
+- Text model scores: what they said + how they documented
+- Vision model scores: what they did + how they navigated
+- Combined: full behavioral profile
+
+### Phase 5: Self-Improving Loop
+
+```
+Assessment runs
+  → Small model scores criteria
+  → Frameworks compute scores
+  → Manager reviews and adjusts scores (feedback)
+  → Adjusted scores stored as new training example
+  → Periodic retraining (weekly/monthly)
+  → Model improves with each cycle
+```
+
+**The loop closes itself.** Every assessed call, when reviewed by a manager, generates a higher-quality training example. The model gradually converges toward manager-level scoring accuracy — without prompt engineering, without API costs, without external dependencies.
+
+### What This Means Long-Term
+
+| Timescale | State | Dependencies |
+|-----------|-------|-------------|
+| **Now** | Prompt-based AI (deepseek-v4-flash) | OpenRouter API, ~$240/100K |
+| **1 month** | Qwen 0.5B fine-tuned, parallel with prompt AI | Training compute, 1K labeled examples |
+| **3 months** | Qwen 1.5B replaces prompt AI for extraction | None — runs locally on inference |
+| **6 months** | Qwen 2.5-VL 7B adds screen recording analysis | GPU for inference |
+| **12 months** | Self-improving loop, manager feedback drives retraining | Manager review time only |
+
+### Risks
+
+| Risk | Mitigation |
+|------|-----------|
+| Small model accuracy < prompt AI | Keep prompt AI as fallback until >90% agreement. Use ensemble (both score, flag disagreement) |
+| Distillation collapse | Add regularization. Don't train on model outputs exclusively — mix in human-reviewed data |
+| Screen recording privacy | Process entirely on-device. Never transmit or store recordings. Delete after scoring |
+| Overfitting to frameworks | Frameworks are the ground truth — fitting them is the goal, not a bug |
+| Dataset drift (new scenarios) | Prompt AI handles novel scenarios. The trained model scores known ones. Disagreement = trigger for human review |
+
+---
+
 ## Frameworks Assessed and Rejected
 
 | Framework | Why Rejected |
