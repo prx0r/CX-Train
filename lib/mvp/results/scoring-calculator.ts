@@ -140,11 +140,23 @@ const EVIDENCE_PATTERNS: Record<string, string[]> = {
 };
 
 /**
+ * System-level criteria check for events/actions in the system, not conversation topics.
+ * These should NEVER be invalidated — if the event didn't happen, they fail (0).
+ */
+const SYSTEM_CRITERIA = new Set([
+  'submitted_ticket', 'performed_triage', 'safety',
+  'ce_unauthorized_access',
+  'iso_incident_management', 'iso_classification',
+]);
+
+/**
  * Determine evidence status for a criterion.
  *
  * 1. Check AI-supplied quotes first.
  * 2. If no valid AI quote, search transcript using criterion-specific patterns.
- * 3. If patterns found → VERIFIED. If patterns NOT found → INVALIDATED (topic not in call).
+ * 3. If patterns found → VERIFIED. If patterns NOT found:
+ *    - System-level criteria → NOT_OBSERVED (event data wasn't available)
+ *    - Conversation criteria → INVALIDATED (topic not in call)
  * 4. If AI said not_observed → NOT_OBSERVED (no search needed).
  */
 function determineEvidenceStatus(
@@ -188,16 +200,25 @@ function determineEvidenceStatus(
         return { status: 'verified', quote: snippet };
       }
     }
-    // Patterns exist but none found → the topic was actively searched for and not found
-    // This means the criterion is about something that wasn't discussed → invalidated
+    // Patterns exist but none found → the topic was actively searched for and not found.
+    // If it's a system-level criterion (event/action check), don't invalidate — the event
+    // just wasn't in the data. Return not_observed (which gives 0 score).
+    if (SYSTEM_CRITERIA.has(criterionId)) {
+      return { status: 'not_observed', quote: '' };
+    }
+    // Conversation criteria: topic not discussed → invalidated (not applicable)
     return { status: 'invalidated', quote: '' };
   }
 
   // Step 4: No patterns for this criterion, no AI quote.
-  // If status is 'fail', the criterion was consciously checked and failed → invalidated
-  // If status is 'pass', do a fallback keyword search from the label
+  // If status is 'fail' and it's NOT a system-level check, the criterion was consciously
+  // checked and failed → invalidated (topic not discussed).
+  // System-level checks should never be invalidated.
   if (status === 'fail') {
-    return { status: 'invalidated', quote: '' };
+    if (!SYSTEM_CRITERIA.has(criterionId)) {
+      return { status: 'invalidated', quote: '' };
+    }
+    return { status: 'not_observed', quote: '' };
   }
 
   // Fallback: extract key words from label, search transcript
