@@ -86,7 +86,7 @@ export async function analyzeAudio(audioData: Uint8Array): Promise<AudioAnalysis
           rms: Math.round((currentRmsSum / currentRmsCount) * 1000) / 1000,
         });
         currentType = type;
-        currentStartMs = segmentStartMs;
+        currentStartMs = pos(i);
         currentRmsSum = 0;
         currentRmsCount = 0;
       }
