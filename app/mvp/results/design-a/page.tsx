@@ -115,7 +115,7 @@ function compute(name: string) {
   const allIds = new Set<string>();
   for (const fw of DEFAULT_FRAMEWORKS) for (const c of fw.criteria) allIds.add(c.id);
 
-  const aiCriteria: Record<string, { status: string; evidence?: string[] }> = {};
+  const aiCriteria: Record<string, any> = {};
   const redFlags: Array<{ type: string; severity?: string; evidence?: string }> = [];
   let flagSet = new Set<string>();
 
@@ -127,6 +127,7 @@ function compute(name: string) {
         aiCriteria[k] = {
           status: aiResult.status || 'not_observed',
           evidence: aiResult.evidence || [],
+          explanation: aiResult.notes || aiResult.explanation || undefined,
         };
       } else {
         aiCriteria[k] = { status: 'not_observed' };
@@ -426,13 +427,14 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                       bgColor = '#fef2f2'; borderColor = '#fecaca';
                       statusDisplay = '0'; statusColor = '#dc2626'; statusBg = '#fee2e2';
                     } else {
+                      bgColor = '#fafafa'; borderColor = '#e5e7eb';
                       statusDisplay = '–'; statusColor = '#94a3b8'; statusBg = '#f1f5f9';
                     }
 
                     return (
                       <div key={c.criterionId} style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                        padding: '4px 8px', marginBottom: 1, borderRadius: 4,
+                        padding: '4px 8px', marginBottom: 2, borderRadius: 4,
                         background: bgColor, border: `1px solid ${borderColor}`,
                       }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, minWidth: 0 }}>
@@ -443,16 +445,18 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                           }}>{statusDisplay}</span>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ color: '#1e293b', fontSize: 11 }}>{c.label.split(' — ').slice(1).join(' — ') || c.label}</div>
-                            {critRecord?.description && (
-                              <div style={{ fontSize: 9, color: '#64748b', marginTop: 1, lineHeight: 1.2 }}>
-                                {critRecord.description}
-                              </div>
-                            )}
-                            {evStatus === 'verified' && critRecord?.evidenceQuote && (
-                              <div style={{ fontSize: 9, color: '#059669', marginTop: 1, fontStyle: 'italic', wordBreak: 'break-word' }}>
-                                "{critRecord.evidenceQuote.substring(0, 80)}{critRecord.evidenceQuote.length > 80 ? '...' : ''}"
-                              </div>
-                            )}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 1 }}>
+                              {evStatus === 'verified' && critRecord?.evidenceQuote && (
+                                <span style={{ fontSize: 9, color: '#059669', fontStyle: 'italic', wordBreak: 'break-word' }}>
+                                  📝 "{critRecord.evidenceQuote.substring(0, 80)}{critRecord.evidenceQuote.length > 80 ? '...' : ''}"
+                                </span>
+                              )}
+                              {c.explanation && (
+                                <span style={{ fontSize: 9, color: '#64748b', wordBreak: 'break-word' }}>
+                                  💬 {c.explanation.substring(0, 120)}{c.explanation.length > 120 ? '...' : ''}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

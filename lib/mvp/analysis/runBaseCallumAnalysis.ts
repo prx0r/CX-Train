@@ -118,7 +118,7 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     ],
     responseFormat: 'json_object',
     temperature: 0,
-    maxTokens: 8192,
+    maxTokens: 16384,
   });
 
   if (!extractionResult.success) {

@@ -49,6 +49,7 @@ export interface CriterionResult {
   subcategory?: string;
   status: 'pass' | 'fail' | 'not_assessable' | 'not_applicable';
   evidence: string;
+  explanation?: string;
   pointsEarned: number;
   pointsMax: number;
 }
@@ -65,7 +66,7 @@ export interface FrameworkResult {
 }
 
 export interface EvidencePool {
-  aiCriteria: Record<string, { status: string; evidence?: string[] }>;
+  aiCriteria: Record<string, { status: string; evidence?: string[]; explanation?: string }>;
   events: Array<{
     event_type: string;
     action_id?: string;
@@ -213,12 +214,22 @@ export function evaluateSingleFramework(
       criticalFailures.push(criterion.id);
     }
 
+    /* Grab explanation from AI result if available */
+    let explanation: string | undefined;
+    if (criterion.checkType === 'ai_criteria') {
+      const aiResult = evidence.aiCriteria[criterion.checkTarget];
+      if (aiResult && typeof aiResult === 'object' && 'explanation' in aiResult) {
+        explanation = (aiResult as any).explanation;
+      }
+    }
+
     criteriaResults.push({
       criterionId: criterion.id,
       label: criterion.label,
       subcategory: criterion.subcategory,
       status,
       evidence: evidenceStr,
+      explanation,
       pointsEarned: earned,
       pointsMax: criterion.weight,
     });

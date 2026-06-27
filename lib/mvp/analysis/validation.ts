@@ -1,5 +1,8 @@
 export function parseExtractionJson(raw: string): { data: any | null; error: string | null; warnings: string[] } {
-  const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+  let cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+  /* Strip trailing text after the last JSON closing brace */
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (lastBrace > 0) cleaned = cleaned.substring(0, lastBrace + 1);
   let parsed: any;
   try {
     parsed = JSON.parse(cleaned);
