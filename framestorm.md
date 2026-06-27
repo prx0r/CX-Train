@@ -832,6 +832,39 @@ Assessment runs
 
 ---
 
+---
+
+## Edge Cases for Framework Testing
+
+These edge cases probe the boundaries of the multi-framework architecture. They should be added as test fixtures and run through the pipeline.
+
+### Conduct & Communication Edge Cases
+
+| ID | Scenario | What It Probes |
+|----|----------|----------------|
+| **E1** | Right fix, wrong reason — lucky guess diagnosis | Kepner-Tregoe: `kt_test_causes` fails even though fix worked |
+| **E2** | Perfect escalation with full SBAR context | All SBAR criteria pass, ITIL escalation timing correct |
+| **E3** | 5-minute silence during investigation, then announces fix without explanation | SERVQUAL: `responsiveness_updates` fails. Process: ownership borderline |
+| **E4** | Argues with customer about what the issue is, doesn't test either hypothesis | Professional conduct fail. Empathy fail. Troubleshooting fail |
+| **E5** | Follows playbook perfectly but can't handle customer deviation | Not captured by current criteria. May need adaptability criterion |
+| **E6** | Over-explains with jargon for 5 minutes, customer confused | SBAR: assessment too long. SERVQUAL: empathy fails |
+| **E7** | Handles chat + call simultaneously, both get partial attention | Current system can't measure parallel sessions |
+| **E8** | 45 minutes to fix a 10-minute issue. Steps correct but meandering | ITIL: SLA breached. Timing metrics captured but not scored as criteria |
+
+### Technical & Scenario Edge Cases
+
+| ID | Scenario | What It Probes |
+|----|----------|----------------|
+| **E9** | Fixes issue but disables security to do it | Security fails, troubleshooting passes — tests category separation |
+| **E10** | Correct diagnosis, no fix, escalates appropriately | KT passes, ITIL escalation passes, resolution fails — balanced scoring test |
+| **E11** | Chat-only support with 3 simultaneous conversations | Different assessment mode needed |
+| **E12** | Email thread — full resolution via email | No tone/empathy scoring from text. Different criteria needed |
+| **E13** | Hardware dispatch — diagnoses fault, sends replacement | Resolution is indirect. Process should capture dispatch workflow |
+| **E14** | 15 identical password resets in a shift — consistency scoring | Monotony assessment. Does process adherence hold? |
+| **E15** | Company-wide VPN outage — major incident handling | Current criteria assume single-user. Needs scale-aware scoring |
+
+---
+
 ## Frameworks Assessed and Rejected
 
 | Framework | Why Rejected |

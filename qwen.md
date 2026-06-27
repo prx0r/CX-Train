@@ -165,6 +165,185 @@ This would let the system:
 
 A Qwen 0.5B can be fine-tuned for role-play on ~500 real transcripts. The same architecture that scores calls also generates training data for itself.
 
+### Phase 5a: Voice Recording → Voice Model
+
+Every candidate call is already recorded (voice session). This is currently transcribed for text analysis, but the raw audio contains information the transcript loses:
+
+| Audio Feature | What It Reveals | Current Use | Future Use |
+|--------------|----------------|------------|------------|
+| Tone of voice | Frustration, confidence, hesitation | ❌ Lost in transcription | ✅ Model assesses tone directly |
+| Pause length | Hesitation, uncertainty, thinking time | ❌ Not captured | ✅ Timing analysis per response |
+| Interruptions | Candidate cut off customer? | ❌ Not measured | ✅ Professionalism scoring |
+| Speech rate | Rushed? Calm? Slow? | ❌ Not captured | ✅ Communication style assessment |
+| Background noise | Professional environment? | ❌ Not captured | ✅ Context indicator |
+
+**Voice model training pipeline:**
+
+```
+Raw call audio
+  → WhisperX (diarized transcription, speaker labels, timestamps)
+  → Transcript: sent to text model for criteria scoring
+  → Audio features: sent to audio encoder (HuBERT/Wav2Vec2)
+  → Combined: text + audio features → criterion scores
+```
+
+The audio model doesn't need to be large. A lightweight classifier on-top of HuBERT embeddings can detect tone, pace, and interruptions from ~500 labeled calls. This runs in real-time during the call.
+
+**Voice response model (AI plays the customer):**
+
+```
+Training data:  thousands of real call recordings from actual support interactions
+Trained model:  Qwen 2.5-Audio or CosyVoice 2 (Alibaba's open-source voice model)
+Input:          "Candidate says 'Can you try checking your internet connection?'"
+Output:         "I already checked that. The wifi is working. It's Outlook that's broken."
+                (spoken in appropriate tone, with appropriate pacing)
+```
+
+Alibaba's **CosyVoice 2** is Apache 2.0 licensed, supports voice cloning with <10 seconds of reference audio, and runs on a single GPU. Combined with Qwen for dialogue logic, the pipeline is:
+
+```
+Qwen 1.5B (dialogue + intent) → CosyVoice 2 (voice synthesis) → natural-sounding customer
+```
+
+This means:
+- The AI customer sounds like a real person, not a text-to-speech robot
+- Multiple customer personas (frustrated, confused, technical, non-technical)
+- The caller's emotion adapts to the candidate's handling
+- No more scripted sims — every call is unique
+
+**Linking calls to assessment frameworks:**
+
+Every call recording is already linked to an assessment. The pipeline becomes:
+
+```
+Call recording
+  → WhisperX transcription
+  → Text model scores 42 criteria across 10 frameworks
+  → Audio model scores tone, pace, interruptions
+  → Combined scores stored with assessment
+  → Frameworks compute category + total scores
+  → Manager reviews, provides feedback
+  → Feedback becomes training data for next model iteration
+```
+
+No extra step. The recording is captured, processed, scored, and the scores feed the same framework pipeline. The frameworks are the constant — the input modalities (text, then audio, then video) expand over time.
+
+---
+
+### Phase 5b: Action Timeline → Troubleshooting Steps Score
+
+The simulator already records every action the candidate takes:
+
+```json
+[
+  {"time_s": 5,   "action": "customer_message", "text": "My email isn't working"},
+  {"time_s": 12,  "action": "candidate_message", "text": "What's your name?"},
+  {"time_s": 25,  "action": "tool_opened", "tool": "outlook"},
+  {"time_s": 30,  "action": "action_performed", "action_id": "check_status_bar"},
+  {"time_s": 40,  "action": "observation_returned", "text": "Outlook shows 'Working Offline'"},
+  {"time_s": 55,  "action": "action_performed", "action_id": "check_network_settings"},
+  {"time_s": 70,  "action": "action_performed", "action_id": "toggle_work_offline"},
+  {"time_s": 85,  "action": "observation_returned", "text": "Emails start sending"},
+  {"time_s": 95,  "action": "action_performed", "action_id": "send_test_email"},
+  {"time_s": 105, "action": "candidate_message", "text": "Can you confirm you received the test email?"}
+]
+```
+
+Currently, this timeline is dumped into the AI prompt as raw text. The AI has to parse it from the transcript noise. Instead, we should structure it into a **troubleshooting path analysis**:
+
+| Action Sequence | Kepner-Tregoe Step | Score |
+|----------------|-------------------|-------|
+| Checked status bar → saw "Working Offline" | Problem Analysis (defined what IS happening) | ✅ |
+| Checked network settings → confirmed connectivity | Distinction Analysis (IS vs IS NOT) | ✅ |
+| Toggled Work Offline → emails sent | Tested possible cause → confirmed fix | ✅ |
+| Sent test email → verified with customer | Confirmed root cause | ✅ |
+
+**Troubleshooting path classifier:**
+
+```python
+# Lightweight classifier (not a full LLM)
+# Input: sequence of action IDs with timestamps
+# Output: Kepner-Tregoe step completion
+
+actions = [
+    ("check_status_bar", 30),
+    ("check_network_settings", 55),
+    ("toggle_work_offline", 70),
+    ("send_test_email", 95),
+]
+
+# Feature vector:
+# - Did they observe before acting? (observation_returned before action_performed)
+# - Did they test one thing at a time? (no overlapping diagnostics)
+# - Did they verify? (send_test_email after fix)
+# - Time per step (efficient vs meandering)
+
+features = extract_features(actions)
+kt_score = lightgbm.predict(features)  # ~1ms inference
+```
+
+This runs in <1ms per assessment and feeds directly into the Kepner-Tregoe framework criteria. No AI call needed for structured action analysis.
+
+---
+
+### Phase 5c: Customer Simulator (AI Acts, Voice)
+
+Combining all the pieces:
+
+```
+Candidate speaks to AI customer
+  → AI customer responds via CosyVoice 2 voice synthesis
+  → Candidate performs actions in remote desktop
+  → Action timeline scored by troubleshooting classifier
+  → Call audio scored by voice model
+  → Transcript scored by Qwen text model
+  → All scores combined → framework criteria → category scores → total
+```
+
+The same system that **assesses** candidates also **simulates** the customer. The more assessments run, the better the customer simulation becomes, which produces more varied training scenarios, which improves the assessment model.
+
+**The flywheel:**
+
+```
+More assessments → more action data → better troubleshooting classifier
+                 → more call recordings → better voice model
+                 → more transcripts → better text model
+                 → better customer simulation
+                 → more realistic assessments
+                 → more assessments run
+```
+
+---
+
+## Edge Cases for Testing
+
+Beyond the 5 existing tricky transcripts, these edge cases should be tested to validate the multi-framework architecture:
+
+### Conduct Edge Cases
+
+| Edge Case | Scenario | What It Probes |
+|-----------|----------|----------------|
+| **E1 — Right fix, wrong reason** | Candidate does the correct fix but for the wrong reason (lucky guess). E.g., rebuilds Outlook profile because "it always fixes it" without checking status first | Kepner-Tregoe: `kt_test_causes` should fail. The fix worked but the diagnostic process was wrong |
+| **E2 — Perfect escalation** | Candidate escalates with full SBAR: clear situation, relevant background, accurate assessment, actionable recommendation. Second-line can resolve immediately | SBAR: all 4 criteria should pass. ITIL Incident: escalation timing and context should pass |
+| **E3 — Long silence, then fix** | Candidate goes silent for 5+ minutes, then announces the fix without explaining what they did | Customer Experience: `servqual_responsiveness_updates` should fail. Process: `sd_ownership` borderline |
+| **E4 — Argues with customer** | Customer insists the issue is X. Candidate argues it's Y without checking either. Customer gets frustrated | Professional conduct fail. Empathy fail. Troubleshooting fail (didn't test either hypothesis) |
+| **E5 — Script-bound** | Candidate follows the playbook perfectly but can't handle when the customer deviates from the script | Adaptability assessment. Not captured by current criteria — may need a new criterion |
+| **E6 — Over-explains** | Candidate gives a 5-minute technical explanation using jargon. Customer is confused | SBAR: situation/recommendation may pass but assessment is too long. SERVQUAL empathy/individualized fails |
+| **E7 — Multi-task** | Candidate handles a chat while on the call. Both interactions get partial attention | Multi-tasking assessment. Current system can't measure this — needs parallel session analysis |
+| **E8 — Too slow** | Candidate takes 45 minutes to resolve a 10-minute issue. Steps are correct but meandering | ITIL Incident: initial diagnosis time breached. Timing metrics captured but not yet scored as criteria |
+
+### Technical Edge Cases
+
+| Edge Case | Scenario | What It Probes |
+|-----------|----------|----------------|
+| **E9 — Fix creates security risk** | Candidate solves the user's problem but disables security controls to do it (e.g., disables firewall, makes admin account) | Security frameworks should fail even though troubleshooting passes. This tests the category separation |
+| **E10 — Correct diagnosis, no fix** | Candidate correctly identifies the issue but doesn't know how to fix it. Escalates appropriately | Kepner-Tregoe passes (diagnosis correct). ITIL escalation passes. Resolution frameworks fail. Tests balanced scoring |
+| **E11 — Chat-only support** | No call, just ticket updates and chat messages. Candidate handles 3 simultaneous chats | Different assessment mode. Current criteria assume synchronous call. Needs mode-specific thresholds |
+| **E12 — Email thread** | Full resolution happens via email. Candidate responds once, user follows instructions | Email mode. No tone/empathy scoring from text alone. Different criteria set needed |
+| **E13 — Hardware dispatch** | Candidate diagnoses hardware failure and dispatches replacement. No remote fix | Resolution is indirect. Current criteria expect direct fix. Process frameworks should capture dispatch workflow |
+| **E14 — Password reset marathon** | Candidate handles 15 password resets in a shift. Each one is identical | Monotony assessment. Do they follow the same process every time? Consistency scoring |
+| **E15 — VPN down, entire company** | Company-wide outage. Candidate handles correctly but SLA is breached due to volume | Major incident handling. Current criteria assume single-user scenario. Needs scale-aware scoring |
+
 ---
 
 ## Regulatory Analysis (UK)
