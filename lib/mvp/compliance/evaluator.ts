@@ -23,6 +23,11 @@ export interface FrameworkCriterion {
   checkTarget: string;
   passIf: 'pass' | 'pass_or_partial' | 'not_fail';
   evidenceDescription: string;
+  /** Whether this criterion can be observed during an individual support call.
+   *  If false, it's an organizational-level control not directly assessable
+   *  from a single call transcript. These are stored for completeness of
+   *  the standard but skipped in per-call scoring. */
+  observableInCall?: boolean;
 }
 
 export interface FrameworkDefinition {
@@ -105,6 +110,19 @@ export function evaluateSingleFramework(
   const criteriaResults: CriterionResult[] = [];
 
   for (const criterion of fw.criteria) {
+    /* Skip criteria that are not observable from a single call */
+    if (criterion.observableInCall === false) {
+      criteriaResults.push({
+        criterionId: criterion.id,
+        label: criterion.label,
+        status: 'not_applicable',
+        evidence: 'Organisational-level control — not assessable from individual call',
+        pointsEarned: 0,
+        pointsMax: 0,
+      });
+      continue;
+    }
+
     /* Check if this criterion is relevant to the current pack */
     if (relevantCriteria && !relevantCriteria.includes(criterion.id)) {
       criteriaResults.push({
