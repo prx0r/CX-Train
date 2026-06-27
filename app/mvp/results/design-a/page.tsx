@@ -68,13 +68,23 @@ function compute(name: string) {
     for (const rf of flagSet) redFlags.push({ type: rf, severity: 'high', evidence: '' });
   }
 
+  /* Populate events from fixture data */
+  const events: Array<{ event_type: string; action_id?: string; taxonomy_tags?: string[]; text?: string | null }> = [];
+  if (fx.ticket) {
+    events.push({ event_type: 'ticket_submitted', text: fx.ticket.summary || 'Ticket submitted' });
+    events.push({ event_type: 'ticket_triage_submitted', taxonomy_tags: ['ticket_triage_submitted'], text: 'Triage completed' });
+  }
+  if (fx.transcript?.some((m: any) => m.content?.toLowerCase().includes('lock') || m.content?.toLowerCase().includes('reset'))) {
+    events.push({ event_type: 'red_flag_triggered', action_id: 'red_flag_triggered', text: 'Security action detected' });
+  }
+
   const evidencePool = {
     aiCriteria,
-    events: [],
+    events,
     transcriptText,
     ticketText,
     triage: {},
-    ticketSubmitted: true,
+    ticketSubmitted: !!fx.ticket,
     triagePerformed: false,
     redFlagsTriggered: Array.from(flagSet),
   };
