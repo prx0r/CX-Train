@@ -181,7 +181,8 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                 const finding = assessed.findings.find(f => f.criterionId === c.criterionId);
                 const isFlagged = !!finding;
                 const critRecord = criteria.find(cr => cr.id === c.criterionId);
-                const isVerified = critRecord?.quoteFound;
+                const evStatus = critRecord?.evidenceStatus;
+                const isVerified = evStatus === 'verified_ai' || evStatus === 'verified_deterministic';
 
                 return (
                   <div key={c.criterionId} style={{
@@ -202,16 +203,19 @@ export default function ResultsPage({ searchParams }: { searchParams: { t?: stri
                       <div>
                         <span style={{ color: '#1e293b' }}>{c.label}</span>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 1 }}>
-                          {isVerified && (
+                          {evStatus === 'verified_ai' && (
                             <span style={{ fontSize: 9, color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <span style={{ fontSize: 12 }}>✅</span> Evidence verified: "{critRecord?.quoteText?.substring(0, 50)}{(critRecord?.quoteText?.length || 0) > 50 ? '...' : ''}"
+                              <span style={{ fontSize: 12 }}>✅</span> "{critRecord?.evidenceQuote?.substring(0, 50)}{(critRecord?.evidenceQuote?.length || 0) > 50 ? '...' : ''}"
                             </span>
                           )}
-                          {finding?.type === 'no_quote' && (
-                            <span style={{ fontSize: 9, color: '#d97706' }}>⚠ No evidence quote provided</span>
+                          {evStatus === 'verified_deterministic' && (
+                            <span style={{ fontSize: 9, color: '#64748b', fontWeight: 500 }}>✓ Deterministic check — no AI quote needed</span>
                           )}
-                          {finding?.type === 'quote_not_found' && (
-                            <span style={{ fontSize: 9, color: '#dc2626' }}>🚫 Quote not found in transcript: "{finding.reason.substring(0, 50)}..."</span>
+                          {evStatus === 'no_evidence' && (
+                            <span style={{ fontSize: 9, color: '#d97706' }}>⚠ No evidence provided</span>
+                          )}
+                          {evStatus === 'ai_quote_not_found' && (
+                            <span style={{ fontSize: 9, color: '#dc2626' }}>🚫 Quote not found in transcript</span>
                           )}
                         </div>
                       </div>
