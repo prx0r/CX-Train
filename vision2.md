@@ -749,3 +749,320 @@ The product should focus on:
 - Proof of competence before live client work
 
 This keeps CallCallum focused on the gap that large PSA/RMM vendors are less likely to solve deeply: **practical, evidence-based human assessment for MSP support work.**
+
+---
+
+# Part 3: MSP Skills Passport — Portable Proof-of-Skill Profiles
+
+> **Phase 3, not immediate MVP.** But the data model should not block it.
+
+CallCallum becomes a **portable proof-of-skill profile** for MSP support workers.
+
+Not a CV. Not a generic job board. A practical evidence record:
+
+> *"I have handled these simulated calls, these ticket types, these security scenarios, these AI-assisted triage drills, and here are the transcripts, audio, notes, and scores."*
+
+That is much stronger than someone saying "I'm good at customer service and IT support."
+
+## The Product Category
+
+**MSP Skills Passport** (or **CallCallum Profile**).
+
+A candidate can build a profile before they have a job. They complete:
+
+- Hiring-style voice assessments
+- Outlook/VPN/printer/shared drive drills
+- Phishing/security call packs
+- AI-assisted triage packs
+- Ticket-note quality assessments
+- Escalation scenarios
+- Training shift simulations
+
+Their profile then shows:
+
+```
+Call handling:          82
+Ticket notes:           76
+Security awareness:     91
+Escalation quality:     68
+AI-assisted triage:     74
+Identity verification:  88
+Weak area:              escalation context
+Best scenario:          phishing report
+```
+
+This turns CallCallum into a **proof-of-readiness platform**.
+
+## Why This Could Work
+
+MSPs have a hiring problem: it is hard to know if someone can actually handle live calls until they are already hired. Your product gives managers **evidence before the hire**.
+
+Instead of:
+
+> CV → interview → vibes → hire → discover they freeze on calls
+
+CallCallum becomes:
+
+> Profile → practical call evidence → manager review → interview → hire
+
+The evidence is the moat.
+
+## Candidate Profile Spec
+
+Each user should eventually have:
+
+```typescript
+interface CandidateProfile {
+  id: string;
+  name: string;
+  location?: string;
+  timezone?: string;
+  lookingForWork: boolean;
+  workPreferences: {
+    remote: boolean;
+    hybrid: boolean;
+    onsite: boolean;
+    fullTime: boolean;
+    partTime: boolean;
+    contract: boolean;
+  };
+  targetRoles: string[];  // "L1 Support", "Service Desk Analyst", etc.
+  publicSummary: string;
+  assessmentHistory: AssessmentEvidence[];
+  skillProfile: Record<string, number>;  // dimension → score
+  audioSamples: string[];   // shared with consent
+  transcriptSamples: string[];
+  ticketNoteSamples: string[];
+  managerEndorsements: ManagerEndorsement[];
+  shareSettings: ShareSettings;
+}
+```
+
+**Important:** the public profile should not automatically expose everything. The candidate controls what companies can see.
+
+## Evidence Library
+
+Every assessment becomes a shareable evidence object:
+
+```typescript
+interface AssessmentEvidence {
+  scenarioName: string;
+  scenarioType: string;
+  dateCompleted: string;
+  score: number;
+  rubricVersion: string;
+  transcript?: string;        // shared with consent
+  audioRecording?: string;    // shared with consent
+  actionTimeline?: string;
+  finalTicketNote?: string;
+  aiReview?: AIReviewSummary;
+  managerReview?: ManagerReview;
+  candidateReflection?: string;
+  shareable: boolean;
+}
+```
+
+A candidate could share a clean version:
+
+> *"Show this company my phishing call, Outlook call, and Training Shift result."*
+
+Not:
+
+> *"Every company can see all my raw recordings forever."*
+
+That matters legally and ethically.
+
+## Company Profile Spec
+
+MSPs can create company profiles:
+
+```typescript
+interface CompanyProfile {
+  id: string;
+  companyName: string;
+  location?: string;
+  remotePolicy: string;
+  hiringStatus: 'open' | 'closed';
+  rolesHiringFor: string[];
+  hiringCriteria: HiringCriteria[];
+  preferredScoreThresholds: Record<string, number>;
+  managerUsers: string[];
+}
+```
+
+Example hiring criteria:
+
+```
+Role: L1 MSP Support
+Required:
+  - Outlook Not Sending assessment
+  - Password Reset / Identity Verification assessment
+  - Phishing Report assessment
+  - Ticket Note Quality score above 70
+  - Call Handling score above 65
+Optional:
+  - AI-Assisted Triage Pack
+```
+
+Then candidates can apply with evidence, not just a CV.
+
+## Hiring Pipeline
+
+**Company side:**
+
+1. Applicants → review CallCallum Profile
+2. Listen to selected calls
+3. Read transcripts and ticket notes
+4. AI summary of candidate strengths and risks
+5. Invite to company-specific assessment
+6. Interview
+7. AI interview transcript review (assistive only)
+8. Manager decision
+
+The AI can assist, but the manager should remain the decision-maker. UK regulators are actively warning employers that AI and automation in recruitment need transparency, safeguards, and proper human involvement, especially when tools score online assessments.
+
+## Candidate Consent Model
+
+This has to be built right from the start.
+
+**Public profile:**
+- Name, location, summary
+- Assessment names and scores (no raw data)
+
+**Private evidence (shared with consent only):**
+- Transcripts
+- Audio recordings
+- Full AI reviews
+- Manager comments
+- Interview recordings
+
+**Sharing model:**
+
+```
+Share with company X
+  → choose specific evidence items
+  → set expiry date
+  → revoke access at any time
+  → audit log of who viewed what
+```
+
+Do not make raw audio or transcripts publicly visible by default. Interview recordings and assessment recordings are sensitive personal data in practice, and recruitment AI analysis is a trust and compliance issue. The ICO's 2026 recruitment guidance is very clear that candidates need transparency around AI and automation in hiring.
+
+## The AI Hiring Review
+
+Powerful, but needs guardrails.
+
+AI can produce:
+
+```
+Candidate summary:
+  - Strong customer reassurance
+  - Good phishing awareness
+  - Weak escalation notes
+  - Tends to close before verification
+  - Improved after feedback across 3 attempts
+```
+
+But avoid:
+
+> *"Automatically reject candidate."*
+
+The system should say:
+
+> *"AI assists the reviewer. Final hiring decisions are made by the company."*
+
+That keeps it safer and more trustable.
+
+## No Hiring Fees
+
+Do not become a recruiter charging placement fees. Instead:
+
+| Role | Model |
+|------|-------|
+| Candidates | Free profile |
+| MSPs | Subscription to run assessments, manage candidates, access opted-in profiles |
+
+> *"No recruiter fee. Hire from practical support evidence."*
+
+That is attractive to small MSPs.
+
+## The Real Flywheel
+
+This creates a huge flywheel:
+
+```
+Candidates complete assessments
+  → profiles become stronger
+    → companies trust CallCallum evidence
+      → companies assign more assessments
+        → more labelled call/ticket data
+          → better scoring
+            → better candidate profiles
+              → better hiring outcomes
+```
+
+And over time:
+
+> Candidate profile → hired → later job performance → validate assessment predictions
+
+That is very powerful.
+
+## But Don't Build Marketplace First
+
+A two-sided marketplace is hard because you need candidates and companies at the same time.
+
+The correct order:
+
+| Phase | What | When |
+|-------|------|------|
+| 1 | **Manager-assigned assessments** (current MVP) | Now |
+| 2 | **Candidate profiles** — let candidates see their own history, share a private link | After MVP |
+| 3 | **Company hiring portal** — companies manage applicants, assign assessments | Phase 3 |
+| 4 | **Public/opt-in talent pool** — candidates mark themselves as looking for work | Phase 4 |
+| 5 | **CallCallum hiring network** — companies search and filter opted-in profiles | Phase 5 |
+
+For now, just make sure your data model does not block this later.
+
+## Implementation Requirements
+
+Data model additions:
+
+```typescript
+// New entities (future, but design the schema now)
+interface CandidateProfile {
+  userId: string;
+  lookingForWork: boolean;
+  targetRoles: string[];
+  skillProfile: JSON;         // dimension → score
+  shareSettings: JSON;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AssessmentVisibility {
+  assessmentId: string;
+  candidateId: string;
+  sharedWithCompanyId?: string;
+  shareExpiry?: string;
+  consentGrantedAt: string;
+  consentRevokedAt?: string;
+}
+
+interface CompanyProfile {
+  orgId: string;
+  hiringStatus: string;
+  rolesHiringFor: string[];
+  hiringCriteria: JSON;
+  preferredThresholds: JSON;
+}
+```
+
+## The Cleanest Positioning
+
+> **CallCallum is the practical skills passport for MSP support workers, and the evidence-based hiring system for MSP managers.**
+
+This fits perfectly with the training simulator:
+
+- The simulator creates the evidence
+- The profile stores the evidence
+- The company portal uses the evidence to hire and train better
