@@ -194,6 +194,42 @@ Results:
 - `tsc --noEmit`: passed.
 - `npm run test:mvp-flow`: passed, 37 passed, 0 failed.
 
+## Preliminary Testing Pass
+
+Rerun on 2026-06-28 after the proposal confirmation commit:
+
+```bash
+npm test
+./node_modules/.bin/tsc --noEmit
+npm run test:mvp-flow
+```
+
+Results:
+
+- `npm test`: passed, 11 test files, 0 failed.
+- `tsc --noEmit`: passed.
+- `npm run test:mvp-flow`: passed, 37 checks, 0 failed.
+
+What this proves:
+
+- Contract validators compile and run.
+- Capability registry rejects unknown capabilities.
+- Capabilities that require confirmation cannot execute through the generic registry.
+- Training proposal creation persists a pending proposal.
+- Proposal confirmation creates one assessment through the shared MVP creation service.
+- Double confirmation is blocked.
+- Rejected, expired, stale, and wrong-manager proposals do not execute.
+- Existing MVP flow still passes after extracting assessment creation into `lib/mvp/assessments/create.ts`.
+
+What this does not prove yet:
+
+- Browser-level Callum panel behaviour across desktop/mobile.
+- Confirm/reject button behaviour in a real hydrated page.
+- Route handlers under a running Next server for every error path.
+- Concurrent confirmation attempts against the same proposal.
+- Authenticated manager identity enforcement beyond the current default manager profile.
+- Production database migration behaviour on an existing SQLite file.
+
 ## Manual Verification
 
 Manual verification was run against a fresh temporary SQLite database:
@@ -215,6 +251,132 @@ Verified:
 - Confirmation changed the proposal status to `executed`.
 
 Observed existing taxonomy seed warnings during dev-server startup. They did not block the Callum flow and were not part of this change.
+
+## Further Testing Needed
+
+### Browser And API Testing
+
+Add Playwright or equivalent browser coverage for:
+
+- `/mvp/assessments/[id]` renders the Callum panel without hydration errors.
+- `Why did they score low?` produces an answer using current assessment context.
+- `Assign them something to improve this` renders a proposal card.
+- Confirm creates a new training drill assessment and disables the action buttons.
+- Reject marks the proposal rejected and disables the action buttons.
+- Stale and expired proposal responses are displayed clearly.
+- Navigation responses route to the intended MVP page.
+
+Add route-level tests for:
+
+- `POST /api/mvp/callum`
+- `POST /api/mvp/callum/proposals/[id]/confirm`
+- `POST /api/mvp/callum/proposals/[id]/reject`
+
+The current tests exercise the underlying functions more deeply than the Next route handlers. That is useful, but route coverage is still needed because request parsing, status codes, default manager profile handling, and response shapes can drift.
+
+### Data And Migration Testing
+
+Test against:
+
+- A fresh database.
+- An existing database created before the Callum tables existed.
+- A database with pending proposals created before a schema version change.
+- A database with multiple managers once real manager identity is wired in.
+
+### Concurrency Testing
+
+Confirm the same proposal twice in parallel. The expected result is one execution and one rejection with `NOT_PENDING` or equivalent. The current logic blocks a second sequential confirmation, but it does not yet use an explicit SQLite transaction or compare-and-set update around status transition.
+
+### Security Testing
+
+Keep adding tests that prove:
+
+- Candidate token endpoints never import manager context.
+- Candidate token endpoints never return hidden facts, rubrics, red flags, ideal actions, manager standards, or Callum thread/proposal data.
+- Client page context cannot override server-loaded assessment IDs or manager-only data.
+- Capability names and payloads are validated before any execution path.
+
+### AI Behaviour Testing
+
+Once real Callum LLM calls are enabled, add golden prompt/response tests for:
+
+- Evidence-grounded assessment explanation.
+- Data gaps shown when evidence is missing.
+- Refusal to invent packs, candidates, scores, or transcripts.
+- Proposal-only behaviour for create/update/send actions.
+- Manager style applied only after factual reasoning is complete.
+
+## Potential Break Points
+
+- `callum_proposals` status changes are not wrapped in one atomic transaction. Parallel confirmation could race.
+- Manager identity is still effectively `manager-default-v1` in the new route handlers. Real auth/manager resolution must replace this before multi-manager use.
+- `CallumActionCard` assumes confirm success means a training assignment was created. Future proposal types need proposal-type-specific success copy.
+- Proposal payload validation is currently narrow and hand-written for `create_training_assignment`. More proposal types need formal contract validators.
+- Source context hashing depends on the current shape of manager assessment context. Intentional context changes will make old proposals stale, which is correct, but rollout messaging needs to be clear.
+- The shared assessment creation service still seeds defaults internally. That is pragmatic for MVP, but production paths may want explicit init/migration boundaries.
+- Existing taxonomy seed warnings appeared during manual dev-server verification. They did not block this flow, but they are noise and could hide future startup failures.
+- UI confirmation does not yet refresh assessment lists or navigate to the created training drill.
+- There is no edit proposal flow yet. Managers must reject/regenerate rather than adjust a proposal.
+
+## Not Wired Yet
+
+- LangGraph graph wrapper.
+- LangGraph checkpointer or interrupts.
+- Real manager authentication in Callum routes.
+- Organization or multi-manager authorization.
+- Proposal edit flow.
+- Proposal list/history UI.
+- Persistent dashboard-wide Callum dock.
+- Custom sim pack authoring lifecycle.
+- Executable custom sim packs generated from Callum drafts.
+- Manager memory beyond stored Callum messages/profile.
+- Tool/capability telemetry and audit analytics.
+- Formal route-handler tests for Callum APIs.
+
+## Future Backend Integration Principles
+
+Every future backend process that Callum can touch should be integrated in this order:
+
+1. Define the contract in `lib/mvp/contracts`.
+2. Add a server-side context loader or service function that owns the real data access.
+3. Register a narrow capability in `lib/mvp/capabilities`.
+4. Mark the capability as `read`, `propose`, or `execute`.
+5. For writes, create a proposal payload schema version.
+6. Persist a proposal with source context hash, expiry, and validation result.
+7. Require manager confirmation before execution.
+8. Execute through the existing product service, not custom SQL inside Callum.
+9. Add contract tests, capability tests, proposal tests, and candidate non-leak tests.
+10. Only then expose the capability to the Callum route or LangGraph node.
+
+Callum should keep talking to capabilities, not implementation details. That means no arbitrary SQL tools, no direct imports of candidate context loaders, no React prop scraping, and no unvalidated AI JSON in execution paths.
+
+## Future LangGraph Shape
+
+LangGraph should wrap the working capability/proposal loop rather than replace it.
+
+Recommended graph v1:
+
+1. `validatePageContext`
+2. `loadManagerCallumProfile`
+3. `loadAuthoritativeContext`
+4. `classifyIntent`
+5. `routeIntent`
+6. `invokeReadCapabilities`
+7. `produceAnswerOrProposal`
+8. `persistThreadMessage`
+9. `finalizeResponse`
+
+Writes should still go through the proposal table. Do not use LangGraph interrupts as the source of truth for confirmation until the SQLite proposal lifecycle is reliable in production. Later, LangGraph interrupts can become a UX/runtime convenience, but the product audit trail should remain in proposals.
+
+When adding new backend domains, prefer a boring pattern:
+
+- Contract first.
+- Capability second.
+- Proposal third.
+- UI fourth.
+- Graph wrapper last.
+
+This keeps the manager operating layer extensible without letting Callum become a fragile prompt that depends on whichever component or database table happens to exist today.
 
 ## Deliberately Not Built Yet
 
