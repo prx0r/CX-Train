@@ -343,24 +343,283 @@ interface GraphState {
 
 ---
 
-## 12. Current Gaps Before This Works
+---
+
+## 12. Self-Modification: Callum Changing Itself
+
+The user should be able to say "be more direct" or "speak casually" and Callum updates its own behavior.
+
+### How it works
+
+There's already a `manager_callum_profiles` table in the DB:
+
+```sql
+CREATE TABLE manager_callum_profiles (
+  id TEXT PRIMARY KEY,
+  manager_profile_id TEXT NOT NULL,
+  assistant_name TEXT NOT NULL DEFAULT 'Callum',
+  tone TEXT NOT NULL DEFAULT 'direct',
+  humour_level TEXT NOT NULL DEFAULT 'low',
+  formality TEXT NOT NULL DEFAULT 'professional',
+  response_length TEXT NOT NULL DEFAULT 'concise',
+  custom_instructions TEXT
+);
+```
+
+Add a tool:
+
+```typescript
+{
+  name: 'update_callum_profile',
+  description: 'Change how Callum behaves — tone, formality, humour, directness, or set custom instructions.',
+  access: 'write',
+  inputSchema: {
+    tone: { type: 'string', description: 'direct | friendly | empathetic | professional', optional: true },
+    humour_level: { type: 'string', description: 'none | low | medium | high', optional: true },
+    formality: { type: 'string', description: 'casual | professional | formal', optional: true },
+    response_length: { type: 'string', description: 'concise | balanced | detailed', optional: true },
+    custom_instructions: { type: 'string', description: 'Free-form instructions for how Callum should behave', optional: true },
+  },
+  handler: async (args, ctx) => {
+    updateManagerProfile(ctx.managerProfileId, args);
+    return { ok: true, message: 'Profile updated.' };
+  }
+}
+```
+
+The system prompt injected into every LLM call reads from this profile:
+
+```
+You are Callum, an AI assistant. Your tone is {tone}, humour level is {humour_level},
+formality is {formality}, and responses should be {response_length}.
+{custom_instructions}
+```
+
+### Conversation flow:
+
+> **User:** "Stop being so formal, just talk to me like a human."
+> **Callum (LLM):** "I'll update my profile to be more casual." → calls `update_callum_profile({ tone: 'friendly', formality: 'casual' })`
+> **Callum responds:** "Got it. From now on I'll keep it casual. What's up?"
+
+---
+
+## 13. Memory: Callum Remembers
+
+Callum needs two memory layers:
+
+### Layer 1: Conversation History (already exists)
+- `callum_messages` table stores every message per thread
+- Frontend stores last ~50 messages in localStorage
+- Survives page refreshes
+
+### Layer 2: Long-Term Fact Memory (proposed)
+Add a `callum_memory` table:
+
+```sql
+CREATE TABLE callum_memory (
+  id TEXT PRIMARY KEY,
+  manager_profile_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(manager_profile_id, key)
+);
+```
+
+Add tools:
+
+```typescript
+{
+  name: 'remember',
+  description: 'Store a fact about the user or a preference for future reference.',
+  access: 'write',
+  inputSchema: {
+    key: { type: 'string', description: 'A short identifier for the fact (e.g. user_preferred_name, last_topic)' },
+    value: { type: 'string', description: 'The fact to remember' },
+  },
+  handler: async (args, ctx) => {
+    upsertMemory(ctx.managerProfileId, args.key, args.value);
+    return { ok: true };
+  }
+}
+
+{
+  name: 'recall',
+  description: 'Retrieve a stored fact from memory.',
+  access: 'read',
+  inputSchema: {
+    key: { type: 'string', description: 'The fact identifier to look up' },
+  },
+  handler: async (args, ctx) => {
+    const value = getMemory(ctx.managerProfileId, args.key);
+    return { ok: true, value };
+  }
+}
+
+{
+  name: 'forget',
+  description: 'Remove a stored fact from memory.',
+  access: 'write',
+  inputSchema: {
+    key: { type: 'string', description: 'The fact identifier to forget' },
+  },
+  handler: async (args, ctx) => {
+    deleteMemory(ctx.managerProfileId, args.key);
+    return { ok: true };
+  }
+}
+```
+
+### How memory feeds into the system prompt
+
+Before every LLM call, the graph loads all memory entries for the current manager:
+
+```
+Your name is {name}. {tone_settings}
+You know the following facts about this user:
+- They prefer to be called "Alex"
+- The last topic was "creating a phishing simulation pack"
+- They are left-handed (just kidding)
+
+{custom_instructions}
+```
+
+This gives Callum persistent identity and knowledge across sessions.
+
+---
+
+## 14. Theme & Visual Control
+
+The user should be able to say "make the site blue" or "switch to light mode" and Callum does it.
+
+### Implementation
+
+Define CSS custom properties on `:root`:
+
+```css
+:root {
+  --bg-primary: #0d0d0f;
+  --bg-secondary: #18181b;
+  --text-primary: #e4e4e7;
+  --accent: #004b8d;
+  /* ... */
+}
+```
+
+Add a tool:
+
+```typescript
+{
+  name: 'set_theme',
+  description: 'Change the visual theme of the platform — colors, dark/light mode, accent.',
+  access: 'write',
+  inputSchema: {
+    mode: { type: 'string', description: 'dark | light', optional: true },
+    accent_color: { type: 'string', description: 'Primary accent color (hex, e.g. #004b8d)', optional: true },
+    theme_preset: { type: 'string', description: 'default | ocean | forest | midnight | sunset', optional: true },
+  },
+  handler: async (args, ctx) => {
+    applyTheme(args); // sets CSS custom properties on document.documentElement
+    return { ok: true, message: `Theme updated: ${args.theme_preset || 'custom'}` };
+  }
+}
+```
+
+The theme is persisted in a `manager_preferences` table (or the existing `manager_callum_profiles`).
+
+---
+
+## 15. MCP (Model Context Protocol) — Future Exploration
+
+> "Nothing that connects externally due to security concerns" — internal MCPs only.
+
+### What is MCP?
+
+MCP is an open protocol (by Anthropic) that lets LLMs connect to tools and data sources through a standardized server interface. Think of it as "USB-C for AI" — one protocol, many tools.
+
+### Promising Internal MCPs
+
+| MCP Server | What it does | Why useful | Security |
+|-----------|-------------|-----------|----------|
+| **SQLite MCP** | Lets the LLM run SQL queries directly against a database | Callum can query anything — "show me all assessments that scored below 50" becomes a SQL query | ✅ Local only, no external calls |
+| **Filesystem MCP** | Read/write files in allowed directories | Callum could read pack definitions, write exports, manage recordings | ✅ Local only, path-restricted |
+| **Memory MCP** | Persistent key-value memory (like §13 but as MCP) | Structured memory with the MCP protocol | ✅ Local only |
+| **Puppeteer MCP** | Headless browser control | Callum could test the UI, take screenshots, verify flows | ⚠️ Local only but powerful — restrict carefully |
+
+### What to avoid
+
+| MCP Server | Why avoid |
+|-----------|-----------|
+| **Web search / Brave / Tavily** | External API calls — security concern |
+| **GitHub / GitLab** | External — could leak credentials |
+| **Slack / Discord** | External communication |
+| **Email** | External |
+| **APIs that require network access** | Data could leave the server |
+
+### Future architecture with MCP
+
+```
+Callum (LangGraph)
+  │
+  ├── Built-in tools (platform control)
+  │     ├── navigate, create_assessment, update_profile
+  │     ├── remember, recall, forget
+  │     └── set_theme, get_system_status
+  │
+  └── MCP servers (pluggable, internal only)
+        ├── SQLite MCP → direct DB queries
+        ├── Filesystem MCP → read pack files, export results
+        └── Memory MCP → structured persistent memory
+```
+
+MCP servers run as child processes. Callum discovers available tools by querying the MCP server's tool list at startup. No external network access is needed.
+
+---
+
+## 16. Summary: What Callum Becomes
+
+```
+╔══════════════════════════════════════════════════════╗
+║                    CALLUM                            ║
+║                                                      ║
+║  ┌─────────────┐  ┌──────────┐  ┌────────────────┐  ║
+║  │ Personality  │  │ Memory   │  │ Tools          │  ║
+║  │ • tone       │  │ • facts  │  │ • platform     │  ║
+║  │ • formality  │  │ • prefs  │  │ • data         │  ║
+║  │ • humour     │  │ • history│  │ • self-modify  │  ║
+║  │ • custom     │  │          │  │ • MCP plugins  │  ║
+║  └─────────────┘  └──────────┘  └────────────────┘  ║
+║                                                      ║
+║  User: "Be more direct and remember I prefer         ║
+║         dark themes with blue accent"                ║
+║                                                      ║
+║  Callum: ✅ Profile updated to "direct"              ║
+║           ✅ Remembered "prefers dark theme"          ║
+║           ✅ Theme set to midnight + blue accent      ║
+╚══════════════════════════════════════════════════════╝
+```
+
+---
+
+## 17. Current Gaps Before This Works
 
 | Gap | Status | Needed for |
 |-----|--------|------------|
-| Tool registry | ❌ Not built | Step 1 |
-| LLM classifyIntent | ❌ Not built | Step 2 |
-| selectTool + validateInput nodes | ❌ Not built | Steps 3 |
-| executeTool node | ❌ Not built | Step 4 |
-| confirmAction node | ❌ Not built | Step 5 |
-| Generic proposal payload | ❌ Not built | Step 6 |
-| Write tool defs | ❌ Not built | Step 9 |
-| Tool-generated proposals only support create_training_assignment | ✅ Built but narrow | Step 6 |
+| Tool registry | ❌ Not built | Tool layer |
+| LLM classifyIntent (replaces heuristic) | ❌ Not built | Tool routing |
+| selectTool + validateInput + executeTool nodes | ❌ Not built | Graph nodes |
+| Generic proposal payload for any write tool | ❌ Not built | Confirmation |
+| Self-modification: profile update tool | 🔧 Partially — DB table exists, no tool | Personality control |
+| Memory: `callum_memory` table + remember/recall/forget tools | ❌ Not built | Long-term memory |
+| Theme: `set_theme` tool + CSS variable wiring | ❌ Not built | Visual control |
+| MCP server runner | ❌ Not built | Extensibility |
 
 **What's already in place:**
 - LangGraph graph with 8 nodes ✅
 - Capability registry with 4 capabilities ✅
 - Proposal system with atomic confirmation ✅
+- `manager_callum_profiles` table with tone/humour fields ✅
 - Lightweight schema validation in `lib/mvp/schema/tool.ts` ✅
-- `FieldSchema` type + `validateObject()` + `describeSchema()` ✅
 - v2 route running in parallel with v1 ✅
-- 14 LangGraph tests passing ✅
+- 248 tests passing ✅
