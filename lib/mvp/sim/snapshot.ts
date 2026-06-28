@@ -1,5 +1,5 @@
 import { SimPack, SimState, SimAction, SimCallerBehavior } from './types';
-import type { SimulatorCapabilities } from '@/lib/mvp/assignment-types';
+import type { SimulatorCapabilities } from '../assignment-types';
 
 export interface PackSnapshot {
   pack_id: string;

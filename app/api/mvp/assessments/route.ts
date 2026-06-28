@@ -1,174 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, seedDefaults, initTables } from '@/lib/mvp/db';
-import { makeId, getActiveScenario, getActiveCriteria, getManagerStandards } from '@/lib/mvp/query';
-import { insertSimEvent } from '@/lib/mvp/sim/eventLog';
-import { appendSessionEvent } from '@/lib/mvp/events/eventLog';
-import { getPackById } from '@/lib/mvp/sim/packRegistry';
-import { mergeAssessmentConfig } from '@/lib/mvp/sim/mergeConfig';
-import { isAssignmentTypeValid, ASSIGNMENT_TYPES, ENABLED_TRAINING_DRILL_PACKS } from '@/lib/mvp/assignment-types';
+import { initTables } from '@/lib/mvp/db';
 import { failWithCustomCode } from '@/lib/mvp/api/responses';
-import { buildPackSnapshot, validatePackStructure } from '@/lib/mvp/sim/snapshot';
+import { createMvpAssessment } from '@/lib/mvp/assessments/create';
 
 export async function POST(request: NextRequest) {
   try {
-    initTables();
-    seedDefaults();
-
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000';
 
     const body = await request.json();
-    const candidateName = body.candidate_name || 'Unnamed Candidate';
-    const candidateEmail = body.candidate_email || null;
-    const managerProfileId = body.manager_profile_id || 'manager-default-v1';
-
-    const rawAssignmentType = body.assignmentType || body.assignment_type || 'hiring_exam';
-    if (!isAssignmentTypeValid(rawAssignmentType)) {
-      return NextResponse.json({ error: `Invalid assignment type: "${rawAssignmentType}"` }, { status: 400 });
-    }
-
-    const assignmentType = rawAssignmentType as import('@/lib/mvp/assignment-types').AssignmentType;
-
-    if (assignmentType === 'training_shift') {
-      return failWithCustomCode('TRAINING_SHIFT_NOT_AVAILABLE', 'Training Shift assignments are not yet available. Coming soon.', 400);
-    }
-
-    if (assignmentType === 'training_drill' && !ASSIGNMENT_TYPES.training_drill.enabled) {
-      return NextResponse.json({ error: 'Training Drill is not enabled.' }, { status: 400 });
-    }
-
-    const assessmentMode = assignmentType === 'training_drill' ? 'dashboard_sim' : 'chat_call';
-
-    const scenario = getActiveScenario();
-    const criteria = getActiveCriteria();
-
-    if (!scenario) {
-      return NextResponse.json({ error: 'No active scenario found. Run mvp:init-db first.' }, { status: 500 });
-    }
-
-    const assessmentId = makeId();
-    const sessionId = makeId();
-    const inviteToken = makeId();
-    const db = getDb();
-    const title = `Call Readiness: ${candidateName}`;
-
-    /* Resolve pack for training_drill — with structural validation */
-    let packId: string | null = null;
-    let packSnapshotJson: string | null = null;
-    let packInitialState: Record<string, unknown> = {};
-    let firstMessage: string = scenario.initial_message;
-
-    if (assignmentType === 'training_drill') {
-      const preferredPackId = body.assessmentPackId || body.assessment_pack_id || null;
-      if (!preferredPackId || !ENABLED_TRAINING_DRILL_PACKS.includes(preferredPackId)) {
-        return NextResponse.json({
-          error: `Invalid or missing pack ID. Supported packs: ${ENABLED_TRAINING_DRILL_PACKS.join(', ')}`,
-          supportedPacks: ENABLED_TRAINING_DRILL_PACKS,
-        }, { status: 400 });
-      }
-
-      packId = preferredPackId;
-      const codePack = getPackById(packId as string);
-
-      const validation = validatePackStructure(codePack);
-      if (!validation.valid) {
-        return NextResponse.json({
-          error: `Pack "${packId}" fails structural validation`,
-          details: validation.errors,
-        }, { status: 500 });
-      }
-
-      const snapshot = buildPackSnapshot(codePack);
-      packSnapshotJson = JSON.stringify(snapshot);
-
-      packInitialState = codePack.initialState as unknown as Record<string, unknown>;
-      firstMessage = snapshot.customer.opening_line;
-    }
-
-    /* Snapshot current standards */
-    const standards = getManagerStandards();
-    const standardsSnapshot = standards ? {
-      id: standards.id,
-      required_ticket_fields: JSON.parse(standards.required_ticket_fields_json || '[]'),
-      call_requirements: standards.call_requirements,
-      escalation_requirements: standards.escalation_requirements,
-      good_ticket_example: standards.good_ticket_example,
-      bad_ticket_example: standards.bad_ticket_example,
-    } : null;
-
-    /* Merge scoring config from pack defaults + manager overrides */
-    let scoringSnapshot: string | null = null;
-    if (packId) {
-      try {
-        const codePack = getPackById(packId);
-        const standardsOverrides = standards?.scoring_overrides_json || null;
-        const merged = mergeAssessmentConfig({ pack: codePack, managerStandardsOverrides: standardsOverrides, packId });
-        scoringSnapshot = JSON.stringify(merged);
-      } catch { /* fallback to null — merge errors don't block creation */ }
-    }
-
-    /* Store assessment — scenario_id set null for training_drill (pack is source of truth) */
-    const storedScenarioId = assignmentType === 'training_drill' ? null : scenario.id;
-
-    db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, scoring_snapshot_json, pack_snapshot_json, assessment_pack_id, assessment_mode, assignment_type, created_at)
-      VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
-      assessmentId, title, candidateName, candidateEmail, inviteToken,
-      storedScenarioId, criteria?.id || null,
-      managerProfileId,
-      standardsSnapshot ? JSON.stringify(standardsSnapshot) : null,
-      scoringSnapshot, packSnapshotJson, packId, assessmentMode, assignmentType
-    );
-
-    db.prepare(`INSERT INTO sessions (id, assessment_id, status, started_at)
-      VALUES (?, ?, 'in_progress', datetime('now'))`).run(sessionId, assessmentId);
-
-    /* First message comes from pack for training_drill, from scenario for chat_call */
-    db.prepare(`INSERT INTO messages (id, session_id, role, content, created_at)
-      VALUES (?, ?, 'caller', ?, datetime('now'))`).run(makeId(), sessionId, firstMessage);
-
-    if (assignmentType === 'training_drill' && packId) {
-      const simSessionId = makeId();
-      db.prepare(`INSERT INTO sim_sessions (id, session_id, assessment_id, assessment_pack_id, current_state_json, started_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))`).run(simSessionId, sessionId, assessmentId, packId, JSON.stringify(packInitialState));
-
-      insertSimEvent({
-        session_id: sessionId,
-        assessment_id: assessmentId,
-        assessment_pack_id: packId,
-        event_type: 'sim_started',
-        actor: 'system',
-        label: 'Simulation started',
-        state_after: packInitialState,
-        started_at_ms: Date.now(),
+    try {
+      const result = createMvpAssessment({
+        candidateName: body.candidate_name,
+        candidateEmail: body.candidate_email || null,
+        managerProfileId: body.manager_profile_id || 'manager-default-v1',
+        assignmentType: body.assignmentType || body.assignment_type || 'hiring_exam',
+        assessmentPackId: body.assessmentPackId || body.assessment_pack_id || null,
+        baseUrl,
       });
+      return NextResponse.json(result);
+    } catch (err: any) {
+      if (err?.code === 'TRAINING_SHIFT_NOT_AVAILABLE') {
+      return failWithCustomCode('TRAINING_SHIFT_NOT_AVAILABLE', 'Training Shift assignments are not yet available. Coming soon.', 400);
+      }
+      return NextResponse.json({ error: err?.message || 'Failed to create assessment' }, { status: 400 });
     }
-
-    appendSessionEvent({
-      assessment_id: assessmentId,
-      session_id: sessionId,
-      event_type: 'assessment_started',
-      actor: 'system',
-      label: 'Assessment created',
-      payload: { assignmentType, mode: assessmentMode, pack_id: packId },
-      started_at_ms: Date.now(),
-    });
-
-    appendSessionEvent({
-      assessment_id: assessmentId,
-      session_id: sessionId,
-      event_type: 'customer_message',
-      actor: 'customer',
-      text: firstMessage,
-      started_at_ms: Date.now() + 50,
-    });
-
-    return NextResponse.json({
-      assessment_id: assessmentId,
-      session_id: sessionId,
-      invite_url: `${baseUrl}/mvp/assessment/${inviteToken}`,
-      invite_token: inviteToken,
-      assignment_type: assignmentType,
-      assessment_mode: assessmentMode,
-    });
   } catch (err) {
     console.error('[MVP] Create assessment error:', err);
     return NextResponse.json({ error: 'Failed to create assessment' }, { status: 500 });
