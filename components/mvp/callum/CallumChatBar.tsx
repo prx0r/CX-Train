@@ -126,7 +126,7 @@ function ChatBarInner() {
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 8px' }}>
-          <div style={{ width: 22, height: 22, borderRadius: 5, background: 'linear-gradient(135deg,#004b8d,#0066b3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>C</div>
+          <img src="/callcallum-logo.png" alt="" style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} />
           <span style={{ fontSize: 11, color: '#52525b', whiteSpace: 'nowrap', flexShrink: 0 }}>{modeLabel}</span>
           <textarea
             ref={inputRef}

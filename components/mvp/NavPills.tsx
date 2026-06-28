@@ -22,8 +22,13 @@ export default function NavPills() {
   return (
     <div style={{
       position: 'fixed', left: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 9998,
-      display: 'flex', flexDirection: 'column', gap: 12,
+      display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center',
     }}>
+      <img
+        src="/callcallum-logo.png"
+        alt="CallCallum"
+        style={{ width: 36, height: 36, borderRadius: '50%', opacity: 0.8, marginBottom: 4 }}
+      />
       {NAV_ITEMS.map(item => {
         const active = pathname === item.href || (item.href !== '/mvp' && pathname.startsWith(item.href));
         return (
