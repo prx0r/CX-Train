@@ -5,33 +5,24 @@ import { usePathname } from 'next/navigation';
 
 interface ChatMessage { role: 'user' | 'assistant'; content: string; }
 interface PromptChip { label: string; prompt: string; }
-type CallumMode = 'overview' | 'assessments' | 'standards' | 'taxonomy' | 'system' | 'settings' | 'general';
 
-function getCallumMode(pathname: string): { mode: CallumMode; label: string; prompts: PromptChip[] } {
+function getCallumMode(pathname: string): { label: string; prompts: PromptChip[] } {
   if (pathname.startsWith('/mvp/assessments/') && pathname.split('/').length > 3)
-    return { mode: 'assessments', label: 'Reviewing assessment', prompts: [
+    return { label: 'Reviewing assessment', prompts: [
       { label: 'Explain score', prompt: 'Why did they score this way?' },
       { label: 'Suggest training', prompt: 'What training would help them improve?' },
     ]};
   if (pathname.startsWith('/mvp/assessments'))
-    return { mode: 'assessments', label: 'Assessments', prompts: [
+    return { label: 'Assessments', prompts: [
+      { label: 'Show all', prompt: 'Show me all assessments.' },
       { label: 'Find at-risk', prompt: 'Which candidates need attention?' },
-      { label: 'Recent results', prompt: 'Show me the latest results.' },
     ]};
   if (pathname.startsWith('/mvp/standards'))
-    return { mode: 'standards', label: 'Standards', prompts: [
+    return { label: 'Standards', prompts: [
       { label: 'Current standards', prompt: 'What are the current standards?' },
     ]};
-  if (pathname.startsWith('/mvp/taxonomy'))
-    return { mode: 'taxonomy', label: 'Taxonomy', prompts: [
-      { label: 'Taxonomy gaps', prompt: 'Are there gaps in our taxonomy?' },
-    ]};
-  if (pathname.startsWith('/mvp/system'))
-    return { mode: 'system', label: 'System', prompts: [
-      { label: 'System status', prompt: 'What is the system status?' },
-    ]};
-  return { mode: 'general', label: 'Dashboard', prompts: [
-    { label: 'Platform overview', prompt: 'What can I do on this platform?' },
+  return { label: 'Dashboard', prompts: [
+    { label: 'Show assessments', prompt: 'Show me the assessments.' },
     { label: 'Recent activity', prompt: 'What happened recently?' },
   ]};
 }
@@ -50,14 +41,10 @@ function ChatBarInner() {
   useEffect(() => {
     try { localStorage.setItem('callum_messages', JSON.stringify(messages)); } catch {}
   }, [messages]);
-
   useEffect(() => { msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-  /* Inject spacing so page content isn't hidden behind fixed bar */
   useEffect(() => {
     const spacer = document.createElement('div');
-    spacer.id = 'callum-spacer';
-    spacer.style.height = '52px';
+    spacer.id = 'callum-spacer'; spacer.style.height = '120px';
     document.body.appendChild(spacer);
     return () => { const s = document.getElementById('callum-spacer'); if (s) s.remove(); };
   }, []);
@@ -79,6 +66,11 @@ function ChatBarInner() {
         body: JSON.stringify({ message: msg, pageContext }),
       });
       const data = await res.json();
+      /* If Callum returns a navigation, follow it */
+      if (data.type === 'navigation' && data.targetRoute) {
+        window.location.href = data.targetRoute;
+        return;
+      }
       setMessages(prev => [...prev, { role: 'assistant', content: data.message || data.error || 'No response' }]);
     } catch { setMessages(prev => [...prev, { role: 'assistant', content: 'Could not reach Callum.' }]); }
     finally { setLoading(false); inputRef.current?.focus(); }
@@ -86,80 +78,87 @@ function ChatBarInner() {
 
   return (
     <>
-      <style>{`
-        @keyframes pulseDot { 0%,60%,100% { opacity:0.3; } 30% { opacity:1; } }
-        .callum-scroll::-webkit-scrollbar { width: 4px; }
-        .callum-scroll::-webkit-scrollbar-track { background: transparent; }
-        .callum-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
-      `}</style>
+      <style>{`@keyframes pulseDot { 0%,60%,100% { opacity:0.3; } 30% { opacity:1; } }`}</style>
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
-        background: '#18181b', borderTop: '1px solid #27272a',
-        boxShadow: '0 -4px 24px rgba(0,0,0,0.3)',
-        display: 'flex', flexDirection: 'column',
+        display: 'flex', justifyContent: 'center', pointerEvents: 'none',
       }}>
-        {messages.length > 0 && (
-          <div className="callum-scroll" style={{
-            maxHeight: 100, overflow: 'auto', padding: '4px 16px 0',
-            display: 'flex', flexDirection: 'column', gap: 3,
-          }}>
-            {messages.slice(-2).map((m, i) => (
-              <div key={i} style={{
-                padding: '5px 10px', borderRadius: 6, fontSize: 12, lineHeight: 1.5,
-                background: m.role === 'user' ? '#004b8d' : '#1f1f23',
-                color: m.role === 'user' ? '#fff' : '#e4e4e7',
-                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '75%', whiteSpace: 'pre-wrap',
-              }}>{m.content}</div>
-            ))}
-            {loading && (
-              <div style={{ alignSelf: 'flex-start', padding: '5px 10px', borderRadius: 6, background: '#1f1f23', fontSize: 12 }}>
-                <span style={{ display: 'inline-flex', gap: 3 }}>
-                  <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0s' }}>●</span>
-                  <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.3s' }}>●</span>
-                  <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.6s' }}>●</span>
-                </span>
-              </div>
-            )}
-            <div ref={msgsEndRef} />
-          </div>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 8px' }}>
-          <img src="/callcallum-logo.png" alt="" style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: '#52525b', whiteSpace: 'nowrap', flexShrink: 0 }}>{modeLabel}</span>
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder="Ask Callum..."
-            rows={1}
-            style={{
-              flex: 1, padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)',
-              background: 'rgba(255,255,255,0.03)', color: '#e4e4e7', fontSize: 13, fontFamily: 'system-ui',
-              outline: 'none', resize: 'none', lineHeight: 1.5, minHeight: 20, maxHeight: 60,
-            }}
-          />
-          <button onClick={() => send()} disabled={!input.trim() || loading} style={{
-            width: 32, height: 32, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: input.trim() && !loading ? '#004b8d' : 'rgba(255,255,255,0.06)',
-            border: 'none', color: '#fff', cursor: input.trim() && !loading ? 'pointer' : 'default',
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9Z"/></svg>
-          </button>
-          {prompts.slice(0, 2).map((p, i) => (
-            <button key={i} onClick={() => send(p.prompt)} style={{
-              padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0,
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
-              color: '#52525b', fontSize: 11, display: 'none',
-            } as React.CSSProperties}
-            className="md:block hidden"
-            >{p.label}</button>
-          ))}
+        <div style={{
+          width: '100%', maxWidth: 680, pointerEvents: 'auto',
+          background: '#18181b', borderTop: '1px solid #27272a',
+          borderLeft: '1px solid #27272a', borderRight: '1px solid #27272a',
+          borderTopLeftRadius: 12, borderTopRightRadius: 12,
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.4)',
+          display: 'flex', flexDirection: 'column',
+        }}>
+          {/* Message preview */}
           {messages.length > 0 && (
-            <button onClick={() => setMessages([])} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: 13, padding: '4px', flexShrink: 0 }}>✕</button>
+            <div style={{ maxHeight: 100, overflow: 'auto', padding: '8px 16px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {messages.slice(-2).map((m, i) => (
+                <div key={i} style={{
+                  padding: '6px 10px', borderRadius: 6, fontSize: 12.5, lineHeight: 1.5,
+                  background: m.role === 'user' ? '#004b8d' : '#1f1f23',
+                  color: m.role === 'user' ? '#fff' : '#e4e4e7',
+                  alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                  maxWidth: '80%', whiteSpace: 'pre-wrap',
+                }}>{m.content}</div>
+              ))}
+              {loading && (
+                <div style={{ alignSelf: 'flex-start', padding: '6px 10px', borderRadius: 6, background: '#1f1f23', fontSize: 12 }}>
+                  <span style={{ display: 'inline-flex', gap: 3 }}>
+                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0s' }}>●</span>
+                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.3s' }}>●</span>
+                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.6s' }}>●</span>
+                  </span>
+                </div>
+              )}
+              <div ref={msgsEndRef} />
+            </div>
           )}
+
+          {/* Input row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px' }}>
+            <img src="/callcallum-logo.png" alt="" style={{ width: 22, height: 22, borderRadius: 5, flexShrink: 0 }} />
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder="Ask Callum..."
+              rows={1}
+              style={{
+                flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.03)', color: '#e4e4e7', fontSize: 13.5, fontFamily: 'system-ui',
+                outline: 'none', resize: 'none', lineHeight: 1.5, minHeight: 20, maxHeight: 60,
+              }}
+            />
+            <button onClick={() => send()} disabled={!input.trim() || loading} style={{
+              width: 34, height: 34, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: input.trim() && !loading ? '#004b8d' : 'rgba(255,255,255,0.06)',
+              border: 'none', color: '#fff', cursor: input.trim() && !loading ? 'pointer' : 'default',
+            }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9Z"/></svg>
+            </button>
+            {messages.length > 0 && (
+              <button onClick={() => setMessages([])} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: 14, padding: 4, flexShrink: 0 }}>✕</button>
+            )}
+          </div>
+
+          {/* Suggestion chips */}
+          <div style={{
+            display: 'flex', gap: 6, padding: '0 12px 10px', overflow: 'auto', flexShrink: 0,
+          }}>
+            {prompts.map((p, i) => (
+              <button key={i} onClick={() => send(p.prompt)} style={{
+                padding: '5px 12px', borderRadius: 100, whiteSpace: 'nowrap', cursor: 'pointer',
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
+                color: '#71717a', fontSize: 11.5, transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+              >{p.label}</button>
+            ))}
+          </div>
         </div>
       </div>
     </>
@@ -168,7 +167,6 @@ function ChatBarInner() {
 
 export default function CallumChatBar() {
   const pathname = usePathname();
-  /* Must be called before any conditional — React hooks rule */
   if (pathname.startsWith('/mvp/assessment/') || !pathname.startsWith('/mvp')) return null;
   return <ChatBarInner />;
 }
