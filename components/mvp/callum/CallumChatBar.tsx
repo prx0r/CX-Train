@@ -129,6 +129,8 @@ function ChatBarInner() {
     finally { setLoading(false); inputRef.current?.focus(); }
   }, [input, loading, pathname, router]);
 
+  const isLight = true;
+
   return (
     <>
       <style>{`@keyframes pulseDot { 0%,60%,100% { opacity:0.3; } 30% { opacity:1; } }
@@ -140,35 +142,35 @@ function ChatBarInner() {
       }}>
         <div style={{
           width: '100%', maxWidth: 720, pointerEvents: 'auto',
-          background: '#18181b', borderTop: '1px solid #27272a',
-          borderLeft: '1px solid #27272a', borderRight: '1px solid #27272a',
-          borderTopLeftRadius: 14, borderTopRightRadius: 14,
-          boxShadow: '0 -8px 40px rgba(0,0,0,0.4)',
+          background: '#fff', borderTop: '1px solid #d4d4d4',
+          borderLeft: '1px solid #d4d4d4', borderRight: '1px solid #d4d4d4',
+          borderTopLeftRadius: 10, borderTopRightRadius: 10,
+          boxShadow: '0 -4px 24px rgba(0,0,0,0.08)',
           display: 'flex', flexDirection: 'column',
         }}>
           {/* Navigation bar */}
           <div style={{
-            display: 'flex', gap: 2, padding: '8px 12px 4px',
-            borderBottom: '1px solid rgba(255,255,255,0.04)',
+            display: 'flex', gap: 2, padding: '6px 10px 4px',
+            borderBottom: '1px solid #e5e5e5',
             alignItems: 'center', overflow: 'auto',
           }}>
-            <img src="/callcallum-logo.png" alt="" style={{ width: 20, height: 20, borderRadius: 4, marginRight: 6, flexShrink: 0 }} />
+            <img src="/callcallum-logo.png" alt="" style={{ width: 18, height: 18, borderRadius: 3, marginRight: 4, flexShrink: 0 }} />
             {NAV_ITEMS.map(item => {
               const active = pathname === item.href || (item.href !== '/mvp' && pathname.startsWith(item.href));
               return (
                 <button key={item.href} onClick={() => router.push(item.href)} style={{
-                  padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0,
+                  padding: '4px 8px', borderRadius: 4, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0,
                   fontSize: 12, transition: 'all 0.15s', border: 'none',
-                  background: active ? 'rgba(0,75,141,0.2)' : 'transparent',
-                  color: active ? '#60a5fa' : '#52525b', fontWeight: active ? 600 : 400,
+                  background: active ? '#e8f0fe' : 'transparent',
+                  color: active ? '#004b8d' : '#5f6368', fontWeight: active ? 600 : 400,
                 }}
-                onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#a1a1aa'; } }}
-                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#52525b'; } }}
-                >{item.icon} {item.label}</button>
+                onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#f1f3f4'; e.currentTarget.style.color = '#202124'; } }}
+                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#5f6368'; } }}
+                >{item.label}</button>
               );
             })}
             <span style={{ flex: 1 }} />
-            <span style={{ fontSize: 11, color: '#52525b' }}>{modeLabel}</span>
+            <span style={{ fontSize: 11, color: '#5f6368' }}>{modeLabel}</span>
           </div>
 
           {/* Messages area */}
@@ -177,27 +179,26 @@ function ChatBarInner() {
             padding: messages.length > 0 ? '8px 12px 0' : '14px 16px 0',
             display: 'flex', flexDirection: 'column', gap: 4,
           }}>
-            {/* Welcome card when no messages (only after hydration to avoid SSR mismatch) */}
+            {/* Welcome card when no messages */}
             {hydrated && messages.length === 0 && !loading && (
               <div style={{ animation: 'callumSlide 0.3s ease-out', textAlign: 'center', padding: '4px 8px 10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
-                  <img src="/callcallum-logo.png" alt="" style={{ width: 28, height: 28, borderRadius: 6 }} />
-                  <span style={{ fontSize: 15, fontWeight: 700, color: '#e4e4e7' }}>Callum</span>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px rgba(34,197,94,0.5)' }} />
+                  <img src="/callcallum-logo.png" alt="" style={{ width: 26, height: 26, borderRadius: 5 }} />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#202124' }}>Callum</span>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
                 </div>
-                <div style={{ fontSize: 12.5, color: '#a1a1aa', lineHeight: 1.6, marginBottom: 12, maxWidth: 500, margin: '0 auto 12px' }}>
+                <div style={{ fontSize: 12.5, color: '#5f6368', lineHeight: 1.6, marginBottom: 12, maxWidth: 500, margin: '0 auto 12px' }}>
                   {welcome}
                 </div>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11, color: '#52525b', padding: '4px 0' }}>Try:</span>
                   {prompts.slice(0, 3).map((p, i) => (
                     <button key={i} onClick={() => send(p.prompt)} style={{
                       padding: '5px 12px', borderRadius: 100, whiteSpace: 'nowrap', cursor: 'pointer',
-                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                      color: '#71717a', fontSize: 11.5, transition: 'background 0.15s',
+                      background: '#f1f3f4', border: '1px solid #e5e5e5',
+                      color: '#5f6368', fontSize: 11.5,
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                    onMouseEnter={e => e.currentTarget.style.background = '#e8eaed'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#f1f3f4'}
                     >{p.label}</button>
                   ))}
                 </div>
@@ -208,21 +209,21 @@ function ChatBarInner() {
             {messages.slice(-3).map((m, i) => (
               <div key={i} style={{
                 padding: '6px 10px', borderRadius: 6, fontSize: 12.5, lineHeight: 1.5,
-                background: m.role === 'user' ? '#004b8d' : '#1f1f23',
-                color: m.role === 'user' ? '#fff' : '#e4e4e7',
+                background: m.role === 'user' ? '#004b8d' : '#f1f3f4',
+                color: m.role === 'user' ? '#fff' : '#202124',
                 alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
                 maxWidth: '80%', whiteSpace: 'pre-wrap',
               }}>{m.content}</div>
             ))}
             {loading && (
-              <div style={{ alignSelf: 'flex-start', padding: '8px 12px', borderRadius: 6, background: '#1f1f23', fontSize: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <div style={{ alignSelf: 'flex-start', padding: '8px 12px', borderRadius: 6, background: '#f1f3f4', fontSize: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ display: 'inline-flex', gap: 3 }}>
-                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0s' }}>●</span>
-                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.3s' }}>●</span>
-                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.6s' }}>●</span>
+                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0s', color: '#5f6368' }}>●</span>
+                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.3s', color: '#5f6368' }}>●</span>
+                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.6s', color: '#5f6368' }}>●</span>
                   </span>
-                  <span style={{ color: '#52525b', fontSize: 11 }}>{thinkingSteps[thinkingStep]}</span>
+                  <span style={{ color: '#5f6368', fontSize: 11 }}>{thinkingSteps[thinkingStep]}</span>
                 </div>
               </div>
             )}
@@ -230,7 +231,7 @@ function ChatBarInner() {
           </div>
 
           {/* Input row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 8px' }}>
             <textarea
               ref={inputRef}
               value={input}
@@ -239,34 +240,35 @@ function ChatBarInner() {
               placeholder="Ask Callum..."
               rows={1}
               style={{
-                flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)',
-                background: 'rgba(255,255,255,0.03)', color: '#e4e4e7', fontSize: 13.5, fontFamily: 'system-ui',
-                outline: 'none', resize: 'none', lineHeight: 1.5, minHeight: 20, maxHeight: 60,
+                flex: 1, padding: '7px 10px', borderRadius: 6, border: '1px solid #dadce0',
+                background: '#fff', color: '#202124', fontSize: 13, fontFamily: 'system-ui',
+                outline: 'none', resize: 'none', lineHeight: 1.5, minHeight: 18, maxHeight: 60,
               }}
             />
             <button onClick={() => send()} disabled={!input.trim() || loading} style={{
-              width: 34, height: 34, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: input.trim() && !loading ? '#004b8d' : 'rgba(255,255,255,0.06)',
-              border: 'none', color: '#fff', cursor: input.trim() && !loading ? 'pointer' : 'default',
+              width: 32, height: 32, borderRadius: 6, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: input.trim() && !loading ? '#004b8d' : '#f1f3f4',
+              border: '1px solid', borderColor: input.trim() && !loading ? '#004b8d' : '#dadce0',
+              color: input.trim() && !loading ? '#fff' : '#5f6368', cursor: input.trim() && !loading ? 'pointer' : 'default',
             }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9Z"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9Z"/></svg>
             </button>
             {messages.length > 0 && (
-              <button onClick={() => setMessages([])} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: 14, padding: 4, flexShrink: 0 }}>✕</button>
+              <button onClick={() => setMessages([])} style={{ background: 'none', border: 'none', color: '#5f6368', cursor: 'pointer', fontSize: 14, padding: 4, flexShrink: 0 }}>✕</button>
             )}
           </div>
 
           {/* Suggestion chips */}
           {prompts.length > 0 && (
-            <div style={{ display: 'flex', gap: 6, padding: '0 12px 10px', overflow: 'auto', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 4, padding: '0 10px 8px', overflow: 'auto', flexShrink: 0 }}>
               {prompts.map((p, i) => (
                 <button key={i} onClick={() => send(p.prompt)} style={{
-                  padding: '4px 10px', borderRadius: 100, whiteSpace: 'nowrap', cursor: 'pointer',
-                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
-                  color: '#52525b', fontSize: 11, transition: 'background 0.15s', flexShrink: 0,
+                  padding: '3px 8px', borderRadius: 100, whiteSpace: 'nowrap', cursor: 'pointer',
+                  background: '#f1f3f4', border: '1px solid #e5e5e5',
+                  color: '#5f6368', fontSize: 11, flexShrink: 0,
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                onMouseEnter={e => e.currentTarget.style.background = '#e8eaed'}
+                onMouseLeave={e => e.currentTarget.style.background = '#f1f3f4'}
                 >{p.label}</button>
               ))}
             </div>
