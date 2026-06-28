@@ -6,23 +6,56 @@ import { usePathname, useRouter } from 'next/navigation';
 interface ChatMessage { role: 'user' | 'assistant'; content: string; }
 interface PromptChip { label: string; prompt: string; }
 
-function getCallumMode(pathname: string): { label: string; prompts: PromptChip[] } {
+interface PageContext { label: string; welcome: string; prompts: PromptChip[]; }
+
+function getCallumMode(pathname: string): PageContext {
   if (pathname.startsWith('/mvp/assessments/') && pathname.split('/').length > 3)
-    return { label: 'Reviewing assessment', prompts: [
-      { label: 'Explain score', prompt: 'Why did they score this way?' },
-      { label: 'Suggest training', prompt: 'What training would help them improve?' },
-    ]};
+    return {
+      label: 'Reviewing assessment',
+      welcome: "I can break down the candidate's score, highlight specific misses, and suggest targeted training. What would you like to know?",
+      prompts: [
+        { label: 'Explain score', prompt: 'Walk me through this assessment. What stands out?' },
+        { label: 'Suggest training', prompt: 'What training would help them improve?' },
+        { label: 'Key misses', prompt: 'What were the biggest misses?' },
+      ],
+    };
   if (pathname.startsWith('/mvp/assessments'))
-    return { label: 'Assessments', prompts: [
-      { label: 'Show all', prompt: 'Show me all assessments.' },
-      { label: 'Find at-risk', prompt: 'Which candidates need attention?' },
-    ]};
+    return {
+      label: 'Assessments',
+      welcome: "Here are all the assessments. I can help you find candidates who need attention or create a new one.",
+      prompts: [
+        { label: 'Find at-risk', prompt: 'Which candidates need the most attention?' },
+        { label: 'Create assessment', prompt: 'Create a new hiring assessment.' },
+        { label: 'Recent results', prompt: 'Show me the latest results.' },
+      ],
+    };
   if (pathname.startsWith('/mvp/standards'))
-    return { label: 'Standards', prompts: [{ label: 'Current standards', prompt: 'What are the current standards?' }]};
-  return { label: 'Dashboard', prompts: [
-    { label: 'Show assessments', prompt: 'Show me the assessments.' },
-    { label: 'Recent activity', prompt: 'What happened recently?' },
-  ]};
+    return {
+      label: 'Standards',
+      welcome: 'This is where you configure assessment standards — required ticket fields, passing thresholds, and evaluation criteria.',
+      prompts: [
+        { label: 'Current standards', prompt: 'What are the current standards?' },
+        { label: 'Update criteria', prompt: 'Help me update the evaluation criteria.' },
+      ],
+    };
+  if (pathname.startsWith('/mvp/taxonomy'))
+    return {
+      label: 'Taxonomy',
+      welcome: 'The taxonomy system categorises tickets by type, sub-type, and item. I can help you review and improve it.',
+      prompts: [
+        { label: 'Taxonomy gaps', prompt: 'Are there gaps in our ticket taxonomy?' },
+        { label: 'Classification help', prompt: 'How does classification work?' },
+      ],
+    };
+  return {
+    label: 'Dashboard',
+    welcome: "Hi, I'm Callum. I can help you manage assessments, review candidates, and suggest training. Try asking me something or click a nav tab above.",
+    prompts: [
+      { label: 'Show assessments', prompt: 'Show me all assessments.' },
+      { label: 'Recent activity', prompt: 'What happened recently?' },
+      { label: 'Create hiring test', prompt: 'Create a new hiring assessment.' },
+    ],
+  };
 }
 
 const NAV_ITEMS = [
@@ -43,7 +76,7 @@ function ChatBarInner() {
   const [loading, setLoading] = useState(false);
   const msgsEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { label: modeLabel, prompts } = useMemo(() => getCallumMode(pathname), [pathname]);
+  const { label: modeLabel, welcome, prompts } = useMemo(() => getCallumMode(pathname), [pathname]);
 
   useEffect(() => {
     try { localStorage.setItem('callum_messages', JSON.stringify(messages)); } catch {}
@@ -55,6 +88,17 @@ function ChatBarInner() {
     document.body.appendChild(spacer);
     return () => { const s = document.getElementById('callum-spacer'); if (s) s.remove(); };
   }, []);
+
+  const thinkingSteps = [
+    'Analysing request...', 'Loading context...', 'Computing response...',
+  ];
+  const [thinkingStep, setThinkingStep] = useState(0);
+
+  useEffect(() => {
+    if (!loading) { setThinkingStep(0); return; }
+    const interval = setInterval(() => setThinkingStep(s => Math.min(s + 1, thinkingSteps.length - 1)), 1800);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const send = useCallback(async (text?: string) => {
     const msg = (text || input).trim();
@@ -83,7 +127,9 @@ function ChatBarInner() {
 
   return (
     <>
-      <style>{`@keyframes pulseDot { 0%,60%,100% { opacity:0.3; } 30% { opacity:1; } }`}</style>
+      <style>{`@keyframes pulseDot { 0%,60%,100% { opacity:0.3; } 30% { opacity:1; } }
+        @keyframes callumSlide { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+      `}</style>
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
         display: 'flex', justifyContent: 'center', pointerEvents: 'none',
@@ -121,8 +167,40 @@ function ChatBarInner() {
             <span style={{ fontSize: 11, color: '#52525b' }}>{modeLabel}</span>
           </div>
 
-          {/* Messages */}
-          <div style={{ maxHeight: 140, overflow: 'auto', padding: '6px 12px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {/* Messages area */}
+          <div style={{
+            maxHeight: 200, overflow: 'auto',
+            padding: messages.length > 0 ? '8px 12px 0' : '14px 16px 0',
+            display: 'flex', flexDirection: 'column', gap: 4,
+          }}>
+            {/* Welcome card when no messages */}
+            {messages.length === 0 && !loading && (
+              <div style={{ animation: 'callumSlide 0.3s ease-out', textAlign: 'center', padding: '4px 8px 10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
+                  <img src="/callcallum-logo.png" alt="" style={{ width: 28, height: 28, borderRadius: 6 }} />
+                  <span style={{ fontSize: 15, fontWeight: 700, color: '#e4e4e7' }}>Callum</span>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px rgba(34,197,94,0.5)' }} />
+                </div>
+                <div style={{ fontSize: 12.5, color: '#a1a1aa', lineHeight: 1.6, marginBottom: 12, maxWidth: 500, margin: '0 auto 12px' }}>
+                  {welcome}
+                </div>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, color: '#52525b', padding: '4px 0' }}>Try:</span>
+                  {prompts.slice(0, 3).map((p, i) => (
+                    <button key={i} onClick={() => send(p.prompt)} style={{
+                      padding: '5px 12px', borderRadius: 100, whiteSpace: 'nowrap', cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#71717a', fontSize: 11.5, transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                    >{p.label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Chat messages */}
             {messages.slice(-3).map((m, i) => (
               <div key={i} style={{
                 padding: '6px 10px', borderRadius: 6, fontSize: 12.5, lineHeight: 1.5,
@@ -133,12 +211,15 @@ function ChatBarInner() {
               }}>{m.content}</div>
             ))}
             {loading && (
-              <div style={{ alignSelf: 'flex-start', padding: '6px 10px', borderRadius: 6, background: '#1f1f23', fontSize: 12 }}>
-                <span style={{ display: 'inline-flex', gap: 3 }}>
-                  <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0s' }}>●</span>
-                  <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.3s' }}>●</span>
-                  <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.6s' }}>●</span>
-                </span>
+              <div style={{ alignSelf: 'flex-start', padding: '8px 12px', borderRadius: 6, background: '#1f1f23', fontSize: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ display: 'inline-flex', gap: 3 }}>
+                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0s' }}>●</span>
+                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.3s' }}>●</span>
+                    <span style={{ animation: 'pulseDot 1.2s infinite', animationDelay: '0.6s' }}>●</span>
+                  </span>
+                  <span style={{ color: '#52525b', fontSize: 11 }}>{thinkingSteps[thinkingStep]}</span>
+                </div>
               </div>
             )}
             <div ref={msgsEndRef} />
