@@ -35,8 +35,8 @@ ${state.assessmentContext ? `Current assessment context: ${state.assessmentConte
         { role: 'system', content: systemPrompt },
         { role: 'user', content: state.message },
       ],
-      temperature: 0.3,
-      maxTokens: 1024,
+      temperature: 0.1,
+      maxTokens: 256,
     });
 
     return {

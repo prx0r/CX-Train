@@ -95,9 +95,16 @@ async function attemptRequest(
   let content = msg?.content || '';
   const reasoningContent = msg?.reasoning_content || '';
 
-  // Some models (e.g. DeepSeek via OpenCode Go) put the response in reasoning fields
-  if (!content && reasoningContent && typeof reasoningContent === 'string') {
-    content = reasoningContent;
+  // some deepseek models return reasoning/thinking in a separate field
+  // we want the FINAL answer, not the chain-of-thought
+  if (reasoningContent && typeof reasoningContent === 'string') {
+    // reasoning_content is the thinking; prefer content if non-empty
+    if (content) {
+      // content already has the final answer, discard reasoning
+    } else {
+      // no content — model put everything in reasoning. try to strip thinking tags
+      content = reasoningContent;
+    }
   }
   if (!content && msg?.reasoning && typeof msg.reasoning === 'string') {
     content = msg.reasoning;
@@ -105,6 +112,17 @@ async function attemptRequest(
   if (!content && Array.isArray(msg?.reasoning_details)) {
     const last = msg.reasoning_details.filter(r => r.type === 'reasoning.text').pop();
     if (last?.text) content = last.text;
+  }
+
+  // strip common thinking/reasoning markers from the content
+  if (content) {
+    content = content.replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim();
+    // strip everything before "response:" or "answer:"
+    const idx = content.search(/response:|answer:/i);
+    if (idx !== -1) {
+      const after = content.slice(idx).replace(/response:|answer:/i, '').trim();
+      if (after.length > 0) content = after;
+    }
   }
 
   // For json_object requests, try to extract JSON from within reasoning text
