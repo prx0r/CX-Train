@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import CallBar from '@/components/mvp/simulator/CallBar';
 import { VoiceRecorderButton } from '@/components/mvp/voice/VoiceRecorderButton';
 import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
+import { useVoiceLoop } from '@/components/mvp/voice/useVoiceLoop';
 import AssessmentResults, { type CandidateAnalysisResult } from '@/components/mvp/results/AssessmentResults';
 import type { CustomerMood } from '@/lib/mvp/voice/tts';
 
@@ -59,6 +60,7 @@ export default function HiringWorkspace({
   const [submitted, setSubmitted] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<CandidateAnalysisResult | null>(initialAnalysis || null);
   const [analysing, setAnalysing] = useState(false);
+  const [error, setError] = useState('');
   const [ttsPlaying, setTtsPlaying] = useState(false);
   const [sending, setSending] = useState(false);
   const ttsEndedAtRef = useRef<number | null>(null);
@@ -68,6 +70,21 @@ export default function HiringWorkspace({
   const { speak, setOnPlaying, setOnTtsEnd } = useCustomerAudio(token);
   setOnPlaying(setTtsPlaying);
   setOnTtsEnd((ms: number) => { ttsEndedAtRef.current = ms; responseStartedAtRef.current = null; });
+
+  /* Low-latency voice loop — VAD + partial STT + streaming LLM + early TTS */
+  const { listening: vadListening, speaking: vadSpeaking, startListening, stopListening } = useVoiceLoop({
+    token,
+    onTranscript: useCallback((text: string, isPartial: boolean) => {
+      if (!isPartial) {
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.role === 'candidate' && last.content.length > 0) return prev;
+          return [...prev, { role: 'candidate', content: text }];
+        });
+      }
+    }, []),
+    onError: useCallback((err: string) => setError(err), []),
+  });
 
   /* Auto-start the call on mount — hiring calls begin immediately */
   useEffect(() => {
@@ -96,6 +113,16 @@ export default function HiringWorkspace({
       speak(firstCallerMsg.content, 'frustrated', 3).catch(() => {});
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Start voice loop when call goes active, stop when ended */
+  useEffect(() => {
+    if (callStatus === 'active' && !vadListening) {
+      startListening();
+    }
+    if (callStatus === 'ended' && vadListening) {
+      stopListening();
+    }
+  }, [callStatus, vadListening, startListening, stopListening]);
 
   const handleVoiceTranscript = useCallback(async (result: { text: string }) => {
     if (!result.text?.trim() || sending) return;
@@ -138,9 +165,10 @@ export default function HiringWorkspace({
   }, [token, speak, sending]);
 
   const endCall = useCallback(async () => {
+    stopListening();
     setCallStatus('ended');
     setMessages(prev => [...prev, { role: 'system', content: '📞 Call ended. Write your support note below.' }]);
-  }, []);
+  }, [stopListening]);
 
   const handleSubmitTicket = useCallback(async () => {
     if (!noteText.trim() || analysing) return;
