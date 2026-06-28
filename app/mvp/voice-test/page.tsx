@@ -2,79 +2,49 @@
 
 import { useState, useRef } from 'react';
 
-const VOICE_STYLES: Record<string, string[]> = {
-  'en-GB-SoniaNeural': ['cheerful', 'sad', 'chat'],
-  'en-GB-RyanNeural': ['cheerful', 'chat', 'whispering', 'sad'],
-  'en-US-JennyNeural': ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'],
-  'en-US-GuyNeural': ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'],
-  'en-AU-NatashaNeural': ['cheerful', 'sad'],
-  'en-AU-WilliamNeural': ['cheerful', 'sad', 'chat'],
-};
-
-const AZURE_VOICES = Object.entries(VOICE_STYLES).map(([id, styles]) => {
-  const labels: Record<string, string> = {
-    'en-GB-SoniaNeural': 'Sonia (British, Female)',
-    'en-GB-RyanNeural': 'Ryan (British, Male)',
-    'en-US-JennyNeural': 'Jenny (US, Female)',
-    'en-US-GuyNeural': 'Guy (US, Male)',
-    'en-AU-NatashaNeural': 'Natasha (Australian, Female)',
-    'en-AU-WilliamNeural': 'William (Australian, Male)',
-  };
-  return { id, label: labels[id] || id, styles };
-});
-
-const EMOTIONS = [
-  { id: 'cheerful', label: 'Cheerful', icon: '😊', color: '#f59e0b' },
-  { id: 'sad', label: 'Sad', icon: '😢', color: '#6366f1' },
-  { id: 'chat', label: 'Chat', icon: '💬', color: '#06b6d4' },
-  { id: 'whispering', label: 'Whispering', icon: '🤫', color: '#a1a1aa' },
-  { id: 'angry', label: 'Angry', icon: '😠', color: '#ef4444' },
-  { id: 'friendly', label: 'Friendly', icon: '🤝', color: '#22c55e' },
-  { id: 'excited', label: 'Excited', icon: '🎉', color: '#a78bfa' },
-  { id: 'hopeful', label: 'Hopeful', icon: '🌟', color: '#60a5fa' },
-  { id: 'shouting', label: 'Shouting', icon: '📢', color: '#dc2626' },
-  { id: 'whisper', label: 'Whisper', icon: '🤫', color: '#a1a1aa' },
-  { id: 'unfriendly', label: 'Unfriendly', icon: '❄', color: '#6b7280' },
-  { id: 'terrified', label: 'Terrified', icon: '😱', color: '#7c3aed' },
-  { id: 'narration', label: 'Narration', icon: '🎙', color: '#8b5cf6' },
-  { id: 'newscast', label: 'Newscast', icon: '📰', color: '#6b7280' },
-  { id: 'customerservice', label: 'Service', icon: '🎧', color: '#f97316' },
+const KOKORO_VOICES = [
+  { id: 'af_heart', label: 'Heart (US Female, warm)', desc: 'Warm, friendly — default' },
+  { id: 'af_bella', label: 'Bella (US Female)', desc: 'Clear, professional' },
+  { id: 'af_nicole', label: 'Nicole (US Female)', desc: 'Bright, cheerful' },
+  { id: 'af_aoede', label: 'Aoede (US Female)', desc: 'Soft, calm' },
+  { id: 'af_kore', label: 'Kore (US Female)', desc: 'Neutral, balanced' },
+  { id: 'am_adam', label: 'Adam (US Male)', desc: 'Deep, authoritative' },
+  { id: 'am_michael', label: 'Michael (US Male)', desc: 'Warm baritone' },
+  { id: 'am_liam', label: 'Liam (US Male)', desc: 'Young, friendly' },
+  { id: 'am_onyx', label: 'Onyx (US Male)', desc: 'Deep, resonant' },
+  { id: 'bf_emma', label: 'Emma (British Female)', desc: 'Refined UK accent' },
+  { id: 'bf_isabella', label: 'Isabella (British Female)', desc: 'Soft UK accent' },
+  { id: 'bm_george', label: 'George (British Male)', desc: 'Proper UK accent' },
+  { id: 'bm_lewis', label: 'Lewis (British Male)', desc: 'Casual UK accent' },
 ];
 
 const TEST_PHRASES = [
-  { label: 'Cheerful greeting', text: "Hi there, thanks for calling! I'm really happy to help you today. Let's get this sorted out quickly.", emotion: 'cheerful' },
-  { label: 'Sad / apologetic', text: "I'm so sorry about this. I understand how frustrating it must be when things don't work as expected.", emotion: 'sad' },
-  { label: 'Chat / casual', text: "Right, let's take a look. Can you tell me what's been happening? I'll do my best to help.", emotion: 'chat' },
-  { label: 'Whispering (Ryan only)', text: "Between you and me, this has been happening a lot lately. I think there's a bigger issue we need to flag.", emotion: 'whispering' },
-  { label: 'Urgent', text: "This is a critical situation. I'm escalating this immediately to our senior engineering team.", emotion: 'excited' },
-  { label: 'Serious', text: "I need you to listen carefully. Do not click any links in that email. This is a security incident.", emotion: 'sad' },
-  { label: 'Warm closing', text: "Is there anything else I can help with? It's been a pleasure assisting you today.", emotion: 'cheerful' },
-  { label: 'Callum intro', text: "Hi, I'm Callum. I can help you manage assessments, review candidates, and suggest training.", emotion: 'cheerful' },
+  { label: 'Greeting', text: "Hello, thanks for calling. How can I help you today? I'm looking forward to resolving your issue." },
+  { label: 'Urgent', text: "This is a critical situation. I'm escalating this immediately to our senior engineering team." },
+  { label: 'Reassuring', text: "Don't worry, I've seen this before. Let me walk you through it step by step." },
+  { label: 'Apologetic', text: "I'm really sorry about the inconvenience. I understand how frustrating this must be." },
+  { label: 'Technical', text: "Can you try opening the settings menu and checking the network status under advanced options?" },
+  { label: 'Callum intro', text: "Hi, I'm Callum. I can help you manage assessments, review candidates, and suggest training." },
+  { label: 'Closing', text: "Is there anything else I can help you with? If not, I'll mark this as resolved." },
+  { label: 'Long sentence', text: "I've checked your account and it looks like there's a temporary issue with the mail server. Let me try a few things to get this working for you." },
 ];
 
 export default function VoiceTestPage() {
-  const [selectedVoice, setSelectedVoice] = useState(AZURE_VOICES[0].id);
-  const [selectedEmotion, setSelectedEmotion] = useState('cheerful');
+  const [selectedVoice, setSelectedVoice] = useState('af_heart');
   const [customText, setCustomText] = useState('');
   const [playing, setPlaying] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  async function play(text: string, emotion: string) {
+  async function play(text: string) {
     if (!text.trim()) return;
     setPlaying(true);
-    const label = `[${emotion}] "${text.slice(0, 40)}..."`;
-    setLogs(prev => [...prev, `▶ ${label}`]);
+    setLogs(prev => [...prev, `▶ "${text.slice(0, 50)}..."`]);
     try {
-      const res = await fetch('/api/mvp/voice-test/tts', {  // we'll create this
+      const res = await fetch('/api/mvp/voice-test/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: text.trim(),
-          azure_voice: selectedVoice,
-          azure_style: emotion,
-          intensity: 3,
-        }),
+        body: JSON.stringify({ text: text.trim(), voice: selectedVoice }),
       });
       if (!res.ok) {
         const errText = await res.text();
@@ -87,7 +57,7 @@ export default function VoiceTestPage() {
         audioRef.current.src = url;
         audioRef.current.play();
       }
-      setLogs(prev => [...prev, `  ✓ Played (${(blob.size / 1024).toFixed(1)}KB)`]);
+      setLogs(prev => [...prev, `  ✓ ${(blob.size / 1024).toFixed(1)}KB`]);
     } catch (e: any) {
       setLogs(prev => [...prev, `  ✗ ${e.message}`]);
     } finally {
@@ -95,50 +65,28 @@ export default function VoiceTestPage() {
     }
   }
 
-  const currentVoice = AZURE_VOICES.find(v => v.id === selectedVoice);
-  const availableStyles = currentVoice?.styles || [];
-
   return (
     <div style={{ padding: '24px 32px', maxWidth: 800, margin: '0 auto' }}>
       <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Callum Voice Lab</div>
-      <div style={{ fontSize: 12, color: '#52525b', marginBottom: 24 }}>Test Azure TTS voices, emotions, and sample phrases</div>
+      <div style={{ fontSize: 12, color: '#52525b', marginBottom: 24 }}>Test Kokoro TTS voices with sample phrases</div>
 
       {/* Voice selector */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 11, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Voice</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {AZURE_VOICES.map(v => (
+          {KOKORO_VOICES.map(v => (
             <button key={v.id} onClick={() => setSelectedVoice(v.id)} style={{
               padding: '6px 14px', borderRadius: 8, cursor: 'pointer', border: '1px solid',
-              fontSize: 12, transition: 'all 0.15s',
+              fontSize: 12, transition: 'all 0.15s', textAlign: 'left',
               background: selectedVoice === v.id ? 'rgba(0,75,141,0.2)' : 'rgba(255,255,255,0.04)',
               borderColor: selectedVoice === v.id ? 'rgba(0,75,141,0.3)' : 'rgba(255,255,255,0.06)',
               color: selectedVoice === v.id ? '#60a5fa' : '#a1a1aa',
               fontWeight: selectedVoice === v.id ? 600 : 400,
-            }}>{v.label}</button>
+            }}>
+              <div>{v.label}</div>
+              <div style={{ fontSize: 10, opacity: 0.6 }}>{v.desc}</div>
+            </button>
           ))}
-        </div>
-      </div>
-
-      {/* Emotion grid */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 11, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Emotion / Style {!availableStyles.includes(selectedEmotion) && <span style={{ color: '#f59e0b' }}>(not all voices support this style)</span>}</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {EMOTIONS.map(e => {
-            const supported = availableStyles.includes(e.id);
-            return (
-              <button key={e.id} onClick={() => setSelectedEmotion(e.id)} style={{
-                padding: '6px 12px', borderRadius: 8, cursor: supported ? 'pointer' : 'not-allowed',
-                border: '1px solid', fontSize: 12, transition: 'all 0.15s', opacity: supported ? 1 : 0.3,
-                background: selectedEmotion === e.id ? `${e.color}22` : 'rgba(255,255,255,0.04)',
-                borderColor: selectedEmotion === e.id ? e.color : 'rgba(255,255,255,0.06)',
-                color: selectedEmotion === e.id ? e.color : '#a1a1aa',
-                fontWeight: selectedEmotion === e.id ? 600 : 400,
-              }}>
-                {e.icon} {e.label}
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -154,11 +102,10 @@ export default function VoiceTestPage() {
             }}>
               <span style={{
                 padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap',
-                background: `${EMOTIONS.find(e => e.id === (p.emotion))?.color}22` || 'rgba(255,255,255,0.04)',
-                color: EMOTIONS.find(e => e.id === (p.emotion))?.color || '#a1a1aa',
+                background: 'rgba(96,165,250,0.15)', color: '#60a5fa',
               }}>{p.label}</span>
               <span style={{ flex: 1, fontSize: 12, color: '#a1a1aa', lineHeight: 1.4 }}>{p.text}</span>
-              <button onClick={() => play(p.text, p.emotion)} disabled={playing} style={{
+              <button onClick={() => play(p.text)} disabled={playing} style={{
                 padding: '4px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.06)',
                 background: 'rgba(255,255,255,0.04)', color: '#e4e4e7', cursor: 'pointer', fontSize: 12, flexShrink: 0,
               }}>▶ Play</button>
@@ -182,7 +129,7 @@ export default function VoiceTestPage() {
               outline: 'none', resize: 'vertical',
             }}
           />
-          <button onClick={() => play(customText, selectedEmotion)} disabled={!customText.trim() || playing} style={{
+          <button onClick={() => play(customText)} disabled={!customText.trim() || playing} style={{
             padding: '8px 20px', borderRadius: 8, border: 'none',
             background: customText.trim() && !playing ? '#004b8d' : 'rgba(255,255,255,0.06)',
             color: '#fff', cursor: customText.trim() && !playing ? 'pointer' : 'default', fontSize: 13, fontWeight: 600, alignSelf: 'flex-end',
