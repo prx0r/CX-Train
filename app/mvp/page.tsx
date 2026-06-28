@@ -2,45 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import ManagerShell from '@/components/mvp/ManagerShell';
-import ItsmStatsCards from '@/components/mvp/itsm/ItsmStatsCards';
-import ItsmTicketTable from '@/components/mvp/itsm/ItsmTicketTable';
 
 type AssignmentType = 'hiring_exam' | 'training_drill' | 'training_shift';
-
-interface AssignmentCard {
-  type: AssignmentType;
-  label: string;
-  description: string;
-  enabled: boolean;
-  comingSoon?: boolean;
-}
-
-const ASSIGNMENT_CARDS: AssignmentCard[] = [
-  {
-    type: 'hiring_exam',
-    label: 'Hiring Exam',
-    description: 'Best for candidates or new starters. One controlled call and ticket.',
-    enabled: true,
-  },
-  {
-    type: 'training_drill',
-    label: 'Training Drill',
-    description: 'Best for practising one ticket type. One simulated ticket/call with optional remote tools.',
-    enabled: true,
-  },
-  {
-    type: 'training_shift',
-    label: 'Training Shift',
-    description: 'Coming soon. Simulated queue across a time block.',
-    enabled: false,
-    comingSoon: true,
-  },
-];
-
-interface PackOption {
-  id: string;
-  title: string;
-}
 
 interface Assessment {
   id: string;
@@ -48,93 +11,19 @@ interface Assessment {
   candidate_name: string;
   status: string;
   created_at: string;
-  overall_score?: number;
-  assessment_mode?: string;
-  assignment_type?: string;
+  assignment_type: string;
 }
 
-export default function MvpDashboard() {
+export default function DashboardPage() {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedType, setSelectedType] = useState<AssignmentType | null>(null);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [drillPacks, setDrillPacks] = useState<PackOption[]>([]);
-  const [drillPack, setDrillPack] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [inviteUrl, setInviteUrl] = useState('');
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  async function loadAssessments() {
-    try {
-      const res = await fetch('/api/mvp/assessments');
-      const data = await res.json();
-      setAssessments(data.assessments || []);
-    } catch { console.error('Failed to load assessments'); }
-  }
-
-  async function loadPacks() {
-    try {
-      const res = await fetch('/api/mvp/packs');
-      const data = await res.json();
-      if (data.packs && data.packs.length > 0) {
-        setDrillPacks(data.packs);
-        setDrillPack(data.packs[0].id);
-      }
-    } catch { console.error('Failed to load packs'); }
-  }
-
-  useEffect(() => { loadAssessments(); loadPacks(); }, []);
-
-  function handleSelectType(type: AssignmentType) {
-    if (!ASSIGNMENT_CARDS.find(c => c.type === type)?.enabled) return;
-    setSelectedType(type);
-    setInviteUrl('');
-    setError('');
-  }
-
-  function handleBack() {
-    setSelectedType(null);
-    setShowCreate(false);
-    setInviteUrl('');
-    setError('');
-  }
-
-  async function createAssessment() {
-    if (!name.trim()) return;
-    setCreating(true);
-    setError('');
-    setInviteUrl('');
-    try {
-      const body: Record<string, unknown> = {
-        candidate_name: name,
-        candidate_email: email || null,
-        assignmentType: selectedType,
-      };
-      if (selectedType === 'training_drill') {
-        body.assessmentPackId = drillPack;
-      }
-      const res = await fetch('/api/mvp/assessments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (data.invite_url) setInviteUrl(data.invite_url);
-      else if (data.error?.code) setError(data.error.code + ': ' + data.error.message);
-      else setError(data.error || 'Failed to create');
-      await loadAssessments();
-    } catch { setError('Failed to create assessment'); }
-    setCreating(false);
-    setName('');
-    setEmail('');
-  }
-
-  function getAssignmentLabel(a: Assessment): string {
-    const at = a.assignment_type || (a.assessment_mode === 'dashboard_sim' ? 'training_drill' : 'hiring_exam');
-    const card = ASSIGNMENT_CARDS.find(c => c.type === at);
-    return card?.label || at;
-  }
+  useEffect(() => {
+    fetch('/api/mvp/assessments')
+      .then(r => r.json())
+      .then(d => { setAssessments(d.assessments || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
 
   const statusCounts = {
     total: assessments.length,
@@ -143,134 +32,148 @@ export default function MvpDashboard() {
     reviewed: assessments.filter(a => a.status === 'reviewed').length,
   };
 
-  function getScore(a: Assessment): number | undefined {
-    return (a as any).overall_score ?? undefined;
-  }
+  const typeCounts = {
+    hiring: assessments.filter(a => a.assignment_type === 'hiring_exam').length,
+    training: assessments.filter(a => a.assignment_type === 'training_drill').length,
+  };
 
-  const ticketRows = assessments.map(a => ({
-    id: a.id,
-    number: `INC${a.id.slice(-6).toUpperCase()}`,
-    priority: a.status === 'analysed' ? 'high' : a.status === 'invited' ? 'low' : 'medium',
-    status: a.status,
-    category: getAssignmentLabel(a),
-    description: `${a.title} [${getAssignmentLabel(a)}]`,
-    assigned: a.candidate_name,
-    updated: a.created_at?.slice(0, 10) || '',
-    score: getScore(a),
-  }));
+  const recentActivity = assessments.slice(0, 5).map(a => {
+    const time = a.created_at?.slice(0, 10) || 'recent';
+    const action = a.status === 'invited' ? 'created' : a.status === 'analysed' ? 'analysed' : 'completed';
+    return { id: a.id, candidate: a.candidate_name, action, time, type: a.assignment_type };
+  });
+
+  const cardStyle: React.CSSProperties = {
+    padding: '16px 20px', borderRadius: 10,
+    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+  };
+
+  const labelStyle: React.CSSProperties = { fontSize: 11, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 };
+  const valueStyle: React.CSSProperties = { fontSize: 24, fontWeight: 700, color: '#e4e4e7' };
 
   return (
     <ManagerShell>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 2 }}>Service Desk</div>
-        <div style={{ fontSize: 12, color: '#525252' }}>Board: Help Desk / New and Active Tickets</div>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#e4e4e7', marginBottom: 4 }}>Dashboard</div>
+        <div style={{ fontSize: 12, color: '#52525b' }}>
+          {loading ? 'Loading...' : `${statusCounts.total} total assessments · ${statusCounts.invited} pending`}
+        </div>
       </div>
 
-      <ItsmStatsCards cards={[
-        { label: 'Total', value: String(statusCounts.total), color: '#111' },
-        { label: 'Pending Review', value: String(statusCounts.invited), color: '#7a4f00' },
-        { label: 'Completed', value: String(statusCounts.completed), color: '#0f5132' },
-        { label: 'Reviewed', value: String(statusCounts.reviewed), color: '#004b8d' },
-      ]} />
-
-      {/* Create Assignment Flow */}
-      <div style={{ background: '#fff', border: '1px solid #9f9f9f', borderRadius: 3, marginBottom: 16 }}>
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid #b8b8b8', background: '#f4f4f4', fontWeight: 700, fontSize: 14, color: '#111' }}>
-          Create Assignment
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <div style={labelStyle}>Total</div>
+          <div style={valueStyle}>{statusCounts.total}</div>
         </div>
-        <div style={{ padding: 14 }}>
-        {!selectedType ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              {ASSIGNMENT_CARDS.map(card => (
-                <button
-                  key={card.type}
-                  onClick={() => card.enabled && handleSelectType(card.type)}
-                  disabled={!card.enabled}
-                  style={{
-                    padding: 14, borderRadius: 3, border: card.enabled ? '1px solid #b8b8b8' : '1px dashed #b8b8b8',
-                    background: card.enabled ? '#f4f4f4' : '#efefef', cursor: card.enabled ? 'pointer' : 'not-allowed',
-                    textAlign: 'left', opacity: card.enabled ? 1 : 0.5, display: 'flex', flexDirection: 'column',
-                  }}
-                  onMouseEnter={e => { if (card.enabled) e.currentTarget.style.background = '#fff'; }}
-                  onMouseLeave={e => { if (card.enabled) e.currentTarget.style.background = '#f4f4f4'; }}
+        <div style={cardStyle}>
+          <div style={labelStyle}>Pending</div>
+          <div style={valueStyle}>{statusCounts.invited}</div>
+        </div>
+        <div style={cardStyle}>
+          <div style={labelStyle}>Completed</div>
+          <div style={{ ...valueStyle, color: '#22c55e' }}>{statusCounts.completed}</div>
+        </div>
+        <div style={cardStyle}>
+          <div style={labelStyle}>Hiring</div>
+          <div style={{ ...valueStyle, color: '#60a5fa' }}>{typeCounts.hiring}</div>
+        </div>
+        <div style={cardStyle}>
+          <div style={labelStyle}>Training</div>
+          <div style={{ ...valueStyle, color: '#a78bfa' }}>{typeCounts.training}</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+        {/* Recent assessments */}
+        <div style={cardStyle}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#e4e4e7', marginBottom: 12 }}>Recent Assessments</div>
+          {loading ? (
+            <div style={{ fontSize: 12, color: '#52525b' }}>Loading...</div>
+          ) : assessments.length === 0 ? (
+            <div style={{ fontSize: 12, color: '#52525b', lineHeight: 1.6 }}>
+              No assessments yet. Ask Callum to create one, or use the chat bar below.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {assessments.slice(0, 8).map(a => (
+                <a key={a.id} href={`/mvp/assessments/${a.id}`} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 10px', borderRadius: 6, textDecoration: 'none', transition: 'background 0.15s',
+                  color: '#e4e4e7', fontSize: 12.5,
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <div style={{ fontWeight: 700, fontSize: 14, color: card.enabled ? '#111' : '#6f6f6f', marginBottom: 6 }}>
-                    {card.label}
-                    {card.comingSoon && (
-                      <span style={{ marginLeft: 8, fontSize: 10, color: '#7a4f00', fontWeight: 600, background: '#f6e8b1', padding: '2px 6px', borderRadius: 2, border: '1px solid #c8b66a' }}>Coming soon</span>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                      background: a.assignment_type === 'hiring_exam' ? 'rgba(96,165,250,0.15)' : 'rgba(167,139,250,0.15)',
+                      color: a.assignment_type === 'hiring_exam' ? '#60a5fa' : '#a78bfa',
+                    }}>{a.assignment_type === 'hiring_exam' ? 'HIRING' : 'DRILL'}</span>
+                    <span>{a.candidate_name}</span>
                   </div>
-                  <div style={{ fontSize: 12, color: '#525252', lineHeight: 1.4 }}>{card.description}</div>
-                </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                      color: a.status === 'analysed' ? '#22c55e' : a.status === 'invited' ? '#f59e0b' : '#71717a',
+                      background: a.status === 'analysed' ? 'rgba(34,197,94,0.1)' : a.status === 'invited' ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.04)',
+                    }}>{a.status}</span>
+                    <span style={{ color: '#52525b', fontSize: 11 }}>{a.created_at?.slice(0, 10)}</span>
+                  </div>
+                </a>
               ))}
             </div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <button
-                onClick={handleBack}
-                style={{ background: 'none', border: 'none', color: '#004b8d', cursor: 'pointer', fontSize: 13, padding: 0, fontWeight: 700 }}
-              >
-                &larr; Back
-              </button>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>
-                Create {ASSIGNMENT_CARDS.find(c => c.type === selectedType)?.label}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Candidate name"
-                style={{ padding: '7px 10px', border: '1px solid #b8b8b8', borderRadius: 3, fontSize: 13, flex: 1, minWidth: 200, color: '#111', background: '#fff' }}
-              />
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="Email (optional)"
-                style={{ padding: '7px 10px', border: '1px solid #b8b8b8', borderRadius: 3, fontSize: 13, flex: 1, minWidth: 200, color: '#111', background: '#fff' }}
-              />
-            </div>
-            {selectedType === 'training_drill' && (
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, color: '#525252', display: 'block', marginBottom: 4, fontWeight: 700 }}>Drill type</label>
-                <select
-                  value={drillPack}
-                  onChange={e => setDrillPack(e.target.value)}
-                  style={{ padding: '7px 10px', border: '1px solid #b8b8b8', borderRadius: 3, fontSize: 13, background: '#fff', color: '#111' }}
-                >
-                  {drillPacks.map(p => (
-                    <option key={p.id} value={p.id}>{p.title}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <button
-              onClick={createAssessment}
-              disabled={creating || !name.trim()}
-              style={{
-                padding: '8px 20px', background: '#111', color: '#fff', border: '1px solid #111',
-                borderRadius: 3, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                opacity: creating || !name.trim() ? 0.45 : 1,
-              }}
-            >
-              {creating ? 'Creating...' : `Create ${ASSIGNMENT_CARDS.find(c => c.type === selectedType)?.label || 'Assignment'}`}
-            </button>
-            {inviteUrl && (
-              <div style={{ marginTop: 12, padding: 10, background: '#e8f3ec', border: '1px solid #8db99b', borderRadius: 3 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f5132', marginBottom: 4 }}>Invite Link Created:</div>
-                <a href={inviteUrl} style={{ fontSize: 13, color: '#004b8d', wordBreak: 'break-all' }}>{inviteUrl}</a>
-              </div>
-            )}
-            {error && <div style={{ marginTop: 8, fontSize: 12, color: '#842029' }}>{error}</div>}
-          </>
-        )}
-      </div>
-      </div>
+          )}
+        </div>
 
-      <ItsmTicketTable tickets={ticketRows} title="Assessment Queue" />
+        {/* Callum suggestions / recent activity */}
+        <div style={cardStyle}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#e4e4e7', marginBottom: 12 }}>Recent Activity</div>
+          {recentActivity.length === 0 ? (
+            <div style={{ fontSize: 12, color: '#52525b', lineHeight: 1.6 }}>
+              No activity yet. Ask Callum to show assessments or suggest next steps.
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Suggestion text="Show me all assessments" />
+                <Suggestion text="Create a new hiring assessment" />
+                <Suggestion text="Which candidates need attention?" />
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {recentActivity.map((a, i) => (
+                <a key={a.id} href={`/mvp/assessments/${a.id}`} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none',
+                  padding: '8px 10px', borderRadius: 6, fontSize: 12.5, transition: 'background 0.15s',
+                  color: '#a1a1aa',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: a.action === 'analysed' ? '#22c55e' : '#f59e0b', flexShrink: 0 }} />
+                  <span><strong style={{ color: '#e4e4e7' }}>{a.candidate}</strong> assessment {a.action}</span>
+                  <span style={{ marginLeft: 'auto', color: '#52525b', fontSize: 11 }}>{a.time}</span>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </ManagerShell>
+  );
+}
+
+function Suggestion({ text }: { text: string }) {
+  return (
+    <button onClick={() => {
+      localStorage.setItem('callum_pending_message', text);
+      window.dispatchEvent(new CustomEvent('callum-send'));
+    }} style={{
+      padding: '8px 12px', borderRadius: 8, textAlign: 'left', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.06)',
+      background: 'rgba(255,255,255,0.03)', color: '#71717a', fontSize: 12, transition: 'background 0.15s',
+    }}
+      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+    >{text}</button>
   );
 }
