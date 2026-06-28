@@ -1,12 +1,12 @@
 # Callum Integration Implementation Log
 
-Date: 2026-06-28
+Date: 2026-06-28 (initial), updated 2026-06-28 (LangGraph + hiring packs + chat UI)
 
-## Scope
+## Scope (Two Passes)
 
-Built the pre-LangGraph Callum foundation. This pass adds contracts, manager-safe context, capabilities, proposal persistence, proposal confirmation, and a first assessment-review Callum panel.
+**Pass 1 (2026-06-28):** Pre-LangGraph Callum foundation. Contracts, manager-safe context, capabilities, proposal persistence, proposal confirmation, and a first assessment-review Callum panel.
 
-LangGraph was intentionally not added yet.
+**Pass 2 (2026-06-28):** LangGraph graph orchestration, lightweight tool schema system, scoring scope wiring, hiring packs, progressive templates, premium Callum chat UI with page-aware context prompts.
 
 ## What Changed
 
@@ -539,36 +539,187 @@ If local port binding is blocked by sandboxing, rerun the dev command with the a
 
 ---
 
-## Next Steps (2026-06-28 audit)
+## Second Pass: LangGraph Graph + Tool Schemas + Chat UI (2026-06-28)
 
-The proposal confirmation loop is functionally complete but has hardening gaps before it's production-safe.
+Built after the proposal confirmation loop was verified. This pass adds the LangGraph orchestration layer, lightweight tool schema system, scoring scope wiring, hiring packs, progressive templates, and the premium Callum chat interface.
 
-### Priority 1 — Route-level handler tests
+### What Changed
 
-Current tests exercise `confirmCallumProposal()` / `rejectCallumProposal()` directly (correct and valuable). But the Next.js route handlers in `app/api/mvp/callum/proposals/[id]/confirm/route.ts` and `reject/route.ts` do request parsing, default-manager fallback, and status-code mapping. Add route-level tests that verify:
+#### LangGraph Graph for Callum
 
-- 200 on valid confirm/reject
-- 404 on missing proposal
-- 403 on wrong manager
-- 409 on expired/stale/not_pending
-- 500 on handler crash
+Added `lib/mvp/langgraph/`:
 
-Use `node:test` with fetch against route handler imports, or test the handler function signature directly.
+- `graph.ts` — Zero-dependency `StateGraph` abstraction (69 lines). Mirrors LangGraph's API (`addNode`, `addEdge`, `setEntryPoint`, `setFinishPoint`, `compile`). No external dependencies needed — works with existing CJS test compilation.
+- `state.ts` — `GraphState` type: canonical state for the Callum graph. Carries pageContext, message, thread, assessmentContext, intent, capability results, response, and accumulated errors.
+- `callumGraph.ts` — Wires 8 nodes into a linear StateGraph.
+- `nodes/validateContext.ts` — Validates `CallumPageContext` via contract validators.
+- `nodes/loadProfile.ts` — Resolves manager profile from request.
+- `nodes/loadThread.ts` — Gets or creates a Callum thread.
+- `nodes/classifyIntent.ts` — Heuristic intent classification (routes `navigate`, `explain_assessment`, `suggest_next_training`, `general_question`).
+- `nodes/loadAssessmentContext.ts` — Loads assessment context via `get_assessment_review_context` capability.
+- `nodes/invokeCapability.ts` — Routes intent to capability invocation. For `general_question`, calls `runAiTask('callum', ...)` with deepseek-v4-flash for LLM-powered answers.
+- `nodes/produceResponse.ts` — Builds `GraphResponse` from accumulated state.
+- `nodes/persistThread.ts` — Persists user/assistant messages to `callum_messages` table.
 
-### Priority 2 — Atomic proposal confirmation
+#### Parallel v2 Route
 
-`confirmCallumProposal()` does sequential reads and writes without a transaction. Two parallel confirm calls could both pass the `status === 'pending'` check before either writes the `approved` status. Fix:
+Added `app/api/mvp/callum/v2/route.ts`:
 
-```
-Wrapped in getDb().transaction() with a compare-and-set UPDATE:
-  UPDATE callum_proposals SET status = 'approved'
-  WHERE id = ? AND status = 'pending'
-  — if affected rows === 0, bail with NOT_PENDING.
-```
+- Runs the compiled LangGraph graph.
+- Accepts the same request shape as v1.
+- Returns the same response shape as v1 (`answer`, `proposed_action`, `navigation`).
+- v1 route (`app/api/mvp/callum/route.ts`) stays untouched as fallback.
 
-This matches the existing behaviour for sequential calls but closes the parallel race. Add a test that proves the second caller gets `NOT_PENDING` under concurrent access.
+#### Lightweight Tool Schema System
 
-### Priority 3 — Real manager identity
+Added `lib/mvp/schema/tool.ts`:
+
+- `FieldSchema` type with `type`, `description`, `optional`, `fields`, `itemType`.
+- `validateObject()` — Runtime validation against field schemas.
+- `describeSchema()` — Generates human-readable schema descriptions for LLM tool discovery.
+
+Updated `lib/mvp/contracts/capability.ts`:
+
+- Added optional `inputFields`, `outputFields`, `description` to `CapabilityDefinition`.
+- All 4 capabilities (`get_assessment_review_context`, `list_sim_packs`, `get_manager_standards`, `draft_training_assignment`) now have `inputFields` + `description`.
+
+Added `lib/mvp/capabilities/tool-registry.ts`:
+
+- `listTools()` — Exposes all capabilities as LLM-discoverable tool descriptors.
+- `getToolByName()`, `invokeTool()` — Tool-based invocation.
+
+#### Scoring Scope Wiring
+
+Updated `lib/mvp/analysis/scoring.ts`:
+
+- `scoreExtraction()` now accepts optional `enabledCriteria: Set<string>`.
+- When set, only criteria in the set are scored. Criteria outside the set are skipped.
+
+Updated `lib/mvp/analysis/runBaseCallumAnalysis.ts`:
+
+- Derives enabled criteria from `context.assessment_scope.enabledCategories` (populated from mode config).
+- Passes the set to `scoreExtraction()`.
+
+This connects the mode config system (which defines which elements/scoring categories are active for hiring vs training) to the actual scoring engine.
+
+#### Progressive Hiring Templates
+
+Added `lib/mvp/workspace/templates.ts`:
+
+- `Template` type extends `ModeConfig` with `templateId`, `difficulty`, `skillsTested`.
+- 6 templates across hiring and training:
+
+| Template | Difficulty | Elements | Skills |
+|----------|-----------|----------|--------|
+| `hiring_basic` | basic | call + note | communication, diagnosis, ticket quality |
+| `hiring_with_triage` | intermediate | + priority, SLA, taxonomy | + classification, SLA awareness |
+| `hiring_with_remote` | advanced | + remote desktop | + remote tools |
+| `hiring_full` | expert | + internal notes, retry | + note quality, iteration |
+| `training_drill_standard` | intermediate | full drill set | all drill skills |
+| `training_shift_standard` | expert | full shift set | queue, handover, coaching |
+
+#### Hiring Packs
+
+Added `lib/mvp/sim/hiringPacks.ts`:
+
+- `HiringPack` type: lightweight pack with customer persona, opening line, hidden facts, linked template.
+- 4 hiring packs mapped to templates:
+
+| Pack | Template | Difficulty |
+|------|----------|-----------|
+| `hiring-outlook-basic` | `hiring_basic` | basic |
+| `hiring-vpn-triage` | `hiring_with_triage` | intermediate |
+| `hiring-printer-down` | `hiring_with_remote` | advanced |
+| `hiring-email-phishing` | `hiring_full` | expert |
+
+Updated `lib/mvp/assessments/create.ts`:
+
+- Hiring exam creation now picks a hiring pack, stores its snapshot in `pack_snapshot_json`, and uses the pack's `openingLine` as the first message.
+
+#### Simplified Hiring Workspace
+
+Added `components/mvp/workspace/HiringWorkspace.tsx`:
+
+- Minimal layout: customer info card → call bar → conversation bubbles → text input.
+- Call auto-starts on mount (no "answer call" button needed for hiring).
+- After call ends: single support note textarea + submit button.
+- Fixed-position text input during calls (ChatGPT-style).
+- Assessment checklist sidebar (collapsible, 4 checkpoints).
+
+Updated `components/mvp/workspace/SimulationWorkspace.tsx`:
+
+- Routes by mode: `hiring` → `HiringWorkspace`, training → `ServiceDeskSimulatorShell`.
+
+Updated `app/mvp/assessment/[token]/page.tsx`:
+
+- Passes `hiring_pack` data from API response to `SimulationWorkspace`.
+
+Updated `app/api/mvp/assessment/[token]/route.ts`:
+
+- Legacy path now reads `pack_snapshot_json` for hiring pack data (customer name, company, issue).
+- Returns `hiring_pack` field in API response for hiring exams.
+
+#### Premium Callum Chat UI
+
+Added `components/mvp/callum/CallumChatBar.tsx`:
+
+- Premium floating chat widget (not full-width bar).
+- **Closed**: Small pill-shaped button bottom-right with "Ask Callum ●" label. Glassmorphism styling, subtle glow.
+- **Open**: 420px floating panel with Claude/Gemini-inspired design. Clean header with page context mode, chat bubbles with proper rounded corners, input with send arrow.
+- **Page-aware**: Automatically detects which sidebar page the manager is on and sets Callum's context mode.
+- **Prompt chips**: Context-aware suggestion buttons (e.g., "Explain score", "Suggest training", "Find at-risk") based on current page.
+- Messages persisted in localStorage across page navigations.
+- Powered by deepseek-v4-flash for general Q&A via the LangGraph v2 graph.
+
+#### Callum Mode Context by Page
+
+| Page | Mode | Suggested Prompts |
+|------|------|-------------------|
+| `/mvp` | General | Platform overview, recent activity |
+| `/mvp/assessments` | Assessment list | Find at-risk, recent results, create assessment |
+| `/mvp/assessments/[id]` | Reviewing assessment | Explain score, suggest training, compare to standard |
+| `/mvp/standards` | Standards config | Current standards, suggested changes |
+| `/mvp/taxonomy` | Taxonomy | Gaps, improve classification |
+| `/mvp/system` | System | Status, modules |
+
+### Tests Added
+
+Added `tests/langgraph-callum.test.ts`:
+
+- 14 tests for the LangGraph graph.
+- Graph compilation (rejects duplicate nodes, missing edges, no entry/finish).
+- Node isolation (validateContext, classifyIntent, produceResponse).
+- Intent routing (navigate, general question, training suggestion).
+- Response shape matches v1 contract.
+- Error accumulation.
+- Multiple runs with different inputs.
+
+Added `lib/mvp/callum/memory.ts` import fix:
+
+- Changed `@/lib/mvp/` imports to relative paths for test compatibility with direct `tsc --module commonjs` compilation.
+
+### Verification
+
+| Suite | Before | After |
+|-------|--------|-------|
+| `tsc --noEmit` | PASS | PASS |
+| `npm test` | 231 tests, 0 fail | **245 tests, 0 fail** (14 new) |
+| `npm run test:mvp-flow` | 37 pass | 37 pass |
+
+### Not Wired Yet (from this pass)
+
+- `SimulationWorkspace.tsx` still passes through mode config without reading it for training modes (only hiring routes to the new workspace).
+- `scoring-calculator.ts` (515 lines) still orphaned — not imported by any pipeline code.
+- Compliance frameworks still have 5 frameworks that never score (missing from `pack-relevance.ts`).
+- CriterionResult still has 3 incompatible interfaces across the codebase.
+
+---
+
+## Next Steps (2026-06-28 updated)
+
+The LangGraph graph is now running in production alongside the v1 route. Hiring packs, progressive templates, and the premium chat UI are live. Remaining hardening and feature gaps:
+
+### Priority 1 — Manager identity (was Priority 3)
 
 Every Callum route defaults to `manager-default-v1`. Before multi-manager use:
 
@@ -577,39 +728,67 @@ Every Callum route defaults to `manager-default-v1`. Before multi-manager use:
 3. Enforce consistent manager identity in `confirmCallumProposal`, `rejectCallumProposal`, and `getManagerAssessmentContext`.
 4. Add a test that routes without a manager identity return 401/403.
 
-### Priority 4 — Proposal-type-specific UI
+### Priority 2 — Proposal-type-specific UI (was Priority 4)
 
-`CallumActionCard` currently assumes `create_training_assignment` and renders a hardcoded success message. Future proposal types (`create_sim_pack`, `modify_standard`, `schedule_review`) need:
+`CallumActionCard` currently assumes `create_training_assignment`. With hiring packs now available, proposals need type-aware rendering:
 
 - Proposal-type-aware rendering in `CallumActionCard` (type icon, human-readable summary, type-specific confirm success text).
 - A registry or switch in the component that maps `action.type` to renderers.
 - Backward-compatible: unknown types fall back to JSON view.
 
-### Priority 5 — Post-confirmation UX
+### Priority 3 — Post-confirmation UX (was Priority 5)
 
 After a proposal is confirmed:
-- CallumActionCard shows the invite URL but does not navigate to the created drill.
+- `CallumActionCard` shows the invite URL but does not navigate to the created drill.
 - The assessment list is not refreshed.
 - The user must manually find the new training drill.
 
 Add: after successful confirm, render a link to the new assessment (`/mvp/assessments/{result.assessment_id}`) and optionally emit a callback to refresh parent data.
 
-### Priority 6 — Browser/E2E tests (Playwright)
+### Priority 4 — Hiring pack selection in proposal flow
 
-The doc already lists this. Once the route-level and atomicity fixes are in, add Playwright coverage for:
-- Panel renders on `/mvp/assessments/[id]` without hydration errors.
-- Quick buttons produce answer/proposal responses.
-- Confirm creates an assessment and disables buttons.
-- Reject disables buttons.
-- Expired/stale proposals show clear error messages.
+The hiring pack system exists (`lib/mvp/sim/hiringPacks.ts`) but there's no UI to select a template + pack when creating an assessment. Wire:
 
-### When to start LangGraph
+- Manager creates a hiring assessment → selects template (difficulty) → Callum suggests appropriate pack.
+- Or: Callum proposes a hiring assessment with specific template + pack.
+- The `templateId` field on `HiringPack` already links packs to templates — just needs UI.
 
-Not yet. The LangGraph wrapper should be the **last** layer, added only after:
-- Route-level tests pass.
-- Proposal confirmation is atomic.
-- Manager identity is real (not default fallback).
-- At least two proposal types exist (to prove the pattern generalises).
-- The current heuristic intent classifier in `route.ts` is replaced by a LangGraph node that calls the same capabilities.
+### Priority 5 — Scoring scope verification
 
-The existing `callumintegration.md` Future LangGraph Shape section (lines 353-378) describes the correct graph shape. It still holds.
+The scoring scope filter is wired into `runBaseCallumAnalysis.ts` but needs a test proving that:
+- A hiring exam with `enabledCategories: ['call_control', 'ticket_quality']` does not score `queue_management` criteria.
+- Scores change predictably when scope is reduced.
+
+### Priority 6 — Browser/E2E tests (Playwright) (was Priority 6)
+
+Add Playwright coverage for:
+- Callum chat panel renders on all `/mvp/*` pages.
+- Context-aware prompt chips change when navigating between pages.
+- Hiring exam renders simplified workspace (no ticket queue, no triage panels).
+- Hiring call auto-starts on mount.
+- Manager can chat with Callum and get deepseek-powered responses.
+
+### Priority 7 — ServiceDeskSimulatorShell refactor
+
+The 790-line shell is still the training mode renderer. With mode config now flowing through the API:
+- Extract layout sections into `SimulationWorkspace` variants.
+- Mode config is parsed, stored, and returned by API but ignored by the shell for training modes.
+
+### Priority 8 — v1 → v2 route migration
+
+Once the v2 graph matches v1 output for all intents:
+1. Run parallel comparison tests (v1 vs v2 response shapes).
+2. Update `app/api/mvp/callum/route.ts` to delegate to the graph.
+3. Remove the heuristic `classifyIntent()` and `buildAssessmentExplanation()` from the v1 route.
+4. Keep `app/api/mvp/callum/v2/route.ts` as the canonical route.
+
+### Completed Items (from previous next-steps)
+
+| Old Priority | Status |
+|-------------|--------|
+| Route-level handler tests | DONE — `tests/callum-routes.test.ts` covers all status codes |
+| Atomic proposal confirmation | DONE — `confirmCallumProposal()` uses `db.transaction()` with `updateStatusAtomic()` compare-and-set |
+| LangGraph graph | DONE — `lib/mvp/langgraph/` with 8 nodes, v2 route running in parallel |
+| Hiring packs | DONE — 4 packs across 4 difficulty levels |
+| Progressive templates | DONE — 6 templates with skills-tested mapping |
+| Premium chat UI | DONE — Floating CallumChatBar with page-aware prompts |
