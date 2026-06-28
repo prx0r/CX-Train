@@ -64,7 +64,10 @@ lib/
 
 docs/
 ├── ACTIVE_ARCHITECTURE.md      # What is active vs frozen
-└── AGENT_RULES.md              # Rules for building on this repo
+├── AGENT_RULES.md              # Rules for building on this repo
+├── CALLUM_LANGGRAPH_INTEGRATION.md
+├── CALLUM_ANTIFRAGILE_SYSTEM_DESIGN.md
+└── agent-notes/                # Exploratory notes, audits, and handoffs
 ```
 
 ### Database Tables (SQLite, 13 tables)

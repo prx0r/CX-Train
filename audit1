@@ -209,12 +209,12 @@ All legacy Supabase functionality is frozen. The active MVP uses SQLite. Documen
 - `lib/supabase/` — 3 auth helper files
 
 ### Documentation (outdated) — LEGACY/FROZEN
-- `blueprint.md`, `SOURCE_OF_TRUTH.md`, `DEPLOY.md`
-- `WORKING_SETUP.md`, `AGENT_HANDOFF.md`, `PROJECT_AUDIT.md`
-- `FUTURE_INTEGRATIONS.md`, `PROPOSED_CHANGES.md`
+- `docs/agent-notes/blueprint.md`, `SOURCE_OF_TRUTH.md`, `DEPLOY.md`
+- `WORKING_SETUP.md`, `docs/agent-notes/AGENT_HANDOFF.md`, `docs/agent-notes/PROJECT_AUDIT.md`
+- `docs/agent-notes/FUTURE_INTEGRATIONS.md`, `docs/agent-notes/PROPOSED_CHANGES.md`
 - `gptinstructions.md`, `gpt-actions-openapi.yaml`
 - `SETUP.md` (partially updated)
-- `note2.md`, `note3.md`
+- `docs/agent-notes/note2.md`, `docs/agent-notes/note3.md`
 
 ---
 
@@ -230,9 +230,9 @@ All legacy Supabase functionality is frozen. The active MVP uses SQLite. Documen
 | `SETUP.md` | Active production | ❌ Outdated |
 | `SOURCE_OF_TRUTH.md` | Active production | ❌ Outdated |
 | `WORKING_SETUP.md` | Active production | ❌ Outdated |
-| `blueprint.md` | Active production | ❌ Outdated |
-| `note2.md` | Active production | ❌ Outdated (historical) |
-| `note3.md` | Active production | ❌ Outdated (historical) |
+| `docs/agent-notes/blueprint.md` | Active production | ❌ Outdated |
+| `docs/agent-notes/note2.md` | Active production | ❌ Outdated (historical) |
+| `docs/agent-notes/note3.md` | Active production | ❌ Outdated (historical) |
 
 ---
 

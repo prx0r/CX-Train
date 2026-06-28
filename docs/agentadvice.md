@@ -533,7 +533,7 @@ top -bn1 | head -10
 
 ## 14. Build Order (What to Build Next)
 
-Per `nextsteps.md` and current state:
+Per `docs/agent-notes/nextsteps.md` and current state:
 
 ```
 1. Invite lifecycle (expiry, revoke, status tracking)

@@ -21,7 +21,7 @@ The primary AI provider was switched from Chutes AI to OpenRouter free models. T
 - `SETUP.md` - Rewritten for OpenRouter-first setup
 - `LAUNCH_CHECKLIST.md` - Updated env var requirements
 - `DEMO_SCRIPT.md` - Chutes references replaced with OpenRouter
-- `IMPLEMENTATION_PROGRESS.md` - Updated to reflect current state
+- `docs/agent-notes/IMPLEMENTATION_PROGRESS.md` - Updated to reflect current state
 
 ## 3. Which OpenRouter free model(s) were used
 

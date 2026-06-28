@@ -16,7 +16,7 @@ export default async function FutureIdeasPage() {
   if (!user) redirect('/sign-in');
 
   const content = await readFile(
-    path.join(process.cwd(), 'FUTURE_INTEGRATIONS.md'),
+    path.join(process.cwd(), 'docs', 'agent-notes', 'FUTURE_INTEGRATIONS.md'),
     'utf-8'
   );
 

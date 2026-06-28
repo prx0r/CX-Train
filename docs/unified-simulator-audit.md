@@ -22,7 +22,7 @@ Backend also has two modes: `chat_call` and `dashboard_sim`, which the frontend 
 
 ## 2. Mismatch With Intended Vision
 
-The intended vision (from `docs/vision.md`) is:
+The intended vision (from `docs/agent-notes/vision.md`) is:
 
 > One platform with three assignment types. Not three separate tools.
 

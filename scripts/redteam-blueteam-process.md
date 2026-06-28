@@ -33,11 +33,11 @@ The Red Team / Blue Team process is an iterative adversarial testing cycle:
 - Git repo cloned
 - `npm install` completed
 - `npm test` baseline: all tests passing (first time) or note known failures
-- `redteam.md` and `blueteam.md` exist (or create fresh copies)
+- `docs/agent-notes/redteam.md` and `docs/agent-notes/blueteam.md` exist (or create fresh copies)
 
 ### Roles
 - **Red Team Agent:** Adversarial mindset. Finds flaws, proves they're real.
-- **Documenter:** Records findings in `redteam.md`.
+- **Documenter:** Records findings in `docs/agent-notes/redteam.md`.
 
 ### 1.1 Reconnaissance
 
@@ -177,7 +177,7 @@ Fixed code can introduce new bugs. Check:
 ### 3.3 Escalate if Fix Fails
 
 If a fix is incomplete or introduces new issues:
-1. Document what worked and what didn't in `redteam.md`
+1. Document what worked and what didn't in `docs/agent-notes/redteam.md`
 2. Return to BLUE TEAM with specific failure details
 3. BLUE TEAM revises the approach
 4. Iterate
@@ -275,7 +275,7 @@ async function runRedTeam(mode: 'quick' | 'full'): Promise<RedTeamFinding[]> {
 
 ## Red Team Report Template
 
-Add findings to `redteam.md`:
+Add findings to `docs/agent-notes/redteam.md`:
 
 ```markdown
 ### [SEVERITY] Title
@@ -300,7 +300,7 @@ Add findings to `redteam.md`:
 
 ## Blue Team Fix Template
 
-Add fixes to `blueteam.md`:
+Add fixes to `docs/agent-notes/blueteam.md`:
 
 ```markdown
 ### [SEVERITY] Fix Title
@@ -326,20 +326,20 @@ Add fixes to `blueteam.md`:
 ## Quick-Start for New Agents
 
 ### To act as RED TEAM:
-1. Read `redteam.md` — understand current findings
-2. Read `blueteam.md` — understand what was fixed
+1. Read `docs/agent-notes/redteam.md` — understand current findings
+2. Read `docs/agent-notes/blueteam.md` — understand what was fixed
 3. Run `npm test` — establish baseline
 4. For each area in 1.1, read the code and apply the checklist from 1.3
-5. Add new findings to `redteam.md`
+5. Add new findings to `docs/agent-notes/redteam.md`
 6. Return the report
 
 ### To act as BLUE TEAM:
-1. Read `redteam.md` — understand all current findings
-2. Read `blueteam.md` — understand the fix strategy
+1. Read `docs/agent-notes/redteam.md` — understand all current findings
+2. Read `docs/agent-notes/blueteam.md` — understand the fix strategy
 3. For each finding, implement the simplest fix
 4. Run `npm test` after each fix
 5. Add verification tests
-6. Update `blueteam.md` with completed fixes
+6. Update `docs/agent-notes/blueteam.md` with completed fixes
 7. Return the results
 
 ### To iterate:
