@@ -9,6 +9,8 @@ import { getVisibleActions, getVisibleState } from './safeProjection';
 import { buildTimeline } from './timeline';
 import { ScoringConfig } from './scoring';
 import type { SimulatorCapabilities } from '@/lib/mvp/assignment-types';
+import { resolveModeConfigSnapshot, workspaceModeForAssignmentType } from '@/lib/mvp/workspace/modeConfig';
+import type { ModeConfig, WorkspaceMode } from '@/lib/mvp/workspace/types';
 
 export type SimErrorCode = 'NOT_A_SIM_ASSESSMENT' | 'PACK_SNAPSHOT_MISSING' | 'PACK_SNAPSHOT_CORRUPT' | 'PACK_ID_UNKNOWN' | 'SESSION_NOT_FOUND';
 
@@ -33,8 +35,10 @@ export interface SimAssessmentView {
   };
   assignment_runtime: {
     shell: string;
+    mode: WorkspaceMode;
     mode_label: string;
     capabilities: SimulatorCapabilities;
+    mode_config: ModeConfig;
   };
   ticket: {
     id: string;
@@ -140,6 +144,7 @@ export function resolveSimAssessment(token: string): SimAssessmentView {
     : [];
 
   const assignmentType = (assessment.assignment_type as string) || 'training_drill';
+  const modeConfig = resolveModeConfigSnapshot(assignmentType, assessment.mode_config_json as string | null | undefined);
   const modeLabel = assignmentType === 'hiring_exam' ? 'Hiring Exam'
     : assignmentType === 'training_drill' ? 'Training Drill'
     : 'Assessment';
@@ -166,8 +171,10 @@ export function resolveSimAssessment(token: string): SimAssessmentView {
     },
     assignment_runtime: {
       shell: 'service_desk',
+      mode: workspaceModeForAssignmentType(assignmentType),
       mode_label: modeLabel,
       capabilities: snapshot.capabilities,
+      mode_config: modeConfig,
     },
     ticket: ticketData,
     call: {

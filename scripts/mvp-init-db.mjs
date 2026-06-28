@@ -289,6 +289,7 @@ db.exec(`
     `ALTER TABLE assessment_packs ADD COLUMN sim_success_conditions_json TEXT`,
 
     `ALTER TABLE assessments ADD COLUMN assignment_type TEXT NOT NULL DEFAULT 'hiring_exam'`,
+    `ALTER TABLE assessments ADD COLUMN mode_config_json TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }

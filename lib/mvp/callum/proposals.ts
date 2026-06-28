@@ -4,6 +4,14 @@ import { makeId } from '../query';
 import { getManagerAssessmentContext } from '../manager/context';
 import { createMvpAssessment } from '../assessments/create';
 
+function updateStatusAtomic(id: string, fromStatus: string, toStatus: string): boolean {
+  const db = getDb();
+  const result = db.prepare(
+    `UPDATE callum_proposals SET status = ? WHERE id = ? AND status = ?`
+  ).run(toStatus, id, fromStatus);
+  return result.changes > 0;
+}
+
 export const TRAINING_ASSIGNMENT_PROPOSAL_SCHEMA_VERSION = 'training-assignment-proposal-v1';
 
 export interface CreateProposalInput {
@@ -141,12 +149,15 @@ export function rejectCallumProposal(params: {
   if (proposal.managerProfileId !== params.managerProfileId) {
     return { ok: false, code: 'FORBIDDEN', message: 'Proposal belongs to another manager profile', proposal };
   }
-  if (proposal.status !== 'pending') {
-    return { ok: false, code: 'NOT_PENDING', message: `Proposal is already ${proposal.status}`, proposal };
+
+  const updated = updateStatusAtomic(params.proposalId, 'pending', 'rejected');
+  if (!updated) {
+    const current = getCallumProposal(params.proposalId);
+    return { ok: false, code: 'NOT_PENDING', message: `Proposal is already ${current?.status || 'gone'}`, proposal: current || undefined };
   }
 
-  markProposalStatus(proposal.id, 'rejected', { resolved: true });
-  return { ok: true, status: 'rejected', proposal: getCallumProposal(proposal.id)! };
+  markProposalStatus(params.proposalId, 'rejected', { resolved: true });
+  return { ok: true, status: 'rejected', proposal: getCallumProposal(params.proposalId)! };
 }
 
 export function confirmCallumProposal(params: {
@@ -161,11 +172,8 @@ export function confirmCallumProposal(params: {
     return { ok: false, code: 'FORBIDDEN', message: 'Proposal belongs to another manager profile', proposal };
   }
 
-  if (proposal.status !== 'pending') {
-    return { ok: false, code: 'NOT_PENDING', message: `Proposal is already ${proposal.status}`, proposal };
-  }
-
   if (isExpired(proposal)) {
+    updateStatusAtomic(params.proposalId, 'pending', 'expired');
     markProposalStatus(proposal.id, 'expired', { resolved: true });
     return { ok: false, code: 'EXPIRED', message: 'Proposal has expired', proposal: getCallumProposal(proposal.id)! };
   }
@@ -173,6 +181,7 @@ export function confirmCallumProposal(params: {
   if (proposal.sourceContextHash) {
     const currentHash = currentSourceContextHash(proposal);
     if (!currentHash || currentHash !== proposal.sourceContextHash) {
+      updateStatusAtomic(params.proposalId, 'pending', 'stale');
       markProposalStatus(proposal.id, 'stale', {
         validationResult: { valid: false, reason: 'source_context_hash_changed', currentHash },
         resolved: true,
@@ -193,11 +202,19 @@ export function confirmCallumProposal(params: {
 
   const validation = validateTrainingAssignmentPayload(proposal.payload);
   if (!validation.valid) {
+    updateStatusAtomic(params.proposalId, 'pending', 'failed');
     markProposalStatus(proposal.id, 'failed', { validationResult: validation, resolved: true });
     return { ok: false, code: 'INVALID_PAYLOAD', message: validation.errors.join('; '), proposal: getCallumProposal(proposal.id)! };
   }
 
-  try {
+  const db = getDb();
+  const tx = db.transaction(() => {
+    const claimed = updateStatusAtomic(params.proposalId, 'pending', 'approved');
+    if (!claimed) {
+      throw new ProposalRaceError(params.proposalId);
+    }
+    markProposalStatus(params.proposalId, 'approved', { approved: true });
+
     const sourceAssessmentId = proposal.payload.sourceAssessmentId;
     const sourceContext = typeof sourceAssessmentId === 'string'
       ? getManagerAssessmentContext(proposal.managerProfileId, sourceAssessmentId)
@@ -208,7 +225,6 @@ export function confirmCallumProposal(params: {
         ? `${sourceContext.assessment.candidateName} Training`
         : 'Training Candidate';
 
-    markProposalStatus(proposal.id, 'approved', { approved: true });
     const result = createMvpAssessment({
       candidateName,
       candidateEmail: typeof proposal.payload.candidateEmail === 'string' ? proposal.payload.candidateEmail : null,
@@ -217,9 +233,20 @@ export function confirmCallumProposal(params: {
       assessmentPackId: proposal.payload.assessmentPackId as string,
       baseUrl: params.baseUrl,
     });
-    markProposalStatus(proposal.id, 'executed', { executed: true, resolved: true });
+
+    markProposalStatus(params.proposalId, 'executed', { executed: true, resolved: true });
+    return result;
+  });
+
+  try {
+    const result = tx();
     return { ok: true, status: 'executed', proposal: getCallumProposal(proposal.id)!, result };
   } catch (err) {
+    if (err instanceof ProposalRaceError) {
+      const current = getCallumProposal(params.proposalId);
+      return { ok: false, code: 'NOT_PENDING', message: `Proposal is already ${current?.status || 'gone'}`, proposal: current || undefined };
+    }
+    updateStatusAtomic(params.proposalId, 'approved', 'failed');
     markProposalStatus(proposal.id, 'failed', {
       validationResult: { valid: false, reason: err instanceof Error ? err.message : String(err) },
       resolved: true,
@@ -230,5 +257,12 @@ export function confirmCallumProposal(params: {
       message: err instanceof Error ? err.message : String(err),
       proposal: getCallumProposal(proposal.id)!,
     };
+  }
+}
+
+class ProposalRaceError extends Error {
+  constructor(proposalId: string) {
+    super(`Race detected on proposal ${proposalId}: status changed before confirmation`);
+    this.name = 'ProposalRaceError';
   }
 }

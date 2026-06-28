@@ -211,6 +211,7 @@ export function initTables(): void {
 
     // v2 scoring system columns
     `ALTER TABLE assessments ADD COLUMN scoring_snapshot_json TEXT`,
+    `ALTER TABLE assessments ADD COLUMN mode_config_json TEXT`,
     `ALTER TABLE manager_standards ADD COLUMN scoring_overrides_json TEXT`,
     `ALTER TABLE assessment_results ADD COLUMN category_scores_json TEXT`,
     `ALTER TABLE assessment_results ADD COLUMN mandatory_failures_json TEXT`,

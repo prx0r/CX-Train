@@ -11,6 +11,7 @@ import { getCallumProposal, confirmCallumProposal, rejectCallumProposal, createC
 import { createMvpAssessment } from '../lib/mvp/assessments/create';
 import { getManagerAssessmentContext } from '../lib/mvp/manager/context';
 import { getDb } from '../lib/mvp/db';
+import { workspaceModeForAssignmentType } from '../lib/mvp/workspace/modeConfig';
 
 process.env.MVP_SQLITE_PATH = `/tmp/callum-contracts-${process.pid}.db`;
 
@@ -141,6 +142,27 @@ test('Manager context reports data gaps when evidence is missing', () => {
   assert.ok(ctx);
   assert.ok(ctx?.dataGaps.includes('No analysis result is available yet'));
   assert.ok(ctx?.dataGaps.includes('No submitted ticket is available'));
+});
+
+test('Assessment creation stores a frozen workspace mode config snapshot', () => {
+  initTables();
+  const created = createMvpAssessment({
+    candidateName: 'Mode Snapshot',
+    assignmentType: 'hiring_exam',
+    baseUrl: 'http://localhost:3000',
+  });
+
+  const row = getDb().prepare('SELECT assignment_type, mode_config_json FROM assessments WHERE id = ?')
+    .get(created.assessment_id) as { assignment_type: string; mode_config_json: string | null };
+
+  assert.equal(workspaceModeForAssignmentType(row.assignment_type), 'hiring');
+  assert.ok(row.mode_config_json);
+
+  const modeConfig = JSON.parse(row.mode_config_json);
+  assert.equal(modeConfig.mode, 'hiring');
+  assert.equal(modeConfig.layout, 'simple_call');
+  assert.deepEqual(modeConfig.elements, ['call_conversation', 'ticket_note']);
+  assert.ok(modeConfig.scoringScope.disabledCategories.includes('remote_tools'));
 });
 
 test('Confirming a pending training proposal executes assessment creation once', async () => {

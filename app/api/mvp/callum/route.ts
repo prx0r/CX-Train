@@ -4,8 +4,7 @@ import { validateCallumPageContext, type CallumPageContext } from '@/lib/mvp/con
 import { getOrCreateCallumThread, appendCallumMessage } from '@/lib/mvp/callum/memory';
 import { ensureDefaultCapabilitiesRegistered, invokeCapability } from '@/lib/mvp/capabilities';
 import type { ManagerAssessmentContext } from '@/lib/mvp/contracts/assessment';
-
-const DEFAULT_MANAGER_PROFILE_ID = 'manager-default-v1';
+import { getCallumManagerProfile, resolveManagerProfile } from '@/lib/mvp/callum/manager-profile';
 
 type CallumIntent = 'explain_assessment' | 'suggest_next_training' | 'navigate' | 'general_question';
 
@@ -96,7 +95,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'message is required' }, { status: 400 });
     }
 
-    const managerProfileId = body.managerProfileId || DEFAULT_MANAGER_PROFILE_ID;
+    const managerProfileId = resolveManagerProfile(body.managerProfileId || getCallumManagerProfile(request));
     const pageContextResult = body.pageContext
       ? validateCallumPageContext(body.pageContext)
       : { valid: true, data: null, errors: [] as any[] };

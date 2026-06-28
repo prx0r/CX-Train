@@ -16,11 +16,13 @@ import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
 import type { SimulatorCapabilities } from '@/lib/mvp/assignment-types';
 import { DEFAULT_TICKET_TAXONOMY } from '@/lib/mvp/taxonomy/defaultTicketTaxonomy';
 import type { ManagerTicketTaxonomy } from './TicketTriagePanel';
+import type { CustomerMood } from '@/lib/mvp/voice/tts';
+import { useTicketNotes } from './useTicketNotes';
+import { useTicketSubmission } from './useTicketSubmission';
 
 type Message = { role: string; content: string };
 type CallStatus = 'idle' | 'incoming' | 'active' | 'thinking' | 'speaking' | 'recording' | 'ended';
 type Phase = 'not_started' | 'call_active' | 'remote_active' | 'ticketing' | 'submitted';
-type NoteTab = 'internal' | 'live';
 interface SafeAction { id: string; tool: string; label: string; redFlag?: boolean; }
 
 export interface ShellProps {
@@ -39,16 +41,16 @@ const initialTriageState: TicketTriageState = {
 
 export default function ServiceDeskSimulatorShell({ token, assignmentType, capabilities, initialMessages, ticket, initialAnalysis }: ShellProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [internalNotes, setInternalNotes] = useState<string[]>([]);
-  const [liveNotes, setLiveNotes] = useState<string[]>([]);
-  const [noteDraft, setNoteDraft] = useState('');
-  const [activeNoteTab, setActiveNoteTab] = useState<NoteTab>('internal');
+  const {
+    activeNoteTab,
+    internalNotes,
+    liveNotes,
+    noteDraft,
+    postActiveNote: postNoteDraft,
+    setActiveNoteTab,
+    setNoteDraft,
+  } = useTicketNotes();
   const [sending, setSending] = useState(false);
-  const [uncertainties, setUncertainties] = useState('');
-  const [ticketSubmitted, setTicketSubmitted] = useState(false);
-  const [analysing, setAnalysing] = useState(false);
-  const [analysisResults, setAnalysisResults] = useState<CandidateAnalysisResult | null>(null);
-  const [reviewMode, setReviewMode] = useState(false);
   const [error, setError] = useState('');
   const [simData, setSimData] = useState<{ safe_actions: SafeAction[]; visible_state: Record<string, unknown>; phase: string; timeline: unknown[] } | null>(null);
   const [phase, setPhase] = useState<Phase>('not_started');
@@ -67,7 +69,34 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   const ttsEndedAtRef = useRef<number | null>(null);
   const responseStartedAtRef = useRef<number | null>(null);
 
+  const defaultMood = assignmentType === 'hiring_exam' ? 'frustrated' as CustomerMood : 'neutral' as CustomerMood;
+  const [customerMood, setCustomerMood] = useState<CustomerMood>(defaultMood);
+  const [customerIntensity, setCustomerIntensity] = useState<0 | 1 | 2 | 3 | 4 | 5>(
+    assignmentType === 'hiring_exam' ? 3 : 2
+  );
+
   const triageSubmitted = !!triageState.submittedAt;
+  const handleInitialAnalysisLoaded = useCallback(() => {
+    setPhase('ticketing');
+  }, []);
+  const {
+    analysisResults,
+    analysing,
+    reviewMode,
+    setReviewMode,
+    setUncertainties,
+    submitTicket,
+    ticketSubmitted,
+    uncertainties,
+  } = useTicketSubmission({
+    token,
+    ticketTitle: ticket.title,
+    internalNotes,
+    liveNotes,
+    initialAnalysis,
+    onError: setError,
+    onInitialAnalysisLoaded: handleInitialAnalysisLoaded,
+  });
 
   useEffect(() => { setOnPlaying(setTtsPlaying); }, [setOnPlaying]);
 
@@ -98,6 +127,15 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     }
   }, [loadSim, capabilities.remoteDesktop]);
 
+  useEffect(() => {
+    const safeState = simData?.visible_state?.safe_state as { call?: { customerMood?: string } } | undefined;
+    if (safeState?.call?.customerMood) {
+      const simMood = safeState.call.customerMood;
+      if (simMood === 'reassured') setCustomerMood('relieved');
+      else if (simMood === 'neutral' || simMood === 'frustrated') setCustomerMood(simMood as CustomerMood);
+    }
+  }, [simData]);
+
   /* Load ticket taxonomy from uploaded Master Triage Classification, fall back to defaults */
   useEffect(() => {
     fetch('/api/mvp/taxonomy/ticket-taxonomy')
@@ -109,14 +147,6 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
       })
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (initialAnalysis) {
-      setTicketSubmitted(true);
-      setAnalysisResults(initialAnalysis);
-      setPhase('ticketing');
-    }
-  }, [initialAnalysis]);
 
   const showFeedback = (text: string, ok: boolean) => {
     setActionFeedback({ text, ok });
@@ -227,7 +257,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
       if (d.reply) {
         setMessages(p => [...p, { role: 'caller', content: d.reply }]);
         setCallStatus('speaking');
-        speak(d.reply).catch(() => {});
+        speak(d.reply, customerMood, customerIntensity).catch(() => {});
       } else setError(d.error || 'No response');
     } catch { setError('Failed to send message'); }
     setSending(false);
@@ -250,17 +280,14 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
   }
 
   async function postActiveNote() {
-    const text = noteDraft.trim();
-    if (!text) return;
-    if (activeNoteTab === 'internal') {
-      setInternalNotes(p => [...p, text]);
-      await recordUiAction('add_internal_note', 'Post internal note', 'internal_note_posted', text);
-    } else {
-      setLiveNotes(p => [...p, text]);
-      await recordUiAction('add_live_note', 'Post live note', 'live_note_posted', text);
-    }
-    setNoteDraft('');
-    showFeedback(activeNoteTab === 'internal' ? 'Internal note posted' : 'Live note posted', true);
+    const posted = await postNoteDraft(async note => {
+      if (note.tab === 'internal') {
+        await recordUiAction('add_internal_note', 'Post internal note', 'internal_note_posted', note.text);
+      } else {
+        await recordUiAction('add_live_note', 'Post live note', 'live_note_posted', note.text);
+      }
+    });
+    if (posted) showFeedback(posted.tab === 'internal' ? 'Internal note posted' : 'Live note posted', true);
   }
 
   function answerCall() {
@@ -272,7 +299,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     setCallStatus('active');
     setPhase('call_active');
     const msg = initialMessages.find(m => m.role === 'caller');
-    if (msg) setTimeout(() => speak(msg.content).catch(() => {}), 500);
+    if (msg) setTimeout(() => speak(msg.content, customerMood, customerIntensity).catch(() => {}), 500);
   }
 
   function endCall() {
@@ -354,39 +381,6 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
     }
   }, [callStatus, handleTtsEnded]);
 
-  async function submitTicket() {
-    const allNotes = [
-      ...internalNotes.map(n => `[Internal] ${n}`),
-      ...liveNotes.map(n => `[Live] ${n}`),
-    ].join('\n');
-    const ticketContent = allNotes || `Assessment completed — ${ticket.title}`;
-    setAnalysing(true);
-    try {
-      const res = await fetch(`/api/mvp/assessment/${token}/ticket`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticket: ticketContent,
-          uncertainties: uncertainties.trim(),
-          notes: { internal: internalNotes, live: liveNotes },
-        }),
-      });
-      const d = await res.json();
-      if (d.status === 'completed') {
-        setTicketSubmitted(true);
-        if (d.candidate_analysis) {
-          setAnalysisResults(d.candidate_analysis);
-        }
-        setAnalysing(false);
-      } else {
-        setError(d.error || 'Failed to submit ticket');
-        setAnalysing(false);
-      }
-    } catch {
-      setError('Failed to submit ticket');
-      setAnalysing(false);
-    }
-  }
-
   const safeActions = simData?.safe_actions || [];
   const visibleState = simData?.visible_state || {};
   const priorityColor = ticket.severity === 'high' || ticket.severity === 'critical' ? '#842029' : ticket.severity === 'medium' ? '#7a4f00' : '#525252';
@@ -406,7 +400,7 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
         <span style={{ fontSize: 11, color: '#b8b8b8', borderLeft: '1px solid #555', paddingLeft: 12 }}>Service Board: Help Desk</span>
         <div style={{ flex: 1 }} />
         {autoplayBlocked && (
-          <button onClick={() => { const last = [...messages].reverse().find(m => m.role === 'caller'); if (last) speak(last.content).catch(() => {}); }}
+          <button onClick={() => { const last = [...messages].reverse().find(m => m.role === 'caller'); if (last) speak(last.content, customerMood, customerIntensity).catch(() => {}); }}
             style={{ padding: '4px 10px', background: '#f6e8b1', color: '#111', border: '1px solid #c8b66a', borderRadius: 2, fontSize: 11, cursor: 'pointer' }}>
             Play audio
           </button>
@@ -605,6 +599,18 @@ export default function ServiceDeskSimulatorShell({ token, assignmentType, capab
                   >
                     {claimed ? 'Claimed' : 'Claim Ticket'}
                   </button>
+                  {phase === 'call_active' && !capabilities.remoteDesktop && callStatus !== 'ended' && (
+                    <button
+                      onClick={endCall}
+                      style={{
+                        padding: '6px 12px', borderRadius: 3, border: '1px solid #dc2626',
+                        background: '#dc2626', color: '#fff',
+                        fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      End Call
+                    </button>
+                  )}
                   {!triageSubmitted && capabilities.remoteDesktop && (
                     <button
                       onClick={openRemoteDesktop}

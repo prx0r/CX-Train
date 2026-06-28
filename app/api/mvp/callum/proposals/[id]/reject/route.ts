@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initTables } from '@/lib/mvp/db';
 import { rejectCallumProposal } from '@/lib/mvp/callum/proposals';
-
-const DEFAULT_MANAGER_PROFILE_ID = 'manager-default-v1';
+import { getCallumManagerProfile, resolveManagerProfile } from '@/lib/mvp/callum/manager-profile';
 
 export async function POST(
   request: NextRequest,
@@ -12,7 +11,7 @@ export async function POST(
     initTables();
 
     const body = await request.json().catch(() => ({}));
-    const managerProfileId = body.managerProfileId || DEFAULT_MANAGER_PROFILE_ID;
+    const managerProfileId = resolveManagerProfile(body.managerProfileId || getCallumManagerProfile(request));
 
     const result = rejectCallumProposal({
       proposalId: params.id,

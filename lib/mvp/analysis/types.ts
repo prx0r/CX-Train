@@ -1,3 +1,5 @@
+import type { AssessmentScope, ModeConfig, WorkspaceMode } from '../workspace/types';
+
 export type AnalysisType = 'base_callum' | 'callum_for_you' | 'manager_profile_refresh';
 export type AnalysisStatus = 'pending' | 'running' | 'complete' | 'failed';
 export type CriterionStatus = 'pass' | 'partial' | 'fail' | 'not_applicable' | 'not_observed';
@@ -190,6 +192,9 @@ export interface AnalysisContext {
   session_id: string;
   assessment_pack_id: string | null;
   assignment_type?: string;
+  workspace_mode?: WorkspaceMode;
+  mode_config?: ModeConfig;
+  assessment_scope?: AssessmentScope;
   transcript_messages: { role: string; content: string }[];
   transcript_text: string;
   submitted_ticket: string | null;

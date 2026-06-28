@@ -235,7 +235,7 @@ This creates a clean **product ladder**:
 
 ---
 
-## 3. Hiring Mode: The Stripped-Back Screen
+## 5. Hiring Layout Detail
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -298,7 +298,7 @@ Key differences from current `ServiceDeskSimulatorShell`:
 
 ---
 
-## 4. Training Assignment Mode
+## 6. Training Assignment Mode
 
 Similar to the current `ServiceDeskSimulatorShell` for `training_drill` but without the queue:
 
@@ -313,7 +313,7 @@ The difference from the current code is it's now a mode flag instead of a separa
 
 ---
 
-## 5. Training Shift Mode
+## 7. Training Shift Mode
 
 Full queue-based console:
 1. Candidate opens link → sees a service board with several tickets
@@ -325,7 +325,7 @@ Full queue-based console:
 
 ---
 
-## 6. Results Redesign (Same Across All Modes)
+## 8. Results Redesign (Same Across All Modes)
 
 All three modes get the same results component (based on design-a layout):
 
@@ -359,82 +359,6 @@ All three modes get the same results component (based on design-a layout):
 │  📋 Compliance Standards (expandable)                 │
 └──────────────────────────────────────────────────────┘
 ```
-
----
-
-## 7. Implementation Plan
-
-### Step 1: Mode Config + SimulationWorkspace Shell
-
-| File | Action |
-|------|--------|
-| `lib/mvp/workspace/modeConfig.ts` | **CREATE** — Feature flag definitions and MODE_CONFIG |
-| `lib/mvp/workspace/types.ts` | **CREATE** — WorkspaceMode, ModeConfig, NoteStyle, LayoutType types |
-| `components/mvp/workspace/SimulationWorkspace.tsx` | **CREATE** — Main component that reads mode config and renders conditionally |
-| `app/mvp/assessment/[token]/page.tsx` | **MODIFY** — Render `<SimulationWorkspace mode={...} />` based on assignment_type |
-| `app/api/mvp/assessment/[token]/route.ts` | **MODIFY** — Return `mode` in API response so frontend picks the right config |
-| `components/mvp/simulator/ServiceDeskSimulatorShell.tsx` | **REFACTOR** — Break into mode-conditional sections, extract into SimulationWorkspace |
-
-### Step 2: Mode-Specific Layout Sections
-
-| Section | Hiring | Training Assignment | Training Shift |
-|---------|--------|-------------------|----------------|
-| CallBar | Simple status + End Call | Current CallBar | Current CallBar |
-| Queue | Hidden | Hidden | Ticket list |
-| CustomerCard | Pinned at top | In ticket metadata | In ticket metadata |
-| Conversation | Full-width below card | Right column | Right column |
-| NotesArea | Single textarea at bottom | Split internal/live tabs | Split internal/live tabs |
-| TriagePanel | Hidden | Visible | Visible |
-| ToolPanel | Hidden | Remote desktop + apps | Remote desktop + apps |
-| Sidebar | Assessment checklist | Nothing | SLA timer, queue |
-| GuidePanel | Collapsible steps | Hidden | Hidden |
-
-### Step 3: Hiring Mode Implementation
-
-Create the hiring layout by composing existing shared components + new minimal ones:
-
-| Component | Source | Notes |
-|-----------|--------|-------|
-| `CallBar` | Existing `CallBar.tsx` | Show minimal version (status + end call) |
-| `VoiceRecorderButton` | Existing | Show during call |
-| `CustomerAudioPlayer` / `useCustomerAudio` | Existing | Reuse as-is |
-| `CustomerInfoCard` | **NEW** | Shows name, company, issue (from ticket data) |
-| `ConversationArea` | Extract from transcript panel | Full-width, scrollable |
-| `SupportNoteEditor` | **NEW** | Single textarea, no tabs |
-| `AssessmentChecklist` | **NEW** | Collapsible sidebar with 4 checklist items |
-| `submitTicket` flow | Existing | Reuse as-is |
-| `DesignResults` | **NEW** | Client-side design-a results component |
-
-### Step 4: Shared Component Refactoring
-
-| Component | Refactor |
-|-----------|----------|
-| `TicketNotesPanel` | Accept `variant: 'single' \| 'split' \| 'full'` prop |
-| `TicketMetadataPanel` | Accept `showSla`, `showPriority` props |
-| `TicketTriagePanel` | Conditionally render based on `showTaxonomy` |
-| `WorkArea` | Conditionally render caller conversation + tools |
-
-### Step 5: Audio Analysis in Results
-
-| File | Action |
-|------|--------|
-| `lib/mvp/analysis/types.ts` | Add `AudioAnalysisResult`, `DiarizationResult` types |
-| `lib/mvp/analysis/runBaseCallumAnalysis.ts` | Include `audio_analysis_json` in `buildCandidateAnalysis()` output |
-| `lib/mvp/audio/analyzer.ts` | Add `computeAudioGrade()` helper returning qualitative labels |
-| `components/mvp/results/AudioAnalysisCard.tsx` | **CREATE** — Visual audio metrics card |
-
-### Step 6: Scenario Pack for Hiring
-
-| File | Action |
-|------|--------|
-| `lib/mvp/sim/packs/hiring-exam-standard.ts` | **CREATE** — Neutral, domain-agnostic scenario |
-| `lib/mvp/sim/packRegistry.ts` | Register pack |
-| `scripts/mvp-init-db.mjs` | Seed as default for hiring_exam |
-| `lib/mvp/assignment-types.ts` | Wire hiring_exam → standard pack |
-
-### Step 7: Retire ServiceDeskSimulatorShell
-
-Once `SimulationWorkspace` covers all three modes, delete or deprecate `ServiceDeskSimulatorShell.tsx`.
 
 ---
 
@@ -781,3 +705,46 @@ These new categories only apply when their UI element is enabled. The existing s
 | Analysis pipeline | `lib/mvp/analysis/runBaseCallumAnalysis.ts` | Working |
 | Manager review | Manager feedback routes | Working |
 | Callum assistant | `lib/mvp/callum/` | Working |
+
+---
+
+## 15. Refactor Activity Log
+
+### 2026-06-28 — Candidate response foundation
+
+- Started with the low-risk route/contract cleanup before changing the simulator UI.
+- Confirmed the worktree already contains unrelated modified Callum/simulator files and untracked route/test artifacts; these are being left intact.
+- Target for this pass: remove duplicated candidate-analysis loading from `app/api/mvp/assessment/[token]/route.ts` and introduce a typed helper that later workspace code can reuse.
+- Added `lib/mvp/candidate/analysis.ts` to centralize latest result loading, safe JSON parsing, and candidate-safe analysis construction.
+- Refactored `app/api/mvp/assessment/[token]/route.ts` so both legacy and sim response branches reuse the same analysis helper.
+- Verification: `npx tsc --noEmit` passed.
+- Verification: `npm test` passed, 12 test files, 0 failed.
+- Added `components/mvp/simulator/useTicketNotes.ts` and moved note tab/draft/internal/live note state out of `ServiceDeskSimulatorShell`.
+- Rewired `ServiceDeskSimulatorShell` to use the notes hook while preserving the existing note-posted session events and submit payload.
+- Verification: `npx tsc --noEmit` passed after the notes extraction.
+- Verification: `npm test` passed after the notes extraction, 12 test files, 0 failed.
+- Added `components/mvp/simulator/useTicketSubmission.ts` to own uncertainties, analysis state, review mode, and the `/ticket` submit call.
+- Rewired `ServiceDeskSimulatorShell` to use the submission hook while preserving existing submit payload fields and inline results behavior.
+- Verification: `npx tsc --noEmit` passed after the submission extraction.
+- Verification: `npm test` passed after the submission extraction, 12 test files, 0 failed.
+- Added workspace mode primitives in `lib/mvp/workspace/`: `types.ts`, `elementTags.ts`, and `modeConfig.ts`.
+- Added additive `assessments.mode_config_json` migration and updated assessment creation to store a frozen mode config snapshot.
+- Candidate assessment loading now returns mode metadata through `assignment_runtime.mode` and `assignment_runtime.mode_config`, deriving it for old rows and reading the snapshot for new rows.
+- Added a contract test proving assessment creation stores the hiring mode snapshot.
+- Verification: `npx tsc --noEmit` passed after mode config wiring.
+- Verification: `npm test` passed after mode config wiring, 12 test files, 0 failed.
+- Added `components/mvp/workspace/SimulationWorkspace.tsx` as a compatibility wrapper around the existing simulator shell.
+- Updated `app/mvp/assessment/[token]/page.tsx` to render through `SimulationWorkspace` and pass mode metadata, without changing current UI behavior.
+- Verification: `npx tsc --noEmit` passed after introducing the workspace wrapper.
+- Verification: `npm test` passed after introducing the workspace wrapper, 12 test files, 0 failed.
+- Added passive workspace fields to `AnalysisContext`: `workspace_mode`, `mode_config`, and `assessment_scope`.
+- Populated those fields in `buildAssessmentContext()` from the stored mode snapshot, falling back to current mode config for old rows.
+- Scoring and prompts do not consume `assessment_scope` yet; this is plumbing only, so scoring behavior is unchanged.
+- Verification: `npx tsc --noEmit` passed after analysis-context mode plumbing.
+- Verification: first `npm test` attempt failed because the test command compiles `lib/mvp/analysis/types.ts` directly without the `@/` path alias; changed the new type-only import to a relative path.
+- Verification: `npx tsc --noEmit` passed after the import fix.
+- Verification: `npm test` passed after the import fix, 12 test files, 0 failed.
+- Added `lib/mvp/analysis/criteriaRegistry.ts` to centralize category-to-criterion mappings and display labels that were embedded in `runBaseCallumAnalysis.ts`.
+- Updated `runBaseCallumAnalysis.ts` to import category maps and labels from the registry, preserving behavior while giving future scoring-scope work one shared source.
+- Verification: `npx tsc --noEmit` passed after the criteria registry extraction.
+- Verification: `npm test` passed after the criteria registry extraction, 12 test files, 0 failed.

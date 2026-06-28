@@ -55,6 +55,7 @@ export interface AssessmentRow {
   assessment_pack_id?: string;
   assessment_mode?: string;
   assignment_type?: string;
+  mode_config_json?: string | null;
 }
 
 export interface SessionRow {
