@@ -1,6 +1,6 @@
-import { getDb } from '@/lib/mvp/db';
-import { makeId } from '@/lib/mvp/query';
-import type { CallumPageContext } from '@/lib/mvp/contracts/page-context';
+import { getDb } from '../db';
+import { makeId } from '../query';
+import type { CallumPageContext } from '../contracts/page-context';
 
 export interface CallumThread {
   id: string;

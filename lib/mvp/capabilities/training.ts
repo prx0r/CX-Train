@@ -21,6 +21,14 @@ export const draftTrainingAssignmentCapability: CapabilityDefinition<DraftTraini
   requiresConfirmation: false,
   inputSchemaVersion: 'draft-training-assignment-input-v1',
   outputSchemaVersion: TRAINING_ASSIGNMENT_PROPOSAL_SCHEMA_VERSION,
+  description: 'Draft a training assignment proposal based on an assessment result. Creates a pending proposal that requires manager confirmation.',
+  inputFields: {
+    assessmentId: { type: 'string', description: 'The source assessment ID to base training on', optional: true },
+    assessmentPackId: { type: 'string', description: 'Pack ID for the training drill (e.g. pack-outlook-sim-v2)' },
+    rationale: { type: 'string', description: 'Why this training was suggested', optional: true },
+    feedbackEnabled: { type: 'boolean', description: 'Enable in-session feedback during the drill', optional: true },
+    maxAttempts: { type: 'number', description: 'Maximum retry attempts allowed', optional: true },
+  },
   async handler(input, ctx) {
     if (!input?.assessmentPackId) throw new Error('assessmentPackId is required');
     const sourceContext = input.assessmentId

@@ -398,6 +398,8 @@ export function scoreExtraction(params: {
   thresholds?: { ready_min: number; needs_supervision_min: number };
   fundamentals?: { submitted_ticket: boolean; performed_triage: boolean };
   exceptionalServiceScore?: number;
+  /** Optional set of criterion keys to scope scoring to. If omitted, all weighted criteria are scored. */
+  enabledCriteria?: Set<string>;
 }): ScoringResult {
   const weights = params.weights || DEFAULT_WEIGHTS;
   const criteria: NormalizedCriteria = params.criteria && typeof params.criteria === 'object' ? params.criteria : {};
@@ -410,6 +412,7 @@ export function scoreExtraction(params: {
     const weight = weights[key];
     if (weight === undefined) continue;
     if (!criterion || typeof criterion !== 'object') continue;
+    if (params.enabledCriteria && !params.enabledCriteria.has(key)) continue;
     const status = String(criterion.status || 'not_observed').toLowerCase().trim();
     const statusScore = STATUS_SCORES[status] ?? 0;
 

@@ -12,6 +12,7 @@ import { DEFAULT_FRAMEWORKS } from '@/lib/mvp/compliance/frameworks';
 import { runAiTask, parseJsonResponse } from '@/lib/ai/provider';
 import type { EvidenceExtraction, StructuredOutput, DeterministicScore, NarrativeFeedback, RedFlag, FailGateHit } from './types';
 import { RUBRIC_VERSION } from './types';
+import { CATEGORY_CRITERIA_MAP, CATEGORY_LABELS, CRITERION_LABELS } from './criteriaRegistry';
 
 export const MILESTONE_C_VERSION = RUBRIC_VERSION;
 
@@ -161,6 +162,13 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
   /* 0 of 3 = 0pts, 1 of 3 = 2pts, 2 of 3 = 5pts, 3 of 3 = 10pts */
   const exceptionalServiceScore = passedQuality === 3 ? 10 : passedQuality === 2 ? 5 : passedQuality === 1 ? 2 : 0;
 
+  /* Build enabled criteria set from assessment scope (mode config), if present */
+  const enabledCriteria = context.assessment_scope?.enabledCategories
+    ? new Set(context.assessment_scope.enabledCategories.flatMap(
+        (cat: string) => CATEGORY_CRITERIA_MAP[cat] || []
+      ))
+    : undefined;
+
   const scoringResult = scoreExtraction({
     criteria: groundedExtraction.criteria,
     redFlags,
@@ -168,6 +176,7 @@ export async function runBaseCallumAnalysis(assessmentId: string): Promise<{
     thresholds: DEFAULT_THRESHOLDS,
     fundamentals: { submitted_ticket: submittedTicket, performed_triage: performedTriage },
     exceptionalServiceScore,
+    enabledCriteria,
   });
 
   /* Step 2.5: Multi-framework compliance evaluation */
@@ -336,26 +345,6 @@ function collectEvidenceQuotes(extraction: any): string[] {
   return quotes;
 }
 
-/* ── Category mapping: flat criteria → categories ───── */
-
-const CATEGORY_CRITERIA_MAP: Record<string, string[]> = {
-  fundamentals: ['submitted_ticket', 'performed_triage', 'next_steps'],
-  call_control: ['identity_check', 'company_check', 'customer_tone', 'professional_conduct', 'customer_communication'],
-  diagnosis: ['issue_clarification', 'started_when', 'impact', 'urgency', 'scope', 'technical_discovery', 'error_or_status_capture', 'recent_changes'],
-  resolution: ['safety', 'escalation_judgement'],
-  ticket_quality: ['ticket_user_company', 'ticket_issue_summary', 'ticket_impact', 'ticket_urgency', 'ticket_checks_attempted', 'ticket_next_step'],
-  professionalism: ['unsafe_security_behaviour', 'severe_customer_abuse', 'refusal_to_help', 'hallucinated_fix', 'unsafe_advice', 'invented_fix_without_evidence', 'no_troubleshooting'],
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  fundamentals: 'Fundamentals (Required)',
-  call_control: 'Call Control & Communication',
-  diagnosis: 'Diagnosis & Investigation',
-  resolution: 'Resolution & Fix',
-  ticket_quality: 'Ticket Quality',
-  professionalism: 'Professionalism & Safety',
-};
-
 /* ── Candidate-safe analysis summary ─────────────────── */
 
 export interface CandidateAnalysisResult {
@@ -411,40 +400,6 @@ export interface CategoryScoreResult {
     max: number;
   }>;
 }
-
-const CRITERION_LABELS: Record<string, string> = {
-  submitted_ticket: 'Submitted a ticket/closure',
-  performed_triage: 'Performed ticket triage',
-  identity_check: 'Confirmed caller identity',
-  company_check: 'Confirmed company name',
-  customer_tone: 'Professional tone with customer',
-  professional_conduct: 'Professional conduct throughout',
-  customer_communication: 'Clear customer communication',
-  issue_clarification: 'Clarified the issue',
-  started_when: 'Asked when it started',
-  impact: 'Asked about business impact',
-  urgency: 'Asked about urgency/deadline',
-  scope: 'Asked scope (one or many users)',
-  technical_discovery: 'Performed technical discovery',
-  error_or_status_capture: 'Captured error messages or status',
-  recent_changes: 'Asked about recent changes',
-  safety: 'Safety awareness',
-  escalation_judgement: 'Appropriate escalation judgement',
-  next_steps: 'Set clear next steps',
-  ticket_user_company: 'Ticket: user + company',
-  ticket_issue_summary: 'Ticket: issue summary',
-  ticket_impact: 'Ticket: impact noted',
-  ticket_urgency: 'Ticket: urgency noted',
-  ticket_checks_attempted: 'Ticket: checks attempted',
-  ticket_next_step: 'Ticket: next step set',
-  unsafe_security_behaviour: 'Unsafe security behaviour',
-  severe_customer_abuse: 'Severe customer abuse',
-  refusal_to_help: 'Refusal to help',
-  hallucinated_fix: 'Hallucinated a fix',
-  unsafe_advice: 'Gave unsafe advice',
-  invented_fix_without_evidence: 'Invented fix without evidence',
-  no_troubleshooting: 'No troubleshooting performed',
-};
 
 export function buildCandidateAnalysis(analysisData: any, pack?: { diagnosticChecklist?: { id: string; label: string; criteria: string }[] } | null): CandidateAnalysisResult | null {
   if (!analysisData || analysisData.status === 'analysis_failed') return null;

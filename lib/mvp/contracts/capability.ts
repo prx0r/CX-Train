@@ -1,3 +1,5 @@
+import type { FieldSchema } from '../schema/tool';
+
 export const CAPABILITY_CONTRACT_VERSION = 'capability-v1';
 
 export type CapabilityDomain =
@@ -26,6 +28,12 @@ export interface CapabilityDefinition<Input = unknown, Output = unknown> {
   inputSchemaVersion: string;
   outputSchemaVersion: string;
   handler: (input: Input, ctx: CapabilityContext) => Promise<Output>;
+  /** Optional field schemas for LLM tool-calling. Keys are field names. */
+  inputFields?: Record<string, FieldSchema>;
+  /** Optional field schemas for output validation. */
+  outputFields?: Record<string, FieldSchema>;
+  /** Short description for LLM tool selection. */
+  description?: string;
 }
 
 export interface CapabilityInvocationResult {
