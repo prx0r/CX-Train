@@ -128,10 +128,12 @@ export function resolveSimAssessment(token: string): SimAssessmentView {
     throw new SimResolutionError('NOT_A_SIM_ASSESSMENT', 'Assessment not found');
   }
 
-  const packId = assessment.assessment_pack_id as string | null;
-  if (!packId) {
-    throw new SimResolutionError('NOT_A_SIM_ASSESSMENT', 'Assessment has no assessment_pack_id — not a sim assessment');
+  const assignmentType = (assessment.assignment_type as string) || '';
+  /* Hiring exams use assessment_pack_id for customer persona but are not sim assessments */
+  if (!assessment.assessment_pack_id || assignmentType === 'hiring_exam') {
+    throw new SimResolutionError('NOT_A_SIM_ASSESSMENT', 'Assessment has no sim pack — not a sim assessment');
   }
+  const packId = assessment.assessment_pack_id as string;
 
   const snapshot = loadSnapshot(assessment.pack_snapshot_json as string | null | undefined, packId);
 
@@ -143,7 +145,6 @@ export function resolveSimAssessment(token: string): SimAssessmentView {
     ? (db.prepare('SELECT * FROM messages WHERE session_id = ? ORDER BY created_at ASC').all(session.id as string) as Array<Record<string, unknown>>)
     : [];
 
-  const assignmentType = (assessment.assignment_type as string) || 'training_drill';
   const modeConfig = resolveModeConfigSnapshot(assignmentType, assessment.mode_config_json as string | null | undefined);
   const modeLabel = assignmentType === 'hiring_exam' ? 'Hiring Exam'
     : assignmentType === 'training_drill' ? 'Training Drill'
