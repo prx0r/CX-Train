@@ -1,7 +1,7 @@
 # Open Threads — CallCallum / CX-Train
 
 > Everything you're juggling right now. Use this to decide what to focus on next.
-> Last updated: 2026-06-27 (post-sprint)
+> Last updated: 2026-06-28 (handoff audit)
 
 ---
 
