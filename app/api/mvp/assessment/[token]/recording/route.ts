@@ -3,6 +3,8 @@ import { getDb } from '@/lib/mvp/db';
 import { saveRecording, getRecordingStream, deleteRecording } from '@/lib/mvp/audio/recorder';
 import { analyzeAudio } from '@/lib/mvp/audio/analyzer';
 import { runDiarization, diarizationAvailable } from '@/lib/mvp/audio/diarizer';
+import { buildEmotionalTrajectory, buildEmotionalEvidence } from '@/lib/mvp/analysis/emotionalState';
+import { getAssessmentByToken, getSessionByAssessment } from '@/lib/mvp/query';
 
 const MAX_RECORDING_SIZE = 50 * 1024 * 1024;
 
@@ -50,7 +52,25 @@ export async function POST(
       }
     }
 
-    const combined = { ...analysis, diarization };
+    /* Build emotional trajectory from session events */
+    let emotionalTrajectory = null;
+    let emotionalEvidence = null;
+    try {
+      const assessment = getAssessmentByToken(params.token);
+      if (assessment) {
+        const session = getSessionByAssessment(assessment.id);
+        if (session) {
+          emotionalTrajectory = buildEmotionalTrajectory(session.id);
+          if (emotionalTrajectory) {
+            emotionalEvidence = buildEmotionalEvidence(emotionalTrajectory);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Recording] Emotional analysis failed (non-fatal):', err);
+    }
+
+    const combined = { ...analysis, diarization, emotionalTrajectory, emotionalEvidence };
 
     const db = getDb();
     db.prepare(`

@@ -1,25 +1,26 @@
 import { FrameworkDefinition } from '../evaluator';
 
 /**
- * Callum Baseline v1 — Standard Callum Assessment Rubric
+ * Callum Baseline v1.1 — Standard Callum Assessment Rubric
  *
  * This is our internal assessment framework for MSP first-line support readiness.
  * It measures the fundamental behaviours required for effective support call handling:
  * identity verification, issue clarification, diagnosis, ticket documentation,
- * professional conduct, and safe security practices.
+ * professional conduct, safe security practices, and emotional intelligence.
  *
- * Criteria are binary (pass/fail/not_observed) with 22 criteria across
- * 5 categories: fundamentals, call control, diagnosis, resolution, ticket quality.
+ * Criteria are binary (pass/fail/not_observed) with 27 criteria across
+ * 6 categories: fundamentals, call control, diagnosis, resolution, ticket quality,
+ * and emotional intelligence.
  */
 export const CALLUM_BASELINE_V1: FrameworkDefinition = {
   id: 'callum_baseline_v1',
   name: 'Callum Baseline',
-  version: '1.0',
+  version: '1.1',
   type: 'baseline',
   category: 'call_quality',
   passThreshold: 60,
   weight: 1.0,
-  description: 'Standard Callum assessment rubric for MSP first-line support readiness. 22 criteria across fundamentals, call control, diagnosis, resolution, and ticket quality. This is the primary scoring framework for candidate readiness assessment.',
+  description: 'Standard Callum assessment rubric for MSP first-line support readiness. 27 criteria across fundamentals, call control, diagnosis, resolution, ticket quality, and emotional intelligence.',
   standardsAlignments: ['ITIL 4 Incident Management', 'ITIL 4 Service Desk', 'HDI Call Monitoring 4.0'],
   criteria: [
     // ── Fundamentals (Required) ──
@@ -187,6 +188,28 @@ export const CALLUM_BASELINE_V1: FrameworkDefinition = {
       weight: 1, critical: false, category: 'ticket_quality',
       checkType: 'ticket_field', checkTarget: 'next steps', passIf: 'pass_or_partial',
       evidenceDescription: 'The ticket must document what happens next. Assessment: the ticket includes the next action, who is responsible, and the expected timeframe for follow-up.',
+    },
+    // ── Emotional Intelligence ──
+    {
+      id: 'emotional_de_escalation',
+      label: 'De-escalated the caller — Did the candidate successfully calm a frustrated or distressed caller through effective communication and empathy?',
+      weight: 1, critical: false, category: 'emotional_intelligence',
+      checkType: 'ai_criteria', checkTarget: 'emotional_de_escalation', passIf: 'pass_or_partial',
+      evidenceDescription: 'Measures whether the candidate improved the caller\'s emotional state during the call. Assessment criteria: (1) caller started in a negative emotional state (frustrated, angry, panicked, anxious); (2) caller ended in a neutral or positive state (neutral, reassured, relieved); (3) the improvement can be attributed to the candidate\'s communication (empathy, clear next steps, taking ownership). A good example: Caller starts frustrated about a deadline, candidate acknowledges urgency, sets clear expectations, caller ends reassured. A poor example: Caller starts frustrated and ends frustrated or angry — candidate failed to address the emotional aspect.',
+    },
+    {
+      id: 'emotional_empathy_shown',
+      label: 'Showed empathy — Did the candidate acknowledge the caller\'s frustration, urgency, or inconvenience and respond appropriately?',
+      weight: 1, critical: false, category: 'emotional_intelligence',
+      checkType: 'ai_criteria', checkTarget: 'leap_empathize', passIf: 'pass_or_partial',
+      evidenceDescription: 'Measures whether the candidate demonstrated empathy during the interaction. Assessment criteria: (1) acknowledges the caller\'s situation — urgency, frustration, inconvenience; (2) uses empathetic language — "I understand why that would be frustrating", "I can see this is urgent"; (3) does not dismiss or minimize the caller\'s concerns. A good example: "I can hear this is really important to you — let me prioritise getting this sorted." A poor example: Ignoring the caller\'s emotional state entirely or saying "calm down".',
+    },
+    {
+      id: 'emotional_no_escalation',
+      label: 'Did not escalate the situation — Did the candidate avoid making the caller more frustrated, angry, or distressed?',
+      weight: 1, critical: false, category: 'emotional_intelligence',
+      checkType: 'ai_criteria', checkTarget: 'emotional_escalation', passIf: 'not_fail',
+      evidenceDescription: 'Measures whether the candidate\'s actions caused the caller to become more distressed. Assessment criteria: (1) candidate did not dismiss the caller\'s concerns; (2) did not argue with the caller about the issue; (3) did not use language that would frustrate the caller further; (4) did not put the caller on hold excessively without explanation. A good example: Candidate handles the call professionally even when the caller is frustrated. A poor example: Candidate argues with the caller, dismisses the issue, or causes the caller to escalate from frustrated to angry.',
     },
   ],
 };
