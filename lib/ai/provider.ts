@@ -132,7 +132,7 @@ async function attemptRequest(
 }
 
 export async function runAiTask(
-  task: 'caller' | 'evaluator' | 'ticket' | 'report',
+  task: 'caller' | 'evaluator' | 'ticket' | 'report' | 'callum',
   opts: RunAiTaskOptions
 ): Promise<RunAiTaskResult> {
   const start = Date.now();

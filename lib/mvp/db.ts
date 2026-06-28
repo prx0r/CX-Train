@@ -367,6 +367,58 @@ export function initTables(): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (feedback_id) REFERENCES manager_feedback(id)
     );
+
+    CREATE TABLE IF NOT EXISTS callum_threads (
+      id TEXT PRIMARY KEY,
+      manager_profile_id TEXT NOT NULL,
+      assessment_id TEXT,
+      page_route TEXT,
+      title TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS callum_messages (
+      id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      metadata_json TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (thread_id) REFERENCES callum_threads(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS callum_proposals (
+      id TEXT PRIMARY KEY,
+      proposal_type TEXT NOT NULL,
+      created_by TEXT NOT NULL DEFAULT 'callum',
+      manager_profile_id TEXT NOT NULL,
+      source_thread_id TEXT,
+      source_context_hash TEXT,
+      payload_schema_version TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      validation_result_json TEXT,
+      expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      approved_at TEXT,
+      executed_at TEXT,
+      resolved_at TEXT,
+      FOREIGN KEY (source_thread_id) REFERENCES callum_threads(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS manager_callum_profiles (
+      id TEXT PRIMARY KEY,
+      manager_profile_id TEXT NOT NULL,
+      assistant_name TEXT NOT NULL DEFAULT 'Callum',
+      tone TEXT NOT NULL DEFAULT 'direct',
+      humour_level TEXT NOT NULL DEFAULT 'low',
+      detail_level TEXT NOT NULL DEFAULT 'normal',
+      feedback_style TEXT NOT NULL DEFAULT 'balanced',
+      custom_instructions TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
 

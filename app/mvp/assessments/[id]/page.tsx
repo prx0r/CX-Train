@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import ManagerShell from '@/components/mvp/ManagerShell';
+import CallumPanel from '@/components/mvp/callum/CallumPanel';
 
 interface Message {
   role: string;
@@ -240,6 +241,20 @@ export default function ManagerDetailPage() {
         <span className="text-gray-500"> &middot; {assignmentLabel}</span>
         {scenario && <span> &middot; Scenario: {scenario.title}</span>}
       </p>
+
+      <CallumPanel
+        pageContext={{
+          route: `/mvp/assessments/${id}`,
+          pageType: 'assessment_review',
+          entity: { type: 'assessment', id },
+          visibleSections: ['score_summary', 'transcript', 'ticket', 'compliance', 'timing'],
+          clientSummary: {
+            heading: 'Assessment review',
+            primaryLabel: assessment.candidate_name,
+            status: assessment.status,
+          },
+        }}
+      />
 
       {/* Invite link */}
       {assessment.invite_token && (
