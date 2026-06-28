@@ -3,6 +3,7 @@ import { getAssessmentReviewContextCapability } from './assessment';
 import { listSimPacksCapability } from './simPack';
 import { getManagerStandardsCapability } from './standards';
 import { draftTrainingAssignmentCapability } from './training';
+import { updateCallumProfileCapability } from './profile';
 
 let registered = false;
 
@@ -12,6 +13,7 @@ export function ensureDefaultCapabilitiesRegistered(): void {
   registerCapability(listSimPacksCapability);
   registerCapability(getManagerStandardsCapability);
   registerCapability(draftTrainingAssignmentCapability);
+  registerCapability(updateCallumProfileCapability);
   registered = true;
 }
 

@@ -1,6 +1,7 @@
 import type { GraphState } from '../state';
 import { invokeCapability as invokeRegisteredCapability } from '../../capabilities';
 import { runAiTask } from '../../../ai/provider';
+import { getOrCreateProfile, buildProfileSystemPrompt } from '../../callum/manager-profile';
 
 function chooseTrainingPack(ctx: any, packs: Array<{ id: string; title: string }>): string {
   if (ctx?.assessment?.assessmentPackId && packs.some(p => p.id === ctx.assessment.assessmentPackId)) {
@@ -19,14 +20,15 @@ export async function invokeCapabilityNode(state: GraphState): Promise<Partial<G
   }
 
   if (state.intent === 'general_question') {
-    const systemPrompt = `You are Callum, an AI training and assessment assistant for a service desk training platform.
+    const profile = getOrCreateProfile(state.managerProfileId);
+    const profilePrompt = buildProfileSystemPrompt(profile);
+    const systemPrompt = `${profilePrompt}
 
-You help managers:
+You help managers with a service desk training platform:
 - Explain assessment results (scores, strengths, weaknesses)
 - Suggest targeted training based on performance
 - Navigate the platform
-
-Keep answers concise and practical. You have access to deepseek-v4-flash for reasoning.
+- Change your own behaviour (tone, detail level, etc.)
 
 ${state.assessmentContext ? `Current assessment context: ${state.assessmentContext.assessment.candidateName} (${state.assessmentContext.result?.readinessLabel || 'no result yet'})` : 'No specific assessment is loaded. Offer general help.'}`;
 
