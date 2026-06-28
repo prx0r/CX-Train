@@ -7,6 +7,7 @@ import { ensureDefaultCapabilitiesRegistered } from '../lib/mvp/capabilities';
 import { buildCallumGraph } from '../lib/mvp/langgraph/callumGraph';
 import type { GraphState } from '../lib/mvp/langgraph/state';
 import { StateGraph } from '../lib/mvp/langgraph/graph';
+import { scoreExtraction, DEFAULT_WEIGHTS } from '../lib/mvp/analysis/scoring';
 
 process.env.MVP_SQLITE_PATH = `/tmp/langgraph-callum-${process.pid}.db`;
 
@@ -191,4 +192,38 @@ test('Graph can run multiple times with different inputs', async () => {
 
   const r2 = await run(baseState({ message: 'hello' }));
   assert.equal(r2.response?.type, 'answer');
+});
+
+test('Scoring scope filter excludes disabled criteria', () => {
+  const allPass = Object.fromEntries(
+    Object.keys(DEFAULT_WEIGHTS).map(key => [key, { status: 'pass', evidence: ['test'] }])
+  );
+
+  const enabledSet = new Set(['identity_check', 'company_check']);
+  const scopedResult = scoreExtraction({ criteria: allPass, redFlags: null, enabledCriteria: enabledSet });
+
+  /* Only 2 criteria should be scored */
+  assert.equal(Object.keys(scopedResult.skillBreakdown).length, 2);
+
+  /* Both scored criteria should be in the enabled set */
+  for (const key of Object.keys(scopedResult.skillBreakdown)) {
+    assert.ok(enabledSet.has(key), `Scored "${key}" should be in enabled set`);
+  }
+
+  /* Disabled criteria should NOT appear in skillBreakdown */
+  assert.equal(scopedResult.skillBreakdown['issue_clarification'], undefined);
+  assert.equal(scopedResult.skillBreakdown['impact'], undefined);
+});
+
+test('Scoring scope with empty set scores zero', () => {
+  const allPass = Object.fromEntries(
+    Object.keys(DEFAULT_WEIGHTS).map(key => [key, { status: 'pass', evidence: ['test'] }])
+  );
+  const result = scoreExtraction({ criteria: allPass, redFlags: null, enabledCriteria: new Set() });
+  assert.equal(result.maxPossibleScore, 0);
+});
+
+test('Scoring scope with empty set does not crash', () => {
+  const result = scoreExtraction({ criteria: {}, redFlags: null, enabledCriteria: new Set() });
+  assert.ok(typeof result.score === 'number');
 });

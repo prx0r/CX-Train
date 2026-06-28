@@ -434,15 +434,20 @@ export function scoreExtraction(params: {
   }
 
   /* Binary: coreEarned = number of passed core criteria (1pt each, partial = 0.5) */
+  /* When enabledCriteria is set, only score the enabled criteria */
+  const enabledWeights = params.enabledCriteria
+    ? Object.fromEntries(Object.entries(weights).filter(([k]) => params.enabledCriteria!.has(k)))
+    : weights;
   const coreEarned = maxPossibleScore > 0
     ? Object.entries(criteria).reduce((sum, [key, c]) => {
         if (weights[key] === undefined) return sum;
+        if (params.enabledCriteria && !params.enabledCriteria.has(key)) return sum;
         const s = String(c?.status || 'not_observed').toLowerCase().trim();
         const score = STATUS_SCORES[s] ?? 0;
         return score === -1 ? sum : sum + score;
       }, 0)
     : 0;
-  const totalCore = Object.keys(weights).length;
+  const totalCore = Object.keys(enabledWeights).length;
 
   /* Exceptional service bonus: up to +10 */
   const bonus = Math.min(10, params.exceptionalServiceScore ?? 0);

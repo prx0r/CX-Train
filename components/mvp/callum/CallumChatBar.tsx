@@ -70,19 +70,56 @@ function getCallumMode(pathname: string): { mode: CallumMode; label: string; pro
       ],
     };
   }
+  if (pathname.startsWith('/mvp/settings')) {
+    return {
+      mode: 'settings',
+      label: 'Settings',
+      prompts: [
+        { label: 'Configuration', prompt: 'What settings are available?' },
+        { label: 'Integration help', prompt: 'How do I integrate with other tools?' },
+      ],
+    };
+  }
+  if (pathname.startsWith('/mvp/people')) {
+    return {
+      mode: 'general',
+      label: 'People / Team',
+      prompts: [
+        { label: 'Team overview', prompt: 'Tell me about the team and their progress.' },
+        { label: 'Skill gaps', prompt: 'What are the common skill gaps in the team?' },
+      ],
+    };
+  }
+  if (pathname.startsWith('/mvp/analytics')) {
+    return {
+      mode: 'general',
+      label: 'Analytics & Reports',
+      prompts: [
+        { label: 'Trends', prompt: 'What are the assessment trends over time?' },
+        { label: 'Top performers', prompt: 'Who are the top performing candidates?' },
+      ],
+    };
+  }
+  /* Dashboard and all other MVP pages */
   return {
     mode: 'general',
     label: 'Dashboard',
     prompts: [
       { label: 'Platform overview', prompt: 'What can I do on this platform?' },
-      { label: 'Recent activity', prompt: 'What happened recently?' },
-      { label: 'Help me start', prompt: 'I\'m new here — walk me through the platform.' },
+      { label: 'Recent activity', prompt: 'What happened recently on the platform?' },
+      { label: 'Help me start', prompt: 'I\'m new here — walk me through the key features.' },
     ],
   };
 }
 
 export default function CallumChatBar() {
   const pathname = usePathname();
+
+  /* Don't render on candidate assessment pages */
+  if (pathname.startsWith('/mvp/assessment/')) return null;
+  /* Don't render on login or non-mvp pages */
+  if (!pathname.startsWith('/mvp')) return null;
+
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try { return JSON.parse(localStorage.getItem('callum_messages') || '[]'); } catch { return []; }
