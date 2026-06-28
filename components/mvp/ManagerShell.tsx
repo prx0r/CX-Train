@@ -1,13 +1,8 @@
-import ItsmSidebar from './itsm/ItsmSidebar';
-
 export default function ManagerShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen" style={{ background: '#dcdcdc' }}>
-      <ItsmSidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-6xl mx-auto p-4 md:p-6" style={{ color: '#111' }}>
-          {children}
-        </div>
+    <div style={{ background: '#0d0d0f', minHeight: '100vh' }}>
+      <main className="max-w-6xl mx-auto p-4 md:p-6" style={{ color: '#e4e4e7' }}>
+        {children}
       </main>
     </div>
   );
