@@ -536,3 +536,80 @@ MVP_SQLITE_PATH=/tmp/callum-manual-verify.db AI_PROVIDER=mock NEXT_PUBLIC_APP_UR
 ```
 
 If local port binding is blocked by sandboxing, rerun the dev command with the approved escalation flow.
+
+---
+
+## Next Steps (2026-06-28 audit)
+
+The proposal confirmation loop is functionally complete but has hardening gaps before it's production-safe.
+
+### Priority 1 — Route-level handler tests
+
+Current tests exercise `confirmCallumProposal()` / `rejectCallumProposal()` directly (correct and valuable). But the Next.js route handlers in `app/api/mvp/callum/proposals/[id]/confirm/route.ts` and `reject/route.ts` do request parsing, default-manager fallback, and status-code mapping. Add route-level tests that verify:
+
+- 200 on valid confirm/reject
+- 404 on missing proposal
+- 403 on wrong manager
+- 409 on expired/stale/not_pending
+- 500 on handler crash
+
+Use `node:test` with fetch against route handler imports, or test the handler function signature directly.
+
+### Priority 2 — Atomic proposal confirmation
+
+`confirmCallumProposal()` does sequential reads and writes without a transaction. Two parallel confirm calls could both pass the `status === 'pending'` check before either writes the `approved` status. Fix:
+
+```
+Wrapped in getDb().transaction() with a compare-and-set UPDATE:
+  UPDATE callum_proposals SET status = 'approved'
+  WHERE id = ? AND status = 'pending'
+  — if affected rows === 0, bail with NOT_PENDING.
+```
+
+This matches the existing behaviour for sequential calls but closes the parallel race. Add a test that proves the second caller gets `NOT_PENDING` under concurrent access.
+
+### Priority 3 — Real manager identity
+
+Every Callum route defaults to `manager-default-v1`. Before multi-manager use:
+
+1. Add a `getCallumManagerProfile(request)` helper that resolves from session/cookie/header.
+2. Remove the `DEFAULT_MANAGER_PROFILE_ID` fallback in Callum routes.
+3. Enforce consistent manager identity in `confirmCallumProposal`, `rejectCallumProposal`, and `getManagerAssessmentContext`.
+4. Add a test that routes without a manager identity return 401/403.
+
+### Priority 4 — Proposal-type-specific UI
+
+`CallumActionCard` currently assumes `create_training_assignment` and renders a hardcoded success message. Future proposal types (`create_sim_pack`, `modify_standard`, `schedule_review`) need:
+
+- Proposal-type-aware rendering in `CallumActionCard` (type icon, human-readable summary, type-specific confirm success text).
+- A registry or switch in the component that maps `action.type` to renderers.
+- Backward-compatible: unknown types fall back to JSON view.
+
+### Priority 5 — Post-confirmation UX
+
+After a proposal is confirmed:
+- CallumActionCard shows the invite URL but does not navigate to the created drill.
+- The assessment list is not refreshed.
+- The user must manually find the new training drill.
+
+Add: after successful confirm, render a link to the new assessment (`/mvp/assessments/{result.assessment_id}`) and optionally emit a callback to refresh parent data.
+
+### Priority 6 — Browser/E2E tests (Playwright)
+
+The doc already lists this. Once the route-level and atomicity fixes are in, add Playwright coverage for:
+- Panel renders on `/mvp/assessments/[id]` without hydration errors.
+- Quick buttons produce answer/proposal responses.
+- Confirm creates an assessment and disables buttons.
+- Reject disables buttons.
+- Expired/stale proposals show clear error messages.
+
+### When to start LangGraph
+
+Not yet. The LangGraph wrapper should be the **last** layer, added only after:
+- Route-level tests pass.
+- Proposal confirmation is atomic.
+- Manager identity is real (not default fallback).
+- At least two proposal types exist (to prove the pattern generalises).
+- The current heuristic intent classifier in `route.ts` is replaced by a LangGraph node that calls the same capabilities.
+
+The existing `callumintegration.md` Future LangGraph Shape section (lines 353-378) describes the correct graph shape. It still holds.
