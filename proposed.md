@@ -5,6 +5,11 @@
 > tool/function means: define schema → add data access → register capability → wire graph node. No
 > duplicated types, no ad-hoc context objects, no silent drift.
 
+> **Review verdict:** Direction approved. Phase 1 (criterion schema consolidation) approved for
+> immediate execution. Phases 2-4 (store layer, domain folders, LangGraph graph) are deferred until
+> the Callum proposal confirmation loop is proven in production. This document is a migration roadmap,
+> not a build ticket. See §12 for the approved order.
+
 ---
 
 ## 1. Motivation
@@ -336,35 +341,52 @@ export const draftTrainingAssignmentTool: ToolDefinition<typeof inputSchema> = {
 
 ---
 
-## 7. Migration Sequence (What to Do First)
+## 7. Migration Sequence (Approved Order)
 
-This is not a big-bang rewrite. It can be done incrementally:
+> **Important:** This is a roadmap, not a single build ticket. Only Phase 1 is approved for
+> immediate execution. Phases 2-4 are deferred until the Callum proposal confirmation flow is
+> proven in production. See §12 for the reasoning.
 
-### Phase 1 — Schema consolidation (no behavior change)
+### Phase 1 — Schema consolidation [APPROVED NOW]
+
+Low risk, high value. Criteria definitions are the most duplicated concept across the codebase
+(7+ files). Consolidating them now prevents future drift without touching any product behaviour.
+
 1. Create `lib/mvp/schema/criterion.ts` — extract all criteria definitions into one file
 2. Update `analysis/evidencePrompt.ts` to import from `schema/criterion.ts`
 3. Update `analysis/scoring.ts` to import from `schema/criterion.ts`
 4. Update `analysis/runBaseCallumAnalysis.ts` to import from `schema/criterion.ts`
 5. Remove duplicate definitions from each file
 6. Verify `npm test` still passes (same criteria, same weights, same output)
+7. Run scoring output comparison — confirm before/after scores match
 
-### Phase 2 — Store layer (no behavior change)
+### Phase 2 — Store layer [DEFERRED]
+
+Wait until after:
+- Callum proposal confirmation loop is complete
+- At least one real proposal has been created, confirmed, and executed end-to-end
+- Route-level tests exist for all Callum endpoints
+
 1. Create `lib/mvp/store/loadAssessment.ts` — extract from `manager/context.ts`
-2. Create `lib/mvp/store/loadPack.ts` — extract from `sim/packRegistry.ts` and `sim/resolver.ts`
+2. Create `lib/mvp/store/loadPack.ts` — extract from `sim/packRegistry.ts`
 3. Update callers to import from `store/` instead of `manager/` or `sim/`
 4. Verify `npm test` still passes
 
-### Phase 3 — Domain folders (incremental reorganization)
+### Phase 3 — Domain folders [DEFERRED]
+
+Wait until after Phase 2 is stable for at least one week of active development.
+
 1. Move `compliance/` → `domains/framework/`
 2. Move `sim/` → `domains/sim-pack/`
 3. Move `events/` → `store/loadEvents.ts`
 4. Remove `contracts/` (files move to `schema/`)
 5. Remove `assignment-types.ts` → `assignments/`
-6. Mark `results/scoring-calculator.ts` for removal (orphaned)
+6. Deprecate `results/scoring-calculator.ts` (orphaned, not imported)
 7. Verify `npm test` still passes
 
-### Phase 4 — LangGraph graph (new behavior, old route still works)
-   (Do NOT start until Phases 1-3 are done and stable.)
+### Phase 4 — LangGraph graph [DEFERRED]
+
+Wait until after Phases 1-3 are complete AND the product loop is proven.
 
 1. Create `lib/mvp/schema/graph-state.ts`
 2. Create `lib/mvp/langgraph/state.ts` (re-export with reducers)
@@ -430,3 +452,40 @@ Not everything needs to change. These work well and should be left alone:
 | Tool validation | Hand-written if statements | Zod schemas inferred from type |
 | `as any` casts (estimated) | 50+ | < 10 (at integration boundaries) |
 | LangGraph readiness | None | Full graph with typed nodes and tools |
+
+---
+
+## 12. Review Verdict and Recommended Order
+
+This proposal was reviewed against the current product state. The consensus:
+
+**What the proposal gets right:**
+- The diagnosis of duplicated criterion definitions, overlapping context objects, mixed data access/business logic, and type erosion is accurate.
+- One canonical schema per domain concept is the right long-term architecture.
+- The LangGraph state shape (`GraphState` with partial merges) is sensible.
+- The tool contract (`name`, `description`, `domain`, `access`, `inputSchema`, `handler`) maps well to Callum's existing capability safety model.
+
+**What the proposal gets wrong (ordering):**
+- Phases 2-4 are too disruptive while Callum's basic action loop is unfinished.
+- The product value right now is making Callum's pending proposals safely executable — not reorganising folders.
+- Reorganising around an unproven product loop risks building abstractions that don't fit the actual workflow.
+
+**Approved build order going forward:**
+
+| Step | What | When |
+|---|---|---|
+| 1 | Finish proposal confirm/reject flow | **Now** — the product loop |
+| 2 | Add tests for expired/stale/wrong-manager/double-confirm proposals | With step 1 |
+| 3 | Manually verify Callum creates a real training assignment after confirmation | Gate for step 4 |
+| 4 | **Phase 1 only:** Consolidate criterion schema | After step 3 passes |
+| 5 | Re-run tests + compare scoring output before/after | Validate step 4 |
+| 6 | Add LangGraph v2 route in parallel (not replacing v1) | After step 5, if product loop is stable |
+| 7 | Compare v1 and v2 Callum outputs | Validate step 6 |
+| 8 | Only then consider store/domain-folder reorg (Phases 2-3) | If step 7 passes |
+
+**Risk statement:**
+
+> This reorg should not become the next build task wholesale. Use it as the north star.
+> The immediate product task is still making Callum's pending proposals safely executable.
+> Once that works, the schema/store/LangGraph reorg will be much safer because you'll be
+> reorganising around a proven product loop, not an imagined one.
