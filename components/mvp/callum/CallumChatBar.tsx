@@ -61,6 +61,7 @@ function getCallumMode(pathname: string): PageContext {
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/mvp', icon: '≡' },
   { label: 'Assessments', href: '/mvp/assessments', icon: '⚠' },
+  { label: 'Voice Lab', href: '/mvp/voice-test', icon: '🎙' },
   { label: 'Standards', href: '/mvp/standards', icon: '⚙' },
   { label: 'Taxonomy', href: '/mvp/taxonomy', icon: '⊞' },
   { label: 'System', href: '/mvp/system', icon: '?' },
