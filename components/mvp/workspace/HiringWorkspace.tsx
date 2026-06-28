@@ -49,8 +49,6 @@ export default function HiringWorkspace({ token, initialMessages, initialAnalysi
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState('');
   const [ttsPlaying, setTtsPlaying] = useState(false);
-  const [sending, setSending] = useState(false);
-  const coachingIndexRef = useRef(0);
 
   const { speak, setOnPlaying, setOnTtsEnd } = useCustomerAudio(token);
   setOnPlaying(setTtsPlaying);
@@ -78,44 +76,18 @@ export default function HiringWorkspace({ token, initialMessages, initialAnalysi
 
   const answerCall = useCallback(async () => {
     setCallStatus('active');
-    setMessages(prev => [...prev, { role: 'system', content: '🔔 Call connected. Customer is speaking...' }]);
-    const res = await fetch(`/api/mvp/assessment/${token}/message`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: 'system', content: '__answer_call__' }),
-    });
-    const d = await res.json();
-    if (d.reply) {
-      setMessages(prev => [...prev, { role: 'caller', content: d.reply }]);
-      speak(d.reply, 'frustrated', 3).catch(() => {});
+    /* The first customer message is already in initialMessages — play it */
+    const firstMsg = messages.find(m => m.role === 'caller');
+    if (firstMsg) {
+      speak(firstMsg.content, 'frustrated', 3).catch(() => {});
     }
-  }, [token, speak]);
+  }, [messages, speak]);
 
   const endCall = useCallback(async () => {
     stopListening();
     setCallStatus('ended');
     setPhase('note');
-    setMessages(prev => [...prev, { role: 'system', content: '📞 Call ended. Write your support note below.' }]);
   }, [stopListening]);
-
-  const handleTextSubmit = useCallback(async () => {
-    const input = document.querySelector('[data-candidate-input]') as HTMLTextAreaElement;
-    const text = input?.value?.trim();
-    if (!text || sending) return;
-    input.value = '';
-    setMessages(prev => [...prev, { role: 'candidate', content: text }]);
-    setSending(true);
-    try {
-      const res = await fetch(`/api/mvp/assessment/${token}/message`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'candidate', content: text }),
-      });
-      const d = await res.json();
-      if (d.reply) {
-        setMessages(prev => [...prev, { role: 'caller', content: d.reply }]);
-        speak(d.reply, 'frustrated', 3).catch(() => {});
-      }
-    } finally { setSending(false); }
-  }, [token, speak, sending]);
 
   const handleSubmitTicket = useCallback(async () => {
     if (!noteText.trim() || analysing) return;
@@ -209,14 +181,7 @@ export default function HiringWorkspace({ token, initialMessages, initialAnalysi
             <div style={{ height: 80 }} />
           </div>
 
-          {callStatus === 'active' && (
-            <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '10px 24px 14px', background: '#1a1a1a', borderTop: '1px solid #2a2a2a' }}>
-              <textarea data-candidate-input placeholder="Type your response..." rows={1}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSubmit(); } }}
-                style={{ width: '100%', padding: '9px 13px', borderRadius: 6, border: '1px solid #333', background: '#0d0d0d', color: '#e8e8e8', fontSize: 13, fontFamily: 'system-ui', resize: 'none', outline: 'none', boxSizing: 'border-box', minHeight: 20 }}
-              />
-            </div>
-          )}
+          {/* Voice-only during call — no text input. Use mic to speak. */}
         </>
       )}
 
