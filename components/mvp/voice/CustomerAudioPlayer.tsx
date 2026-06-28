@@ -28,7 +28,7 @@ export function useCustomerAudio(token: string) {
     };
   }, []);
 
-  const speak = useCallback(async (text: string) => {
+  const speak = useCallback(async (text: string, mood?: string) => {
     /* Stop any current playback */
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -37,10 +37,12 @@ export function useCustomerAudio(token: string) {
     }
 
     try {
+      const body: Record<string, any> = { text };
+      if (mood) body.mood = mood;
       const res = await fetch(`/api/mvp/assessment/${token}/voice/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {

@@ -91,7 +91,14 @@ export function getOutlookWorkOfflinePack(): SimPack {
       role: 'Accounts',
       temperament: 'stressed',
       openingLine: "Hi, this is Sarah from Accounts. Outlook won't send my emails. I really need to get this sorted — I have invoices that need to go out this morning.",
-    },
+      subject: 'Outlook not sending — stuck in Work Offline',
+      gender: 'female',
+      azureVoice: {
+        neutral: { voiceName: 'en-GB-SoniaNeural', style: 'worried', styleDegree: 0.7, rate: '+10%', pitch: '+5%' },
+        frustrated: { voiceName: 'en-GB-SoniaNeural', style: 'angry', styleDegree: 1, rate: '+15%', pitch: '+8%' },
+        reassured: { voiceName: 'en-GB-SoniaNeural', style: 'relieved', styleDegree: 0.6, rate: '-5%', pitch: '-2%' }
+      }
+  },
 
     callerBehavior: {
       archetype: 'direct',

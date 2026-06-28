@@ -14,6 +14,7 @@ export interface PackSnapshot {
     opening_line: string;
     subject: string;
     gender: string;
+    azureVoice?: Record<string, { voiceName: string; style?: string; styleDegree?: number; rate?: string; pitch?: string }>;
   };
 
   hidden_truth: {
@@ -126,6 +127,7 @@ export function buildPackSnapshot(pack: SimPack): PackSnapshot {
       opening_line: pack.customer.openingLine,
       subject: pack.customer.subject || '',
       gender: pack.customer.gender || 'female',
+      azureVoice: pack.customer.azureVoice || undefined,
     },
     hidden_truth: {
       root_cause: pack.hiddenTruth.rootCause,

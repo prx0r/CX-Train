@@ -1,13 +1,26 @@
 import { DEFAULT_TTS_VOICE, MAX_TTS_TEXT_LENGTH } from './types';
 
+export interface AzureTtsConfig {
+  voiceName?: string;
+  style?: string;
+  styleDegree?: number;
+  rate?: string;
+  pitch?: string;
+  role?: string;
+}
+
 /**
  * Synthesize speech from text.
  *
  * Provider priority:
- *   1. Azure Neural TTS (if AZURE_TTS_KEY + AZURE_TTS_REGION are set)
- *   2. OpenRouter TTS (fallback, existing)
+ *   1. Azure Neural TTS (if AZURE_TTS_KEY set)
+ *   2. OpenRouter TTS (fallback)
  */
-export async function synthesizeSpeech(text: string, voice?: string): Promise<ArrayBuffer> {
+export async function synthesizeSpeech(
+  text: string,
+  _voice?: string,
+  azureConfig?: AzureTtsConfig,
+): Promise<ArrayBuffer> {
   if (!text.trim()) {
     throw new Error('Text is required for TTS');
   }
@@ -20,36 +33,48 @@ export async function synthesizeSpeech(text: string, voice?: string): Promise<Ar
   const azureKey = process.env.AZURE_TTS_KEY || process.env.AZURE_API_KEY;
   const azureRegion = process.env.AZURE_TTS_REGION || 'eastus';
   if (azureKey) {
-    return synthesizeAzure(text, azureKey, azureRegion, voice);
+    return synthesizeAzure(text, azureKey, azureRegion, azureConfig);
   }
 
   /* Fallback to OpenRouter */
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   if (openRouterKey) {
-    return synthesizeOpenRouter(text, openRouterKey, voice);
+    return synthesizeOpenRouter(text, openRouterKey, _voice);
   }
 
   throw new Error('No TTS provider configured. Set AZURE_TTS_KEY or OPENROUTER_API_KEY.');
 }
 
 /**
- * Azure Neural TTS via Cognitive Services
+ * Azure Neural TTS via Cognitive Services REST API
+ *
+ * Supports SSML voice styles, prosody, and role-play.
  * Docs: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/rest-text-to-speech
  */
 async function synthesizeAzure(
   text: string,
   apiKey: string,
   region: string,
-  voice?: string,
+  config?: AzureTtsConfig,
 ): Promise<ArrayBuffer> {
-  const voiceName = voice || process.env.AZURE_TTS_VOICE || 'en-GB-SoniaNeural';
+  const voiceName = config?.voiceName || process.env.AZURE_TTS_VOICE || 'en-GB-SoniaNeural';
   const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
 
-  /* Build SSML */
+  /* Build SSML with voice style, prosody, and role */
+  const styleAttr = config?.style ? ` style="${escapeXml(config.style)}"` : '';
+  const styleDegreeAttr = config?.styleDegree ? ` styledegree="${config.styleDegree}"` : '';
+  const roleAttr = config?.role ? ` role="${escapeXml(config.role)}"` : '';
+
+  const rateAttr = config?.rate ? ` rate="${escapeXml(config.rate)}"` : ' rate="medium"';
+  const pitchAttr = config?.pitch ? ` pitch="${escapeXml(config.pitch)}"` : '';
+  const volumeAttr = ' volume="medium"';
+
   const ssml = `<?xml version="1.0" encoding="UTF-8"?>
 <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-GB">
-  <voice name="${voiceName}">
-    <prosody rate="default" pitch="default">${escapeXml(text)}</prosody>
+  <voice name="${escapeXml(voiceName)}"${styleAttr}${styleDegreeAttr}${roleAttr}>
+    <prosody${rateAttr}${pitchAttr}${volumeAttr}>
+      ${escapeXml(text)}
+    </prosody>
   </voice>
 </speak>`;
 
@@ -65,14 +90,14 @@ async function synthesizeAzure(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'unknown');
-    throw new Error(`Azure TTS failed (${response.status}): ${errorText}`);
+    throw new Error(`Azure TTS failed (${response.status}): ${errorText.slice(0, 200)}`);
   }
 
   return response.arrayBuffer();
 }
 
 /**
- * OpenRouter TTS (fallback)
+ * OpenRouter TTS (fallback — Kokoro or other models)
  */
 async function synthesizeOpenRouter(
   text: string,
@@ -80,7 +105,7 @@ async function synthesizeOpenRouter(
   voice?: string,
 ): Promise<ArrayBuffer> {
   const model = process.env.VOICE_TTS_MODEL || 'hexgrad/kokoro-82m';
-  const ttsVoice = voice || process.env.VOICE_TTS_VOICE || 'af_heart';
+  const ttsVoice = voice || process.env.VOICE_TTS_VOICE || DEFAULT_TTS_VOICE;
 
   const response = await fetch('https://openrouter.ai/api/v1/audio/speech', {
     method: 'POST',

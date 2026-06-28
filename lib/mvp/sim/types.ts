@@ -93,12 +93,60 @@ export const SCORING_CATEGORIES: ScoringCategory[] = ['call_control', 'diagnosis
 export type CustomerTemperament = 'calm' | 'stressed' | 'angry' | 'confused';
 export type CustomerMood = 'neutral' | 'frustrated' | 'reassured';
 
+/**
+ * Azure Neural TTS voice style mapping per mood/temperament.
+ * See: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-voice
+ */
+export interface AzureVoiceConfig {
+  /** Azure voice name, e.g. "en-GB-SoniaNeural" */
+  voiceName: string;
+  /** Speaking style: "friendly", "angry", "cheerful", "sad", "worried", "whispering", etc. */
+  style?: string;
+  /** Style degree 0.01–2.0 */
+  styleDegree?: number;
+  /** Speaking rate: "slow", "medium", "fast", or percentage e.g. "+20%" */
+  rate?: string;
+  /** Pitch: "low", "medium", "high", "+5%", "-10Hz", etc. */
+  pitch?: string;
+  /** Volume: "silent", "soft", "medium", "loud", "+20%", etc. */
+  volume?: string;
+  /** Role-play: "YoungAdultFemale", "Middle-agedMale", etc. */
+  role?: string;
+}
+
 export interface SimCustomer {
   name: string;
   company: string;
   role: string;
   temperament: CustomerTemperament;
   openingLine: string;
+  subject?: string;
+  gender?: 'male' | 'female';
+  /** Azure TTS voice config — if not set, defaults are derived from temperament */
+  azureVoice?: Record<CustomerMood, AzureVoiceConfig>;
+}
+
+/** Default Azure voice profiles per temperament × mood combination */
+export function getDefaultAzureVoice(temperament: CustomerTemperament, mood: CustomerMood, gender?: string): AzureVoiceConfig {
+  const female = gender !== 'male';
+  const baseVoice = female ? 'en-GB-SoniaNeural' : 'en-GB-RyanNeural';
+
+  const profiles: Record<string, AzureVoiceConfig> = {
+    'calm_neutral':    { voiceName: baseVoice, style: 'friendly',    styleDegree: 0.5, rate: 'medium',  pitch: '+0%' },
+    'calm_frustrated': { voiceName: baseVoice, style: 'worried',    styleDegree: 0.8, rate: '+5%',    pitch: '+2%' },
+    'calm_reassured':  { voiceName: baseVoice, style: 'cheerful',   styleDegree: 0.6, rate: 'medium',  pitch: '+0%' },
+    'stressed_neutral':    { voiceName: baseVoice, style: 'worried',    styleDegree: 0.7, rate: '+10%',   pitch: '+5%' },
+    'stressed_frustrated': { voiceName: baseVoice, style: 'angry',      styleDegree: 1.0, rate: '+15%',   pitch: '+8%' },
+    'stressed_reassured':  { voiceName: baseVoice, style: 'relieved',   styleDegree: 0.6, rate: '-5%',    pitch: '-2%' },
+    'angry_neutral':    { voiceName: baseVoice, style: 'angry',      styleDegree: 0.8, rate: '+10%',   pitch: '+5%' },
+    'angry_frustrated': { voiceName: baseVoice, style: 'angry',      styleDegree: 1.5, rate: '+20%',   pitch: '+10%' },
+    'angry_reassured':  { voiceName: baseVoice, style: 'calm',       styleDegree: 0.5, rate: 'medium', pitch: '+0%' },
+    'confused_neutral':    { voiceName: baseVoice, style: 'embarrassed', styleDegree: 0.6, rate: 'slow',    pitch: '+0%' },
+    'confused_frustrated': { voiceName: baseVoice, style: 'worried',    styleDegree: 1.0, rate: '+5%',    pitch: '+5%' },
+    'confused_reassured':  { voiceName: baseVoice, style: 'relieved',   styleDegree: 0.5, rate: 'medium', pitch: '-2%' },
+  };
+
+  return profiles[`${temperament}_${mood}`] || profiles['calm_neutral']!;
 }
 
 export type SimErrorCode =

@@ -49,7 +49,14 @@ export function getSharedMailboxAccessPack(): SimPack {
       role: 'Marketing Coordinator',
       temperament: 'calm',
       openingLine: 'Hi, I need to get access to the Marketing shared mailbox. I\'ve just joined the team and need to start responding to campaign enquiries.',
-    },
+      subject: 'Shared mailbox access — marketing@alderlegal.com',
+      gender: 'female',
+      azureVoice: {
+        neutral: { voiceName: "en-GB-SoniaNeural", style: "friendly", styleDegree: 0.5, rate: "medium", pitch: "+0%" },
+        frustrated: { voiceName: "en-GB-SoniaNeural", style: "worried", styleDegree: 0.8, rate: "+5%", pitch: "+2%" },
+        reassured: { voiceName: "en-GB-SoniaNeural", style: "cheerful", styleDegree: 0.6, rate: "medium", pitch: "+0%" }
+      }
+  },
 
     callerBehavior: {
       archetype: 'uncertain',

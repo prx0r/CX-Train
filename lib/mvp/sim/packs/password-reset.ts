@@ -51,6 +51,13 @@ export function getPasswordResetPack(): SimPack {
       role: 'Paralegal',
       temperament: 'stressed',
       openingLine: 'Hi, I think my account is locked or something. I\'ve been trying to log in for the past 20 minutes and it keeps saying "invalid credentials". I\'ve got a deadline in an hour.',
+      subject: 'Account locked — urgent access needed',
+      gender: 'male',
+      azureVoice: {
+        neutral: { voiceName: 'en-GB-SoniaNeural', style: 'worried', styleDegree: 0.7, rate: '+10%', pitch: '+5%' },
+        frustrated: { voiceName: 'en-GB-SoniaNeural', style: 'angry', styleDegree: 1, rate: '+15%', pitch: '+8%' },
+        reassured: { voiceName: 'en-GB-SoniaNeural', style: 'relieved', styleDegree: 0.6, rate: '-5%', pitch: '-2%' },
+      },
     },
 
     callerBehavior: {
