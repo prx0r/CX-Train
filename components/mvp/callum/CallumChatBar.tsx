@@ -70,6 +70,7 @@ const NAV_ITEMS = [
 function ChatBarInner() {
   const pathname = usePathname();
   const router = useRouter();
+  const [hydrated, setHydrated] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try { return JSON.parse(localStorage.getItem('callum_messages') || '[]'); } catch { return []; }
   });
@@ -78,6 +79,8 @@ function ChatBarInner() {
   const msgsEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { label: modeLabel, welcome, prompts } = useMemo(() => getCallumMode(pathname), [pathname]);
+
+  useEffect(() => { setHydrated(true); }, []);
 
   useEffect(() => {
     try { localStorage.setItem('callum_messages', JSON.stringify(messages)); } catch {}
@@ -174,8 +177,8 @@ function ChatBarInner() {
             padding: messages.length > 0 ? '8px 12px 0' : '14px 16px 0',
             display: 'flex', flexDirection: 'column', gap: 4,
           }}>
-            {/* Welcome card when no messages */}
-            {messages.length === 0 && !loading && (
+            {/* Welcome card when no messages (only after hydration to avoid SSR mismatch) */}
+            {hydrated && messages.length === 0 && !loading && (
               <div style={{ animation: 'callumSlide 0.3s ease-out', textAlign: 'center', padding: '4px 8px 10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
                   <img src="/callcallum-logo.png" alt="" style={{ width: 28, height: 28, borderRadius: 6 }} />

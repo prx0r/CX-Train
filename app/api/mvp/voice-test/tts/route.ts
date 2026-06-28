@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { synthesizeSpeech } from '@/lib/mvp/voice/tts';
+import { synthesizeSpeech, resolveAzureStyle, mapMoodToAzureStyle } from '@/lib/mvp/voice/tts';
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,13 +8,19 @@ export async function POST(req: NextRequest) {
     if (!text) return NextResponse.json({ error: 'Missing text' }, { status: 400 });
 
     const azureVoiceName = body.azure_voice || process.env.AZURE_TTS_VOICE || 'en-GB-SoniaNeural';
-    const azureStyle = body.azure_style || undefined;
-    const azureStyleDegree = body.intensity !== undefined ? Number(body.intensity) / 5 : 1.0;
+    const emotion = body.azure_style || 'chat';
+    const intensity: 0 | 1 | 2 | 3 | 4 | 5 = body.intensity ?? 3;
+
+    /* Use the same mood→style mapping as the assessment TTS route */
+    const moodConfig = mapMoodToAzureStyle(emotion as any, intensity);
+    const resolvedStyle = resolveAzureStyle(moodConfig.style, azureVoiceName);
 
     const audio = await synthesizeSpeech(text, undefined, {
       voiceName: azureVoiceName,
-      style: azureStyle,
-      styleDegree: azureStyleDegree,
+      style: resolvedStyle,
+      styleDegree: parseFloat(moodConfig.styleDegree),
+      rate: moodConfig.rate,
+      pitch: moodConfig.pitch,
     });
 
     return new NextResponse(audio, {

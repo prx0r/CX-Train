@@ -132,15 +132,6 @@ export const AZURE_STARTER_VOICES: Record<string, { female: string; male: string
   'en-CA': { female: 'en-CA-ClaraNeural', male: 'en-CA-LiamNeural' },
 };
 
-const STYLE_FALLBACKS: Record<string, string[]> = {
-  angry: ['unfriendly', 'chat'],
-  terrified: ['sad', 'chat'],
-  unfriendly: ['chat'],
-  cheerful: ['friendly', 'chat'],
-  friendly: ['chat'],
-  sad: ['chat'],
-};
-
 /* ── Mappers ── */
 
 export function intensityToStyleDegree(intensity: 0 | 1 | 2 | 3 | 4 | 5): string {
@@ -183,12 +174,48 @@ export function mapMoodToAzureStyle(mood: CustomerMood, intensity: 0 | 1 | 2 | 3
   }
 }
 
+const VOICE_STYLE_MAP: Record<string, string[]> = {
+  'en-GB-SoniaNeural': ['cheerful', 'sad'],
+  'en-GB-RyanNeural': ['cheerful', 'chat', 'whispering', 'sad'],
+  'en-US-JennyNeural': ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'],
+  'en-US-GuyNeural': ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'],
+  'en-AU-NatashaNeural': ['cheerful', 'sad'],
+  'en-AU-WilliamNeural': ['cheerful', 'sad', 'chat'],
+};
+
+const STYLE_FALLBACKS: Record<string, string[]> = {
+  angry: ['unfriendly', 'chat'],
+  terrified: ['sad', 'chat'],
+  unfriendly: ['chat'],
+  cheerful: ['friendly', 'chat'],
+  friendly: ['chat'],
+  sad: ['chat'],
+  excited: ['cheerful', 'chat'],
+  hopeful: ['friendly', 'chat'],
+  shouting: ['angry', 'unfriendly', 'chat'],
+  whisper: ['chat'],
+  newscast: ['narration', 'chat'],
+  customerservice: ['friendly', 'chat'],
+  narration: ['chat'],
+};
+
 export function resolveAzureStyle(style: string | undefined, voiceName: string): string | undefined {
   if (!style) return undefined;
-  /* For now, return the style directly. A voice capabilities check
-     would go here — if the voice doesn't support the style, walk
-     the STYLE_FALLBACKS chain to find one that works. */
-  return style;
+
+  const supportedStyles = VOICE_STYLE_MAP[voiceName];
+  if (supportedStyles?.includes(style)) return style;
+
+  /* Walk fallback chain to find a style the voice supports */
+  const fallbacks = STYLE_FALLBACKS[style];
+  if (fallbacks) {
+    for (const fb of fallbacks) {
+      if (supportedStyles?.includes(fb)) return fb;
+    }
+  }
+
+  /* Ultimate fallback: if the voice supports 'chat', use it. Otherwise omit style. */
+  if (supportedStyles?.includes('chat')) return 'chat';
+  return undefined;
 }
 
 /* ── SSML Builder ── */
@@ -213,7 +240,7 @@ export function buildAzureSsml(req: CustomerVoiceRequest): string {
        xmlns:mstts="https://www.w3.org/2001/mstts"
        xml:lang="${locale}">
   <voice name="${voiceName}">
-    ${inner}
+    ${prosody}
   </voice>
 </speak>`.trim();
 }
@@ -266,14 +293,14 @@ async function synthesizeAzure(
   const inner = style
     ? `<mstts:express-as style="${style}" styledegree="${styleDegree || '1.0'}">${safeText}</mstts:express-as>`
     : safeText;
-  const prosody = `<prosody rate="${rate}" pitch="${pitch}" volume="medium">${inner}</prosody>`;
+  const prosody = `<prosody rate="${rate}" pitch="${pitch}">${inner}</prosody>`;
 
   const ssml = `<speak version="1.0"
        xmlns="http://www.w3.org/2001/10/synthesis"
        xmlns:mstts="https://www.w3.org/2001/mstts"
        xml:lang="en-GB">
   <voice name="${escapeXml(voiceName)}">
-    ${inner}
+    ${prosody}
   </voice>
 </speak>`;
 

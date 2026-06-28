@@ -2,39 +2,54 @@
 
 import { useState, useRef } from 'react';
 
-const AZURE_VOICES = [
-  { id: 'en-GB-SoniaNeural', label: 'Sonia (British, Female)', styles: ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'] },
-  { id: 'en-GB-RyanNeural', label: 'Ryan (British, Male)', styles: ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'] },
-  { id: 'en-US-JennyNeural', label: 'Jenny (US, Female)', styles: ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'] },
-  { id: 'en-US-GuyNeural', label: 'Guy (US, Male)', styles: ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'] },
-  { id: 'en-AU-NatashaNeural', label: 'Natasha (Australian, Female)', styles: ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'] },
-  { id: 'en-AU-WilliamNeural', label: 'William (Australian, Male)', styles: ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'] },
-];
+const VOICE_STYLES: Record<string, string[]> = {
+  'en-GB-SoniaNeural': ['cheerful', 'sad', 'chat'],
+  'en-GB-RyanNeural': ['cheerful', 'chat', 'whispering', 'sad'],
+  'en-US-JennyNeural': ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'],
+  'en-US-GuyNeural': ['angry', 'cheerful', 'excited', 'friendly', 'hopeful', 'sad', 'shouting', 'terrified', 'unfriendly', 'whisper', 'chat', 'customerservice', 'newscast', 'narration'],
+  'en-AU-NatashaNeural': ['cheerful', 'sad'],
+  'en-AU-WilliamNeural': ['cheerful', 'sad', 'chat'],
+};
+
+const AZURE_VOICES = Object.entries(VOICE_STYLES).map(([id, styles]) => {
+  const labels: Record<string, string> = {
+    'en-GB-SoniaNeural': 'Sonia (British, Female)',
+    'en-GB-RyanNeural': 'Ryan (British, Male)',
+    'en-US-JennyNeural': 'Jenny (US, Female)',
+    'en-US-GuyNeural': 'Guy (US, Male)',
+    'en-AU-NatashaNeural': 'Natasha (Australian, Female)',
+    'en-AU-WilliamNeural': 'William (Australian, Male)',
+  };
+  return { id, label: labels[id] || id, styles };
+});
 
 const EMOTIONS = [
   { id: 'cheerful', label: 'Cheerful', icon: '😊', color: '#f59e0b' },
-  { id: 'friendly', label: 'Friendly', icon: '🤝', color: '#22c55e' },
-  { id: 'hopeful', label: 'Hopeful', icon: '🌟', color: '#60a5fa' },
-  { id: 'excited', label: 'Excited', icon: '🎉', color: '#a78bfa' },
+  { id: 'sad', label: 'Sad', icon: '😢', color: '#6366f1' },
   { id: 'chat', label: 'Chat', icon: '💬', color: '#06b6d4' },
-  { id: 'customerservice', label: 'Service', icon: '🎧', color: '#f97316' },
+  { id: 'whispering', label: 'Whispering', icon: '🤫', color: '#a1a1aa' },
+  { id: 'angry', label: 'Angry', icon: '😠', color: '#ef4444' },
+  { id: 'friendly', label: 'Friendly', icon: '🤝', color: '#22c55e' },
+  { id: 'excited', label: 'Excited', icon: '🎉', color: '#a78bfa' },
+  { id: 'hopeful', label: 'Hopeful', icon: '🌟', color: '#60a5fa' },
+  { id: 'shouting', label: 'Shouting', icon: '📢', color: '#dc2626' },
+  { id: 'whisper', label: 'Whisper', icon: '🤫', color: '#a1a1aa' },
+  { id: 'unfriendly', label: 'Unfriendly', icon: '❄', color: '#6b7280' },
+  { id: 'terrified', label: 'Terrified', icon: '😱', color: '#7c3aed' },
   { id: 'narration', label: 'Narration', icon: '🎙', color: '#8b5cf6' },
   { id: 'newscast', label: 'Newscast', icon: '📰', color: '#6b7280' },
-  { id: 'sad', label: 'Sad', icon: '😢', color: '#6366f1' },
-  { id: 'angry', label: 'Angry', icon: '😠', color: '#ef4444' },
-  { id: 'whisper', label: 'Whisper', icon: '🤫', color: '#a1a1aa' },
-  { id: 'shouting', label: 'Shouting', icon: '📢', color: '#dc2626' },
+  { id: 'customerservice', label: 'Service', icon: '🎧', color: '#f97316' },
 ];
 
 const TEST_PHRASES = [
-  { label: 'Greeting', text: "Hello, thanks for calling. How can I help you today? I'm looking forward to resolving your issue.", emotion: 'friendly' },
-  { label: 'Frustrated', text: "I've been waiting for hours and this still isn't working. I really need this sorted out right now.", emotion: 'angry' },
-  { label: 'Reassuring', text: "Don't worry, I've seen this before and it's usually a quick fix. Let me walk you through it step by step.", emotion: 'cheerful' },
-  { label: 'Apologetic', text: "I'm really sorry about the inconvenience. I understand how frustrating this must be for you.", emotion: 'sad' },
-  { label: 'Urgent', text: "This is a critical issue. I'm going to escalate this to our senior team right away and we'll prioritise it.", emotion: 'excited' },
-  { label: 'Technical', text: "Can you try opening the settings menu and checking the network status under advanced options?", emotion: 'chat' },
-  { label: 'Closing', text: "Is there anything else I can help you with? If not, I'll mark this as resolved and you'll receive a summary by email.", emotion: 'friendly' },
-  { label: 'Callum intro', text: "Hi, I'm Callum. I can help you manage assessments, review candidates, and suggest training. What would you like to do?", emotion: 'cheerful' },
+  { label: 'Cheerful greeting', text: "Hi there, thanks for calling! I'm really happy to help you today. Let's get this sorted out quickly.", emotion: 'cheerful' },
+  { label: 'Sad / apologetic', text: "I'm so sorry about this. I understand how frustrating it must be when things don't work as expected.", emotion: 'sad' },
+  { label: 'Chat / casual', text: "Right, let's take a look. Can you tell me what's been happening? I'll do my best to help.", emotion: 'chat' },
+  { label: 'Whispering (Ryan only)', text: "Between you and me, this has been happening a lot lately. I think there's a bigger issue we need to flag.", emotion: 'whispering' },
+  { label: 'Urgent', text: "This is a critical situation. I'm escalating this immediately to our senior engineering team.", emotion: 'excited' },
+  { label: 'Serious', text: "I need you to listen carefully. Do not click any links in that email. This is a security incident.", emotion: 'sad' },
+  { label: 'Warm closing', text: "Is there anything else I can help with? It's been a pleasure assisting you today.", emotion: 'cheerful' },
+  { label: 'Callum intro', text: "Hi, I'm Callum. I can help you manage assessments, review candidates, and suggest training.", emotion: 'cheerful' },
 ];
 
 export default function VoiceTestPage() {
