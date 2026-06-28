@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import CallBar from '@/components/mvp/simulator/CallBar';
-import { VoiceRecorderButton } from '@/components/mvp/voice/VoiceRecorderButton';
 import { useCustomerAudio } from '@/components/mvp/voice/CustomerAudioPlayer';
 import { useVoiceLoop } from '@/components/mvp/voice/useVoiceLoop';
 import AssessmentResults, { type CandidateAnalysisResult } from '@/components/mvp/results/AssessmentResults';
@@ -125,25 +124,6 @@ export default function HiringWorkspace({
     }
   }, [callStatus, vadListening, startListening, stopListening]);
 
-  const handleVoiceTranscript = useCallback(async (result: { text: string }) => {
-    if (!result.text?.trim() || sending) return;
-    const userMsg = result.text.trim();
-    setMessages(prev => [...prev, { role: 'candidate', content: userMsg }]);
-    setSending(true);
-    try {
-      const res = await fetch(`/api/mvp/assessment/${token}/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'candidate', content: userMsg }),
-      });
-      const d = await res.json();
-      if (d.reply) {
-        setMessages(prev => [...prev, { role: 'caller', content: d.reply }]);
-        speak(d.reply, 'frustrated', 3).catch(() => {});
-      }
-    } finally { setSending(false); }
-  }, [token, speak, sending]);
-
   const handleTextSubmit = useCallback(async () => {
     const text = (document.querySelector('[data-candidate-input]') as HTMLTextAreaElement)?.value;
     if (!text?.trim() || sending) return;
@@ -222,18 +202,6 @@ export default function HiringWorkspace({
           callerName={customerName}
           onStartCall={() => {}}
           onEndCall={endCall}
-          micButton={
-            <VoiceRecorderButton
-              token={token}
-              onTranscript={handleVoiceTranscript}
-              disabled={callStatus !== 'active' || ttsPlaying || sending}
-              clickToToggle
-              autoRecordTrigger={0}
-              flushRecordingTrigger={0}
-              onRecordingStarted={(ms) => { responseStartedAtRef.current = ms; }}
-              onFullRecording={() => {}}
-            />
-          }
         />
       </div>
 
