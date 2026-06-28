@@ -400,3 +400,139 @@ Wrap the working capability/proposal flow in LangGraph only after this confirmat
 6. Persist thread messages.
 
 Do not use LangGraph interrupts for proposal confirmation yet. The SQLite proposal table remains the product-level confirmation boundary.
+
+## New Agent Handoff Notes
+
+Recent relevant commits:
+
+- `39e1e18` organized agent notes and initial Callum architecture docs.
+- `2711636` added the Callum contract/capability foundation.
+- `4d64ec1` added the Callum proposal confirmation flow.
+- `0241ad5` recorded preliminary testing and future integration guidance.
+
+Known local worktree noise at the time of this handoff:
+
+- `app/api/deploy/`
+- `app/api/mvp/test/`
+- `data/callcallum.db-shm`
+- `data/callcallum.db-wal`
+- `data/test-taxonomy.db`
+- `ecosystem.config.cjs`
+- `scripts/test-compliance.ts`
+
+These were not part of the Callum integration commits. Do not delete, stage, or modify them unless the user explicitly asks.
+
+Primary files to read first:
+
+- `app/api/mvp/callum/route.ts`
+- `app/api/mvp/callum/proposals/[id]/confirm/route.ts`
+- `app/api/mvp/callum/proposals/[id]/reject/route.ts`
+- `components/mvp/callum/CallumPanel.tsx`
+- `components/mvp/callum/CallumActionCard.tsx`
+- `lib/mvp/contracts/`
+- `lib/mvp/capabilities/`
+- `lib/mvp/callum/proposals.ts`
+- `lib/mvp/callum/memory.ts`
+- `lib/mvp/manager/context.ts`
+- `lib/mvp/assessments/create.ts`
+- `tests/callum-contracts.test.ts`
+
+Current manager identity assumption:
+
+- Callum routes still default to `manager-default-v1`.
+- This is acceptable for the current local MVP, but it is not a production authorization model.
+- The next auth-related step is to replace route-level defaults with a real manager profile resolver and then enforce that resolver consistently in Callum route handlers, proposal confirmation, and manager context loading.
+
+Current proposal execution path:
+
+1. Manager asks Callum for a write-like action.
+2. Callum route invokes a `propose` capability.
+3. Capability creates a `callum_proposals` row.
+4. UI renders a proposal card.
+5. Manager confirms.
+6. Confirm route calls `confirmCallumProposal`.
+7. `confirmCallumProposal` validates ownership, status, expiry, source context hash, and payload schema.
+8. Execution calls `createMvpAssessment`.
+9. Proposal is marked `executed` or `failed`.
+
+Do not bypass this path for new write operations.
+
+Current Callum API behaviour:
+
+- The implementation is intentionally heuristic and pre-LangGraph.
+- `app/api/mvp/callum/route.ts` currently handles the first useful intents directly.
+- This is temporary scaffolding. The capability/proposal boundaries are the durable part.
+- When LangGraph is added, keep the route response shape stable unless there is a deliberate frontend migration.
+
+Current response shape expectations:
+
+- Answer:
+  - `{ type: "answer", threadId, message, dataGaps? }`
+- Proposed action:
+  - `{ type: "proposed_action", threadId, pendingActionId, message, action }`
+- Navigation:
+  - `{ type: "navigation", threadId, message, targetRoute }`
+
+Keep these response shapes backwards-compatible while the UI is still simple.
+
+Current source-of-truth boundaries:
+
+- Manager page context from the browser is only a hint.
+- Server-side context is reloaded from `lib/mvp/manager/context.ts`.
+- Candidate-facing context loaders must stay separate.
+- `lib/mvp/assessments/create.ts` is now the shared assessment creation path.
+- `lib/mvp/capabilities` should remain the only Callum-facing tool surface.
+- `callum_proposals` is the confirmation/audit boundary.
+
+Places where future agents are likely to make mistakes:
+
+- Adding a LangGraph tool that queries arbitrary SQL.
+- Letting Callum execute writes directly from an LLM JSON response.
+- Importing manager context into candidate token routes.
+- Treating client page text as authoritative.
+- Letting manager personality/style influence scoring, evidence extraction, or payload validation.
+- Creating executable sim packs directly from generated text before a draft/validate/promote lifecycle exists.
+- Adding new proposal types without schema versions and tests.
+- Forgetting stale-context invalidation when a proposal depends on assessment/result/standards state.
+
+Minimum tests for any new Callum capability:
+
+- Contract validator accepts valid input and rejects unsafe input.
+- Capability registry exposes only the intended access level.
+- Unknown or malformed capability input fails safely.
+- Write-like actions create proposals instead of executing immediately.
+- Confirm validates manager ownership, pending status, expiry, stale context, and payload schema.
+- Candidate endpoints do not import or expose the new manager-only data.
+- Existing `npm test`, `tsc --noEmit`, and `npm run test:mvp-flow` still pass.
+
+Suggested immediate next implementation choices:
+
+1. Add route-level tests for Callum API handlers.
+2. Add browser tests for the assessment-page Callum panel and confirm/reject buttons.
+3. Make proposal confirmation atomic with a transaction or status compare-and-set update.
+4. Replace the default manager profile fallback with a single manager identity resolver.
+5. Add proposal-type-specific UI rendering before introducing more proposal types.
+6. Only then start `lib/mvp/callum/graph.ts`.
+
+LangGraph implementation note:
+
+- Start by wrapping the existing route orchestration, not rewriting capabilities.
+- Graph nodes should call the same validators, context loaders, capabilities, and proposal functions that already exist.
+- The first graph should be boring: validate, load context, classify, invoke capability, persist, respond.
+- Do not add memory retrieval, autonomous planning, custom pack generation, or interrupts in the first graph pass.
+
+Useful local verification commands:
+
+```bash
+npm test
+./node_modules/.bin/tsc --noEmit
+npm run test:mvp-flow
+```
+
+Useful manual dev command:
+
+```bash
+MVP_SQLITE_PATH=/tmp/callum-manual-verify.db AI_PROVIDER=mock NEXT_PUBLIC_APP_URL=http://127.0.0.1:3001 npm run dev:mvp
+```
+
+If local port binding is blocked by sandboxing, rerun the dev command with the approved escalation flow.
