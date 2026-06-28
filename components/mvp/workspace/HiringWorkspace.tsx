@@ -92,6 +92,7 @@ export default function HiringWorkspace({
     callStartedRef.current = true;
 
     async function startCall() {
+      setCallStatus('active');
       const res = await fetch(`/api/mvp/assessment/${token}/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import CallumSidebar from './CallumSidebar';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/mvp', icon: '≡' },
@@ -9,6 +10,7 @@ const NAV_ITEMS = [
   { label: 'Taxonomy', href: '/mvp/taxonomy', icon: '⊞' },
   { label: 'CMDB', href: '/mvp/knowledge', icon: '🗄' },
   { label: 'Reports', href: '/mvp/analytics', icon: '📊' },
+  { label: 'Voice Lab', href: '/mvp/voice-test', icon: '🎙' },
   { label: 'Settings', href: '/mvp/settings', icon: '⚙' },
 ];
 
@@ -57,13 +59,7 @@ export default function ItsmSidebar() {
           );
         })}
       </nav>
-      <div style={{
-        padding: '12px 16px', borderTop: '1px solid #2f2f2f',
-        display: 'flex', alignItems: 'center', gap: 8, color: '#999', fontSize: 12,
-      }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e' }} />
-        <span>Service Desk</span>
-      </div>
+      <CallumSidebar />
     </aside>
   );
 }

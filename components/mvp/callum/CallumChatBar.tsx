@@ -58,14 +58,7 @@ function getCallumMode(pathname: string): PageContext {
   };
 }
 
-const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/mvp', icon: '≡' },
-  { label: 'Assessments', href: '/mvp/assessments', icon: '⚠' },
-  { label: 'Voice Lab', href: '/mvp/voice-test', icon: '🎙' },
-  { label: 'Standards', href: '/mvp/standards', icon: '⚙' },
-  { label: 'Taxonomy', href: '/mvp/taxonomy', icon: '⊞' },
-  { label: 'System', href: '/mvp/system', icon: '?' },
-];
+/* Navigation is handled by the sidebar tabs */
 
 function ChatBarInner() {
   const pathname = usePathname();
@@ -137,41 +130,17 @@ function ChatBarInner() {
         @keyframes callumSlide { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
       `}</style>
       <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
-        display: 'flex', justifyContent: 'center', pointerEvents: 'none',
-      }}>
-        <div style={{
-          width: '100%', maxWidth: 720, pointerEvents: 'auto',
-          background: '#fff', borderTop: '1px solid #d4d4d4',
-          borderLeft: '1px solid #d4d4d4', borderRight: '1px solid #d4d4d4',
-          borderTopLeftRadius: 10, borderTopRightRadius: 10,
-          boxShadow: '0 -4px 24px rgba(0,0,0,0.08)',
-          display: 'flex', flexDirection: 'column',
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
+          display: 'flex', justifyContent: 'center', pointerEvents: 'none',
         }}>
-          {/* Navigation bar */}
           <div style={{
-            display: 'flex', gap: 2, padding: '6px 10px 4px',
-            borderBottom: '1px solid #e5e5e5',
-            alignItems: 'center', overflow: 'auto',
+            width: '100%', maxWidth: 720, pointerEvents: 'auto',
+            background: '#fff', borderTop: '1px solid #d4d4d4',
+            borderLeft: '1px solid #d4d4d4', borderRight: '1px solid #d4d4d4',
+            borderTopLeftRadius: 10, borderTopRightRadius: 10,
+            boxShadow: '0 -4px 24px rgba(0,0,0,0.08)',
+            display: 'flex', flexDirection: 'column',
           }}>
-            <img src="/callcallum-logo.png" alt="" style={{ width: 18, height: 18, borderRadius: 3, marginRight: 4, flexShrink: 0 }} />
-            {NAV_ITEMS.map(item => {
-              const active = pathname === item.href || (item.href !== '/mvp' && pathname.startsWith(item.href));
-              return (
-                <button key={item.href} onClick={() => router.push(item.href)} style={{
-                  padding: '4px 8px', borderRadius: 4, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0,
-                  fontSize: 12, transition: 'all 0.15s', border: 'none',
-                  background: active ? '#e8f0fe' : 'transparent',
-                  color: active ? '#004b8d' : '#5f6368', fontWeight: active ? 600 : 400,
-                }}
-                onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#f1f3f4'; e.currentTarget.style.color = '#202124'; } }}
-                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#5f6368'; } }}
-                >{item.label}</button>
-              );
-            })}
-            <span style={{ flex: 1 }} />
-            <span style={{ fontSize: 11, color: '#5f6368' }}>{modeLabel}</span>
-          </div>
 
           {/* Messages area */}
           <div style={{
