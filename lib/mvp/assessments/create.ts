@@ -6,6 +6,8 @@ import { getPackById } from '../sim/packRegistry';
 import { mergeAssessmentConfig } from '../sim/mergeConfig';
 import { isAssignmentTypeValid, ASSIGNMENT_TYPES, ENABLED_TRAINING_DRILL_PACKS, type AssignmentType } from '../assignment-types';
 import { buildPackSnapshot, validatePackStructure } from '../sim/snapshot';
+import { serializeModeConfigForAssignmentType } from '../workspace/modeConfig';
+import { getHiringPack, defaultHiringPack } from '../sim/hiringPacks';
 
 export interface CreateMvpAssessmentInput {
   candidateName?: string;
@@ -23,6 +25,7 @@ export interface CreateMvpAssessmentResult {
   invite_token: string;
   assignment_type: AssignmentType;
   assessment_mode: string;
+  hiring_pack_id?: string;
 }
 
 export function createMvpAssessment(input: CreateMvpAssessmentInput): CreateMvpAssessmentResult {
@@ -52,6 +55,7 @@ export function createMvpAssessment(input: CreateMvpAssessmentInput): CreateMvpA
   }
 
   const assessmentMode = assignmentType === 'training_drill' ? 'dashboard_sim' : 'chat_call';
+  const modeConfigJson = serializeModeConfigForAssignmentType(assignmentType);
 
   const scenario = getActiveScenario();
   const criteria = getActiveCriteria();
@@ -70,8 +74,26 @@ export function createMvpAssessment(input: CreateMvpAssessmentInput): CreateMvpA
   let packSnapshotJson: string | null = null;
   let packInitialState: Record<string, unknown> = {};
   let firstMessage: string = scenario.initial_message;
+  let hiringPackData: Record<string, unknown> | null = null;
 
-  if (assignmentType === 'training_drill') {
+  if (assignmentType === 'hiring_exam') {
+    /* Use hiring pack for customer persona, fall back to default scenario */
+    const hiringPack = input.assessmentPackId
+      ? getHiringPack(input.assessmentPackId)
+      : defaultHiringPack();
+    if (hiringPack) {
+      packId = hiringPack.id;
+      firstMessage = hiringPack.customer.openingLine;
+      hiringPackData = {
+        id: hiringPack.id,
+        title: hiringPack.title,
+        difficulty: hiringPack.difficulty,
+        templateId: hiringPack.templateId,
+        customer: hiringPack.customer,
+      };
+      packSnapshotJson = JSON.stringify(hiringPackData);
+    }
+  } else if (assignmentType === 'training_drill') {
     const preferredPackId = input.assessmentPackId || null;
     if (!preferredPackId || !ENABLED_TRAINING_DRILL_PACKS.includes(preferredPackId)) {
       throw new Error(`Invalid or missing pack ID. Supported packs: ${ENABLED_TRAINING_DRILL_PACKS.join(', ')}`);
@@ -116,13 +138,13 @@ export function createMvpAssessment(input: CreateMvpAssessmentInput): CreateMvpA
 
   const storedScenarioId = assignmentType === 'training_drill' ? null : scenario.id;
 
-  db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, scoring_snapshot_json, pack_snapshot_json, assessment_pack_id, assessment_mode, assignment_type, created_at)
-    VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
+  db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, scoring_snapshot_json, mode_config_json, pack_snapshot_json, assessment_pack_id, assessment_mode, assignment_type, created_at)
+    VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
     assessmentId, title, candidateName, candidateEmail, inviteToken,
     storedScenarioId, criteria?.id || null,
     managerProfileId,
     standardsSnapshot ? JSON.stringify(standardsSnapshot) : null,
-    scoringSnapshot, packSnapshotJson, packId, assessmentMode, assignmentType,
+    scoringSnapshot, modeConfigJson, packSnapshotJson, packId, assessmentMode, assignmentType,
   );
 
   db.prepare(`INSERT INTO sessions (id, assessment_id, status, started_at)
@@ -174,5 +196,6 @@ export function createMvpAssessment(input: CreateMvpAssessmentInput): CreateMvpA
     invite_token: inviteToken,
     assignment_type: assignmentType,
     assessment_mode: assessmentMode,
+    hiring_pack_id: packId && assignmentType === 'hiring_exam' ? packId : undefined,
   };
 }

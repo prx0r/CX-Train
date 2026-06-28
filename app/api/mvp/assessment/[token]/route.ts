@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initTables } from '@/lib/mvp/db';
 import { resolveSimAssessment, SimResolutionError } from '@/lib/mvp/sim/resolver';
-import { buildCandidateAnalysis } from '@/lib/mvp/analysis/runBaseCallumAnalysis';
-import { getPackById } from '@/lib/mvp/sim/packRegistry';
-import { getDb } from '@/lib/mvp/db';
+import { loadCandidateAnalysisForAssessment } from '@/lib/mvp/candidate/analysis';
+import { resolveModeConfigSnapshot, workspaceModeForAssignmentType } from '@/lib/mvp/workspace/modeConfig';
+
+function safeJsonParse(raw: string | null | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
 
 export async function GET(
   _request: NextRequest,
@@ -27,15 +31,29 @@ export async function GET(
 
         const assignmentType = (full.assessment as any).assignment_type || 'hiring_exam';
         const capabilities = { ...(getCapabilitiesForType(assignmentType) || { call: true, voice: true, textFallback: true, ticketPanel: true, remoteDesktop: false, tools: [], ticketComposer: true }) };
+        const modeConfig = resolveModeConfigSnapshot(assignmentType, (full.assessment as any).mode_config_json);
+
+        const rawAssessment = full.assessment as any;
+        const packSnapshot = rawAssessment.pack_snapshot_json
+          ? safeJsonParse(rawAssessment.pack_snapshot_json)
+          : null;
+        const isHiring = assignmentType === 'hiring_exam';
+        const hiringPack = isHiring && packSnapshot?.customer ? packSnapshot as { id: string; title: string; customer: { name: string; company: string; openingLine: string; issue: string; role: string; temperament: string } } : null;
+
+        const requesterName = hiringPack?.customer?.name
+          || full.scenario?.caller_persona?.split(',')[0]?.trim()
+          || 'Customer';
+        const company = hiringPack?.customer?.company || '—';
+        const ticketTitle = hiringPack?.customer?.issue || full.scenario?.title || 'Support Request';
 
         const ticketData: Record<string, unknown> = {
-          id: 'INC-' + (full.assessment.id?.slice(-6).toUpperCase() || '000000'),
-          title: full.scenario?.title || 'Support Request',
-          requester_name: full.scenario?.caller_persona?.split(',')[0]?.trim() || 'Customer',
-          company: '—',
-          department: '—',
+          id: 'INC-' + (rawAssessment.id?.slice(-6).toUpperCase() || '000000'),
+          title: ticketTitle,
+          requester_name: requesterName,
+          company,
+          department: hiringPack?.customer?.role || '—',
           severity: 'high',
-          status: full.assessment.status === 'invited' ? 'Open' : full.assessment.status,
+          status: rawAssessment.status === 'invited' ? 'Open' : rawAssessment.status,
           description: full.messages?.[0]?.content || 'No description available',
         };
 
@@ -43,53 +61,38 @@ export async function GET(
           ok: true,
           data: {
             assessment: {
-              id: full.assessment.id,
-              title: full.assessment.title,
-              candidate_name: full.assessment.candidate_name,
-              status: full.assessment.status,
+              id: rawAssessment.id,
+              title: rawAssessment.title,
+              candidate_name: rawAssessment.candidate_name,
+              status: rawAssessment.status,
               assignment_type: assignmentType,
-              created_at: full.assessment.created_at,
+              created_at: rawAssessment.created_at,
             },
             assignment_runtime: {
-              shell: 'service_desk',
+              shell: isHiring ? 'hiring' : 'service_desk',
+              mode: workspaceModeForAssignmentType(assignmentType),
               mode_label: assignmentType === 'hiring_exam' ? 'Hiring Exam' : assignmentType === 'training_drill' ? 'Training Drill' : 'Assessment',
               capabilities,
+              mode_config: modeConfig,
             },
             ticket: ticketData,
             call: {
               status: 'not_started',
-              caller_name: (ticketData.requester_name as string) || 'Customer',
-              caller_company: (ticketData.company as string) || '',
+              caller_name: requesterName,
+              caller_company: company,
             },
             session_id: full.session?.id || null,
-            messages: full.messages.map(m => ({ role: m.role, content: m.content })),
+            messages: full.messages.map((m: any) => ({ role: m.role, content: m.content })),
+            hiring_pack: hiringPack || null,
           },
         };
 
         /* Include analysis results if applicable */
         if (full.assessment.status === 'completed' || full.assessment.status === 'analysed') {
-          const db = getDb();
-          const result = db.prepare(`
-            SELECT r.overall_score, r.readiness_label, r.summary, r.strengths_json, r.weaknesses_json,
-                   r.checkpoint_json, r.raw_model_json
-            FROM assessment_results r
-            WHERE r.assessment_id = ?
-            ORDER BY r.created_at DESC LIMIT 1
-          `).get(full.assessment.id) as any;
-
-          if (result) {
-            const analysisData = {
-              status: 'analysed',
-              overall_score: result.overall_score,
-              readiness_label: result.readiness_label,
-              summary: result.summary,
-              strengths: result.strengths_json ? JSON.parse(result.strengths_json) : [],
-              weaknesses: result.weaknesses_json ? JSON.parse(result.weaknesses_json) : [],
-              checkpoints: result.checkpoint_json ? JSON.parse(result.checkpoint_json) : {},
-              structured: result.raw_model_json ? JSON.parse(result.raw_model_json) : undefined,
-            };
-            baseResponse.data.analysis = analysisData;
-            baseResponse.data.candidate_analysis = buildCandidateAnalysis(analysisData, null);
+          const loadedAnalysis = loadCandidateAnalysisForAssessment(full.assessment.id);
+          if (loadedAnalysis) {
+            baseResponse.data.analysis = loadedAnalysis.analysis;
+            baseResponse.data.candidate_analysis = loadedAnalysis.candidate_analysis;
           }
         }
 
@@ -118,28 +121,10 @@ export async function GET(
 
     /* Include analysis results */
     if (view.assessment.status === 'completed' || view.assessment.status === 'analysed') {
-      const db = getDb();
-      const result = db.prepare(`
-        SELECT r.overall_score, r.readiness_label, r.summary, r.strengths_json, r.weaknesses_json,
-               r.checkpoint_json, r.raw_model_json
-        FROM assessment_results r
-        WHERE r.assessment_id = ?
-        ORDER BY r.created_at DESC LIMIT 1
-      `).get(view.assessment.id) as any;
-
-      if (result) {
-        const analysisData = {
-          status: 'analysed',
-          overall_score: result.overall_score,
-          readiness_label: result.readiness_label,
-          summary: result.summary,
-          strengths: result.strengths_json ? JSON.parse(result.strengths_json) : [],
-          weaknesses: result.weaknesses_json ? JSON.parse(result.weaknesses_json) : [],
-          checkpoints: result.checkpoint_json ? JSON.parse(result.checkpoint_json) : {},
-          structured: result.raw_model_json ? JSON.parse(result.raw_model_json) : undefined,
-        };
-        baseResponse.data.analysis = analysisData;
-        baseResponse.data.candidate_analysis = buildCandidateAnalysis(analysisData, null);
+      const loadedAnalysis = loadCandidateAnalysisForAssessment(view.assessment.id);
+      if (loadedAnalysis) {
+        baseResponse.data.analysis = loadedAnalysis.analysis;
+        baseResponse.data.candidate_analysis = loadedAnalysis.candidate_analysis;
       }
     }
 

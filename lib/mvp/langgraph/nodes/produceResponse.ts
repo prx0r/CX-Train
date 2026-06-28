@@ -103,6 +103,30 @@ export function produceResponseNode(state: GraphState): Partial<GraphState> {
     return { response };
   }
 
+  /* General question — use the AI response from invokeCapability if available */
+  if (state.intent === 'general_question') {
+    const cap = state.activeCapability;
+    let message: string;
+    if (cap?.result?.ok && cap.name === 'general_llm_response') {
+      message = cap.result.output as string;
+    } else if (cap?.result && !cap.result.ok) {
+      message = `I tried to answer but hit an issue: ${(cap.result as any).error || 'Unknown error'}`;
+    } else {
+      message = state.assessmentContext
+        ? `I'm reviewing ${state.assessmentContext.assessment.candidateName}'s assessment. Ask me about their score, weaknesses, or suggested next training.`
+        : 'I can help with assessment reviews, training suggestions, and platform navigation. What would you like to know?';
+    }
+
+    const response: GraphResponse = {
+      type: 'answer',
+      threadId: state.thread?.id || state.threadId || '',
+      message,
+      confidence: cap?.result?.ok ? 'high' : 'medium',
+      dataGaps: !state.assessmentContext ? ['No page entity context was provided'] : [],
+    };
+    return { response };
+  }
+
   const response: GraphResponse = {
     type: 'answer',
     threadId: state.thread?.id || state.threadId || '',
