@@ -18,31 +18,11 @@ function getCallumMode(pathname: string): { label: string; prompts: PromptChip[]
       { label: 'Find at-risk', prompt: 'Which candidates need attention?' },
     ]};
   if (pathname.startsWith('/mvp/standards'))
-    return { label: 'Standards', prompts: [
-      { label: 'Current standards', prompt: 'What are the current standards?' },
-    ]};
+    return { label: 'Standards', prompts: [{ label: 'Current standards', prompt: 'What are the current standards?' }]};
   return { label: 'Dashboard', prompts: [
     { label: 'Show assessments', prompt: 'Show me the assessments.' },
     { label: 'Recent activity', prompt: 'What happened recently?' },
   ]};
-}
-
-function NavIcon({ href, icon, label }: { href: string; icon: string; label: string }) {
-  const pn = usePathname();
-  const active = pn === href || (href !== '/mvp' && pn.startsWith(href));
-  return (
-    <a href={href} title={label} style={{
-      width: 28, height: 28, borderRadius: 8, textDecoration: 'none',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      fontSize: 13, cursor: 'pointer', transition: 'all 0.15s',
-      background: active ? 'rgba(0,75,141,0.15)' : 'transparent',
-      border: `1px solid ${active ? 'rgba(0,75,141,0.3)' : 'transparent'}`,
-      color: active ? '#60a5fa' : '#52525b',
-    }}
-    onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#a1a1aa'; } }}
-    onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#52525b'; } }}
-    >{icon}</a>
-  );
 }
 
 function ChatBarInner() {
@@ -84,10 +64,8 @@ function ChatBarInner() {
         body: JSON.stringify({ message: msg, pageContext }),
       });
       const data = await res.json();
-      /* If Callum returns a navigation, follow it */
       if (data.type === 'navigation' && data.targetRoute) {
-        window.location.href = data.targetRoute;
-        return;
+        window.location.href = data.targetRoute; return;
       }
       setMessages(prev => [...prev, { role: 'assistant', content: data.message || data.error || 'No response' }]);
     } catch { setMessages(prev => [...prev, { role: 'assistant', content: 'Could not reach Callum.' }]); }
@@ -97,6 +75,39 @@ function ChatBarInner() {
   return (
     <>
       <style>{`@keyframes pulseDot { 0%,60%,100% { opacity:0.3; } 30% { opacity:1; } }`}</style>
+
+      {/* Navigation icons — floating above the chat bar */}
+      <div style={{
+        position: 'fixed', bottom: 106, left: 0, right: 0, zIndex: 9998,
+        display: 'flex', justifyContent: 'center', pointerEvents: 'none',
+      }}>
+        <div style={{
+          display: 'flex', gap: 6, padding: '6px 10px', pointerEvents: 'auto',
+          background: 'rgba(24,24,27,0.7)', backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12,
+          alignItems: 'center',
+        }}>
+          <NavIcon href="/mvp" icon="≡" label="Dashboard" active={pathname === '/mvp'} />
+          <span style={{ width: 1, height: 14, background: '#27272a', flexShrink: 0 }} />
+          <NavIcon href="/mvp/assessments" icon="⚠" label="Assessments" active={pathname.startsWith('/mvp/assessments')} />
+          <NavIcon href="/mvp/standards" icon="⚙" label="Standards" active={pathname.startsWith('/mvp/standards')} />
+          <NavIcon href="/mvp/taxonomy" icon="⊞" label="Taxonomy" active={pathname.startsWith('/mvp/taxonomy')} />
+          <NavIcon href="/mvp/system" icon="?" label="System" active={pathname.startsWith('/mvp/system')} />
+          <span style={{ width: 1, height: 14, background: '#27272a', flexShrink: 0 }} />
+          {prompts.map((p, i) => (
+            <button key={i} onClick={() => send(p.prompt)} style={{
+              padding: '4px 10px', borderRadius: 100, whiteSpace: 'nowrap', cursor: 'pointer',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
+              color: '#52525b', fontSize: 11, transition: 'background 0.15s', flexShrink: 0,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+            >{p.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat bar — at the bottom */}
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
         display: 'flex', justifyContent: 'center', pointerEvents: 'none',
@@ -161,33 +172,25 @@ function ChatBarInner() {
               <button onClick={() => setMessages([])} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: 14, padding: 4, flexShrink: 0 }}>✕</button>
             )}
           </div>
-
-          {/* Navigation panels + suggestion chips */}
-          <div style={{
-            display: 'flex', gap: 6, padding: '0 12px 10px', overflow: 'auto', flexShrink: 0,
-            alignItems: 'center',
-          }}>
-            <NavIcon href="/mvp" icon="≡" label="Dashboard" />
-            <NavIcon href="/mvp/assessments" icon="⚠" label="Assessments" />
-            <NavIcon href="/mvp/standards" icon="⚙" label="Standards" />
-            <NavIcon href="/mvp/taxonomy" icon="⊞" label="Taxonomy" />
-            <NavIcon href="/mvp/system" icon="?" label="System" />
-            <NavIcon href="/mvp/settings" icon="⚙" label="Settings" />
-            <span style={{ width: 1, height: 16, background: '#27272a', flexShrink: 0, margin: '0 4px' }} />
-            {prompts.map((p, i) => (
-              <button key={i} onClick={() => send(p.prompt)} style={{
-                padding: '4px 10px', borderRadius: 100, whiteSpace: 'nowrap', cursor: 'pointer',
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
-                color: '#52525b', fontSize: 11, transition: 'background 0.15s', flexShrink: 0,
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-              >{p.label}</button>
-            ))}
-          </div>
         </div>
       </div>
     </>
+  );
+}
+
+function NavIcon({ href, icon, label, active }: { href: string; icon: string; label: string; active: boolean }) {
+  return (
+    <a href={href} title={label} style={{
+      width: 30, height: 30, borderRadius: 8, textDecoration: 'none',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
+      background: active ? 'rgba(0,75,141,0.2)' : 'transparent',
+      border: `1px solid ${active ? 'rgba(0,75,141,0.3)' : 'transparent'}`,
+      color: active ? '#60a5fa' : '#52525b',
+    }}
+    onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#a1a1aa'; } }}
+    onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#52525b'; } }}
+    >{icon}</a>
   );
 }
 
