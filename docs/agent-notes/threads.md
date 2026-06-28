@@ -1,7 +1,7 @@
 # Open Threads — CallCallum / CX-Train
 
 > Everything you're juggling right now. Use this to decide what to focus on next.
-> Last updated: 2026-06-28 (handoff audit)
+> Last updated: 2026-06-28 (second pass — LangGraph, hiring packs, chat UI, scoring scope)
 
 ---
 
@@ -285,7 +285,7 @@ Remote desktop terminal exists but:
 ```
 A: Standards + Packs                  ✅ Done
 B: Analysis Run Infrastructure        ✅ Done
-C: Deterministic Base Callum          ✅ Done (11 frameworks, 205 tests)
+C: Deterministic Base Callum          ✅ Done (11 frameworks, 248 tests)
 D: Granular Manager Feedback          ✅ Done (live results page, grouped frameworks)
 E: Candidate Scorecard v0             ❌ Not started
 F: Callum For You v0                  ❌ Not started (needs D first)
@@ -294,9 +294,69 @@ H: Audio Analysis + Diarization       ✅ Done (recording, VAD, sherpa-onnx diar
 I: Compliance Framework Correctness   🔧 In progress (CE done, GDPR/ISO pending)
 J: CompTIA Framework                   ✅ Done (13 criteria, 6-step methodology)
 K: Results Page UX                    ✅ Done (summary, validation, grouped view)
+L: Hiring Packs + Templates           ✅ Done (4 packs, 6 templates, live)
+M: LangGraph Callum Graph             ✅ Done (v2 route, 8 nodes, 14 tests)
+N: Premium Callum Chat UI             ✅ Done (floating panel, page-aware prompts)
+O: Scoring Scope Filter               ✅ Done (enabledCriteria, 3 tests)
 ```
 
 ---
+
+## Thread 18: Callum LangGraph Integration + Chat UI
+
+**Status:** Live — v2 graph running in parallel with v1
+**Files:** `lib/mvp/langgraph/`, `app/api/mvp/callum/v2/`, `components/mvp/callum/CallumChatBar.tsx`, `tests/langgraph-callum.test.ts`
+
+**Built:**
+- Zero-dependency `StateGraph` abstraction (LangGraph-compatible API)
+- 8 graph nodes: validateContext → loadProfile → loadThread → classifyIntent → loadAssessmentContext → invokeCapability → produceResponse → persistThread
+- v2 route at `/api/mvp/callum/v2` (v1 stays as fallback)
+- Heuristic intent classification (navigate, explain_assessment, suggest_next_training, general_question)
+- General questions now call deepseek-v4-flash via `runAiTask('callum', ...)`
+- Premium floating chat panel (not full-width bar)
+- Page-aware context prompts based on sidebar navigation
+- Chat history persisted in localStorage
+- 14 tests + 3 scoring scope tests
+
+**Known gaps:**
+- v1 still the default route; v2 needs comparison testing before swap
+- No LLM-as-router yet (still uses heuristic classifyIntent)
+- Callum panel only on MVP layout — not on non-MVP pages
+- No multi-turn context awareness (each message is stateless beyond localStorage history)
+
+## Thread 19: Hiring Packs + Progressive Templates
+
+**Status:** Live — 4 hiring packs, 6 templates
+**Files:** `lib/mvp/sim/hiringPacks.ts`, `lib/mvp/workspace/templates.ts`, `lib/mvp/workspace/types.ts`, `components/mvp/workspace/HiringWorkspace.tsx`
+
+**Built:**
+- 4 hiring packs: outlook-basic, vpn-triage, printer-down, email-phishing
+- 4 difficulty levels: basic, intermediate, advanced, expert
+- 6 templates: 4 hiring progressive + 2 training
+- `HiringWorkspace` — simplified call + notes layout (no ticket queue, triage, remote tools)
+- Call auto-starts on mount for hiring exams
+- Packs linked to templates via `templateId`
+
+**Known gaps:**
+- No UI to select template + pack when creating an assessment
+- Manager creates hiring assessments via dashboard but can't choose difficulty
+- No hiring pack proposal capability in Callum (only `create_training_assignment` exists)
+- Scoring scope filter is wired but needs end-to-end test with real hiring assessment
+
+## Thread 20: Scoring Scope Filter
+
+**Status:** Built + tested
+**Files:** `lib/mvp/analysis/scoring.ts`, `lib/mvp/analysis/runBaseCallumAnalysis.ts`, `tests/langgraph-callum.test.ts`
+
+**Built:**
+- `scoreExtraction()` accepts optional `enabledCriteria: Set<string>`
+- `runBaseCallumAnalysis()` derives enabled criteria from `assessment_scope.enabledCategories`
+- `coreEarned`/`totalCore` correctly scoped to enabled criteria
+- 3 unit tests covering: exclusion, empty set, no crash
+
+**Known gaps:**
+- No end-to-end test proving a hiring exam uses different criteria than a training drill
+- No UI feedback showing which criteria were in scope vs excluded
 
 ## Quick Reference: What Actually Blocks What
 
@@ -306,4 +366,5 @@ Thread 1 → Thread 13 (focus drills)
 Thread 3 (pack mapping) → Thread 4 (new packs)
 Thread 9 (unified shell) ← Thread 8 (voice)
 Thread 10 (big vision) ← everything else (it's downstream of having a working product)
+Thread 18 (Callum graph) ← Thread 19 (hiring packs) [to wire Callum → hiring proposals]
 ```
