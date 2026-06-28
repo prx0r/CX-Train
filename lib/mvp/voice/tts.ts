@@ -158,28 +158,28 @@ export function mapMoodToAzureStyle(mood: CustomerMood, intensity: 0 | 1 | 2 | 3
 
   switch (mood) {
     case 'friendly':
-      return { style: 'friendly', styleDegree: sd, rate: '0%', pitch: '0st', volume: '0dB' };
+      return { style: 'friendly', styleDegree: sd, rate: '0%', pitch: '0st', volume: 'medium' };
     case 'confused':
-      return { style: 'chat', styleDegree: sd, rate: '-5%', pitch: '+0st', volume: '0dB' };
+      return { style: 'chat', styleDegree: sd, rate: '-5%', pitch: '+0st', volume: 'medium' };
     case 'rushed':
-      return { style: 'chat', styleDegree: sd, rate: '+16%', pitch: '+1st', volume: '+1dB' };
+      return { style: 'chat', styleDegree: sd, rate: '+16%', pitch: '+1st', volume: 'loud' };
     case 'frustrated':
-      return { style: 'angry', styleDegree: sd, rate: '+8%', pitch: '+0st', volume: '+1dB' };
+      return { style: 'angry', styleDegree: sd, rate: '+8%', pitch: '+0st', volume: 'loud' };
     case 'angry':
-      return { style: 'angry', styleDegree: sd, rate: '+12%', pitch: '+1st', volume: '+2dB' };
+      return { style: 'angry', styleDegree: sd, rate: '+12%', pitch: '+1st', volume: 'x-loud' };
     case 'anxious':
-      return { style: 'terrified', styleDegree: sd, rate: '+10%', pitch: '+1st', volume: '0dB' };
+      return { style: 'terrified', styleDegree: sd, rate: '+10%', pitch: '+1st', volume: 'medium' };
     case 'panicked':
-      return { style: 'terrified', styleDegree: sd, rate: '+18%', pitch: '+2st', volume: '+2dB' };
+      return { style: 'terrified', styleDegree: sd, rate: '+18%', pitch: '+2st', volume: 'x-loud' };
     case 'sad':
-      return { style: 'sad', styleDegree: sd, rate: '-8%', pitch: '-1st', volume: '-1dB' };
+      return { style: 'sad', styleDegree: sd, rate: '-8%', pitch: '-1st', volume: 'soft' };
     case 'relieved':
-      return { style: 'cheerful', styleDegree: sd, rate: '-2%', pitch: '0st', volume: '0dB' };
+      return { style: 'cheerful', styleDegree: sd, rate: '-2%', pitch: '0st', volume: 'medium' };
     case 'passive_aggressive':
-      return { style: 'unfriendly', styleDegree: sd, rate: '-2%', pitch: '-1st', volume: '0dB' };
+      return { style: 'unfriendly', styleDegree: sd, rate: '-2%', pitch: '-1st', volume: 'medium' };
     case 'neutral':
     default:
-      return { style: 'chat', styleDegree: '1.0', rate: '0%', pitch: '0st', volume: '0dB' };
+      return { style: 'chat', styleDegree: '1.0', rate: '0%', pitch: '0st', volume: 'medium' };
   }
 }
 
@@ -202,11 +202,11 @@ export function buildAzureSsml(req: CustomerVoiceRequest): string {
 
   const resolvedStyle = resolveAzureStyle(config.style, voiceName);
 
-  const prosody = `<prosody rate="${config.rate}" pitch="${config.pitch}" volume="${config.volume}">${safeText}</prosody>`;
-
   const inner = resolvedStyle
-    ? `<mstts:express-as style="${resolvedStyle}" styledegree="${config.styleDegree}">${prosody}</mstts:express-as>`
-    : prosody;
+    ? `<mstts:express-as style="${resolvedStyle}" styledegree="${config.styleDegree}">${safeText}</mstts:express-as>`
+    : safeText;
+
+  const prosody = `<prosody rate="${config.rate}" pitch="${config.pitch}" volume="${config.volume}">${inner}</prosody>`;
 
   return `<speak version="1.0"
        xmlns="http://www.w3.org/2001/10/synthesis"
@@ -263,10 +263,10 @@ async function synthesizeAzure(
 
   const safeText = escapeXml(text);
 
-  const prosody = `<prosody rate="${rate}" pitch="${pitch}" volume="0dB">${safeText}</prosody>`;
   const inner = style
-    ? `<mstts:express-as style="${style}" styledegree="${styleDegree || '1.0'}">${prosody}</mstts:express-as>`
-    : prosody;
+    ? `<mstts:express-as style="${style}" styledegree="${styleDegree || '1.0'}">${safeText}</mstts:express-as>`
+    : safeText;
+  const prosody = `<prosody rate="${rate}" pitch="${pitch}" volume="medium">${inner}</prosody>`;
 
   const ssml = `<speak version="1.0"
        xmlns="http://www.w3.org/2001/10/synthesis"

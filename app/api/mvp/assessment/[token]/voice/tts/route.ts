@@ -80,6 +80,10 @@ export async function POST(
       } catch { /* use default Kokoro voice */ }
     }
 
+    /* Set defaults if not resolved */
+    if (!azureRate) azureRate = '0%';
+    if (!azurePitch) azurePitch = '0st';
+
     /* Override with explicit params from request body */
     if (body.azure_voice) azureVoiceName = body.azure_voice;
     if (body.azure_style) azureStyle = body.azure_style;
