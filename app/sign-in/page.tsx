@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authClient } from '@/lib/auth-client';
 
+const IS_DEV = typeof window !== 'undefined' && window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('trycloudflare');
+
 export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -63,6 +65,33 @@ export default function SignInPage() {
             Sign in with GitHub
           </button>
         </div>
+
+        {IS_DEV && (
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/auth/sign-up/email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: 'dev@callcallum.dev', password: 'devpass123', name: 'Dev User' }),
+                });
+                if (!res.ok) throw new Error('Sign up failed');
+                const data = await res.json();
+                await authClient.signIn.email({ email: 'dev@callcallum.dev', password: 'devpass123' });
+                window.location.href = '/profile';
+              } catch (e) {
+                // already exists, try sign in
+                try {
+                  await authClient.signIn.email({ email: 'dev@callcallum.dev', password: 'devpass123' });
+                  window.location.href = '/profile';
+                } catch {}
+              }
+            }}
+            className="w-full py-2.5 border border-dashed border-emerald-600 hover:border-emerald-500 text-emerald-400 hover:text-emerald-300 rounded-lg text-sm font-medium transition-colors"
+          >
+            🚀 Dev Login (instant)
+          </button>
+        )}
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-connexion-grey-muted" /></div>
