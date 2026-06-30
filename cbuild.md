@@ -288,3 +288,81 @@ npm test (competency-mapping + all other tests)
 | Evidence ID precision | Substring matching is imperfect — quotes may match multiple or zero messages. Could use embedding similarity later |
 | Profile page trending UI | Stats API exists but no frontend charting yet |
 | Retake comparison on profile | Component exists on report page only, not on /profile |
+
+---
+
+## Sprint 2: Connexion Product — SLA Scorer, Taxonomy Source of Truth, Level 1 Training
+
+### Context shift
+
+James (Connexion CEO) clarified the product direction. The MVP is not a public gamified platform — it's two internal tools:
+1. **Helpdesk Training** — drills technicians on call handling, SLA judgement, first-call resolution
+2. **Helpdesk Taxonomy GPT** — source-of-truth for ticket classification with safe update workflow
+
+### What was built
+
+| Component | Files | Status |
+|-----------|-------|--------|
+| `cjames.md` requirements doc | `cjames.md` | ✅ Captures full James requirements, SLA matrix, build phases, test routine |
+| Full taxonomy import from Excel | `taxonomy/taxonomy.json` | ✅ 162 items imported from Master Triage classification list.xlsx |
+| `slaClassifier` module | `lib/mvp/analysis/slaClassifier.ts` | ✅ Connexion SLA matrix: severity/impact/priority + `scoreSLAJudgement()` allowing valid inference |
+| Taxonomy search API | `app/api/taxonomy/search/route.ts` | ✅ `GET /api/taxonomy/search?q=...` |
+| Taxonomy item API | `app/api/taxonomy/item/[id]/route.ts` | ✅ `GET /api/taxonomy/item/{id}` |
+| Propose change API | `app/api/taxonomy/propose-change/route.ts` | ✅ `POST /api/taxonomy/propose-change` with before/after diff |
+| Approve change API | `app/api/taxonomy/approve-change/route.ts` | ✅ `POST /api/taxonomy/approve-change` applies to source of truth |
+
+### SLA Classifier
+
+Input:
+```
+affected_users: single | group | company
+business_state: irritation | degraded | stopped
+workaround: yes | no | unknown
+customer_claimed_priority?: string
+is_security_incident?: boolean
+is_outage?: boolean
+```
+
+Output:
+```
+severity: low | medium | high
+impact: low | medium | high
+priority: P1 | P2 | P3 | P4 | P5
+response_target: e.g. "30 minutes"
+resolution_target: e.g. "4 hours"
+reasoning: string[]
+```
+
+### Valid inference fix (James's complaint)
+
+`scoreSLAJudgement()` awards partial credit if the candidate's explanation shows they *inferred* impact from context rather than asking the keyword question directly. This directly addresses James's feedback.
+
+### Taxonomy APIs
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/taxonomy/search?q=` | Search taxonomy items by keyword/title/description |
+| `GET /api/taxonomy/item/{id}` | Get single item verbatim |
+| `POST /api/taxonomy/propose-change` | Create change proposal (never mutates directly) |
+| `POST /api/taxonomy/approve-change` | Approve + apply change to source of truth |
+
+### Architecture
+
+```
+taxonomy item (source of truth)
+  → scenario template (future)
+  → simulated call
+  → trainee attempt
+  → score against SLA + taxonomy/playbook
+  → technician progress report
+```
+
+### What to do next (Phase 2)
+
+| Item | Priority |
+|------|----------|
+| Level 1 scoring with James's 5 categories | High |
+| Technician progress table + API | High |
+| Manager report page | High |
+| Level 2 scenarios (password reset, account lockout, etc.) | Medium |
+| Taxonomy GPT instructions update | Medium |

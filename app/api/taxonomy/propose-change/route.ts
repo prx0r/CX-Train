@@ -1,39 +1,64 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { proposeChange, validateApiKey } from '@/lib/taxonomy-db';
+import { loadTaxonomy, appendChangeLog } from '@/lib/taxonomy';
+import crypto from 'crypto';
 
-export async function POST(request: NextRequest) {
+/**
+ * Propose a taxonomy change.
+ * POST /api/taxonomy/propose-change
+ * Body: { change_type, proposed_by, reason, item?, target_id? }
+ */
+export async function POST(req: NextRequest) {
   try {
-    const apiKey = request.headers.get('x-api-key');
-    if (!apiKey) {
-      return NextResponse.json({ error: 'Missing x-api-key header' }, { status: 401 });
+    const body = await req.json();
+    const { change_type, proposed_by, reason, item, target_id } = body;
+
+    if (!change_type || !proposed_by || !reason) {
+      return NextResponse.json({ error: 'Missing required fields: change_type, proposed_by, reason' }, { status: 400 });
     }
 
-    const ok = await validateApiKey(apiKey);
-    if (!ok) {
-      return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
+    if (!['add', 'update', 'delete'].includes(change_type)) {
+      return NextResponse.json({ error: 'change_type must be add, update, or delete' }, { status: 400 });
     }
 
-    const body = await request.json();
+    /* Load current taxonomy to capture before state */
+    const taxonomy = await loadTaxonomy();
+    let beforeJson = null;
+    let afterJson = null;
 
-    if (!body.change_type || !body.proposed_by || !body.reason) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (change_type === 'update' && target_id) {
+      const existing = taxonomy.items.find(i => i.id === target_id);
+      if (existing) beforeJson = existing;
+      if (item) afterJson = item;
     }
 
-    const proposal = await proposeChange({
-      change_type: body.change_type,
-      proposed_by: body.proposed_by,
-      reason: body.reason,
-      item: body.item,
-      target_id: body.target_id,
-    });
+    if (change_type === 'delete' && target_id) {
+      const existing = taxonomy.items.find(i => i.id === target_id);
+      if (existing) beforeJson = existing;
+    }
+
+    if (change_type === 'add' && item) {
+      afterJson = item;
+    }
+
+    const proposal = {
+      id: crypto.randomBytes(16).toString('hex'),
+      change_type,
+      proposed_by,
+      reason,
+      taxonomy_item_id: target_id || item?.id || null,
+      before_json: beforeJson ? JSON.stringify(beforeJson) : null,
+      after_json: afterJson ? JSON.stringify(afterJson) : null,
+      status: 'proposed',
+      created_at: new Date().toISOString(),
+    };
+
+    await appendChangeLog(proposal);
 
     return NextResponse.json({
-      proposal_id: proposal.id,
-      status: proposal.status || 'proposed',
-      created_at: proposal.created_at,
+      proposal,
+      message: `Change proposal created. Status: proposed. Use approve endpoint to apply.`,
     });
-  } catch (err) {
-    console.error('Taxonomy propose error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
