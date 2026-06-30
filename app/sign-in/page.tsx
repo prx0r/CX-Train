@@ -77,22 +77,24 @@ export default function SignInPage() {
         {isDev && (
           <button
             onClick={async () => {
-              try {
-                const res = await fetch('/api/auth/sign-up/email', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email: 'dev@callcallum.dev', password: 'devpass123', name: 'Dev User' }),
-                });
-                if (!res.ok) throw new Error('Sign up failed');
-                const data = await res.json();
+              // Try sign in first (user may already exist)
+              const { error: signInErr } = await authClient.signIn.email({
+                email: 'dev@callcallum.dev',
+                password: 'devpass123',
+              });
+              if (!signInErr) {
+                window.location.href = '/profile';
+                return;
+              }
+              // User doesn't exist yet — sign up, then sign in
+              const { error: signUpErr } = await authClient.signUp.email({
+                email: 'dev@callcallum.dev',
+                password: 'devpass123',
+                name: 'Dev User',
+              });
+              if (!signUpErr) {
                 await authClient.signIn.email({ email: 'dev@callcallum.dev', password: 'devpass123' });
                 window.location.href = '/profile';
-              } catch (e) {
-                // already exists, try sign in
-                try {
-                  await authClient.signIn.email({ email: 'dev@callcallum.dev', password: 'devpass123' });
-                  window.location.href = '/profile';
-                } catch {}
               }
             }}
             className="w-full py-2.5 border border-dashed border-emerald-600 hover:border-emerald-500 text-emerald-400 hover:text-emerald-300 rounded-lg text-sm font-medium transition-colors"
