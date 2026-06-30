@@ -1,5 +1,44 @@
 # CSpec — CallCallum Codebase Specification
 
+## Current implementation status
+
+### Already exists (MVP substrate)
+- `assessments` — core attempt table with `candidate_user_id`, `attempt_mode`, `pack_snapshot_json`
+- `sessions` — per-attempt chat sessions
+- `messages` — transcript rows with role + content
+- `tickets` — candidate ticket submissions
+- `assessment_results` — analysis output: scores, labels, raw_model_json, recording path
+- `assessment_packs` — pack definitions with rubric, sim config, snapshots
+- `analysis_runs` — execution tracking per analysis
+- `session_events` — canonical event log (messages, tool actions, edits)
+- `sim_events` — simulation-specific events
+- `candidate_profiles` — public profile toggles, bio
+- `featured_attempts` — candidate-curated public attempts
+- Pack-modes rendering — assessment_mode derived from pack.mode
+- 4 hiring packs — Outlook, VPN, Printer, Phishing
+
+### Next to implement (Sprint 1 — competency normalization)
+- `competencies` — 14 workflow competencies (call-control, impact-discovery, etc.)
+- `context_tags` — 10 scenario context tags (email, vpn, account-access, etc.)
+- `pack_competencies` — maps packs to competencies
+- `pack_context_tags` — maps packs to context tags
+- `attempt_competency_scores` — per-attempt per-competency scores
+- `attempt_criterion_results` — per-attempt per-criterion evidence
+- `normalizeAnalysisScores()` — post-analysis hook to populate the above
+- Competency mapping CI test — every criterion maps to ≥1 competency
+
+### Future (Sprint 2+)
+- XP/streaks/badges
+- Leaderboards (materialized, ranked mode)
+- Retry/progress loop on profile
+- Manager pathway tracks
+- Job posting → skill path matching
+- Callum LangGraph manager assistant
+- Analysis background jobs (`analysis_jobs` table)
+- Audio lifecycle (delete WebM after MP3, R2 migration)
+
+---
+
 ## System philosophy
 
 CallCallum is a **gamified support-call simulator** where candidates practise live IT support workflows: speaking to customers, gathering evidence, writing tickets, triaging priority, and escalating clearly. Scenarios lean Microsoft 365 (the dominant MSP environment) but are described with vendor-neutral competency tags.
@@ -129,15 +168,41 @@ The platform scores **support workflow competence**, not tool mastery. No fake I
 
 **Problem**: `runBaseCallumAnalysis()` calls external LLM API synchronously. If the LLM is slow (5-30s), the user waits.
 
-**Mechanism**: 30s timeout wrapper. On timeout, return `status: 'analysis_pending'` and queue a background retry. The candidate sees their report with a "Analysis in progress — check back shortly" banner.
+**Mechanism**: 30s timeout wrapper. On timeout, return `status: 'analysis_pending'` and queue a background retry via an `analysis_jobs` table:
 
-**Justification**: Synchronous analysis is simpler and gives immediate feedback (the best UX). Background fallback only triggers on timeout. At MVP scale, LLM calls average 3-8s, well within tolerance.
+```sql
+CREATE TABLE analysis_jobs (
+  id              TEXT PRIMARY KEY,
+  assessment_id   TEXT NOT NULL REFERENCES assessments(id),
+  session_id      TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending',
+    -- pending | running | completed | failed
+  attempts        INTEGER NOT NULL DEFAULT 0,
+  max_attempts    INTEGER NOT NULL DEFAULT 3,
+  last_error      TEXT,
+  run_after       TEXT,              -- for retry backoff
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+A simple polling endpoint (`GET /api/mvp/analysis/{id}/status`) lets the analysis report page check progress. A periodic worker (cron or serverless function) picks up pending jobs and retries.
+
+**Justification**: Synchronous analysis is simpler and gives immediate feedback (the best UX). Background fallback only triggers on timeout or error. The `analysis_jobs` table is minimal — it doesn't duplicate the analysis itself, just tracks execution state.
 
 ### Pain point 4: Competency → criterion mapping drift
 
-**Problem**: `CRITERION_COMPETENCY_MAP` in `normalize-scores.ts` is hardcoded. If analysis criteria change in `criteriaRegistry.ts`, mappings go out of sync silently.
+**Problem**: `CRITERION_COMPETENCY_MAP` in `normalize-scores.ts` is hardcoded. If analysis criteria change in `criteriaRegistry.ts`, mappings go out of sync silently. Each criterion may map to multiple competencies (asked_scope → scope_discovery + evidence_collection), so a one-to-one mapping is too flat.
 
-**Mechanism**: Unit test (`tests/competency-mapping.test.ts`) asserts every key in `CATEGORY_CRITERIA_MAP` appears as a key in `CRITERION_COMPETENCY_MAP`. Fails CI if a criterion has no competency mapping.
+**Mechanism**: The map is `criterion_id → competency_id[]` (many-to-many). Example:
+
+```
+asked_scope → [scope_discovery, evidence_collection]
+set_next_steps → [call_control, next_step_setting]
+wrote_usable_ticket → [ticket_documentation, escalation_quality]
+```
+
+A unit test (`tests/competency-mapping.test.ts`) asserts every key in `CATEGORY_CRITERIA_MAP` appears as a key in `CRITERION_COMPETENCY_MAP`. Fails CI if a criterion has no competency mapping. The multi-competency mapping is already implemented in `normalize-scores.ts`.
 
 **Justification**: Prevents silent data loss. If a new criterion is added to the analysis engine, the test fails until someone maps it to a competency. This is cheap insurance — a 20-line test protects a 50-line mapping.
 
