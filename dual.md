@@ -263,9 +263,11 @@ These live alongside `assessments`, `sessions`, `messages`, etc. in the same SQL
 
 ### What stays
 
-- `lib/mvp/db.ts` — the SQLite connection stays, Better Auth shares it
+- `lib/mvp/db.ts` — the SQLite connection stays, Better Auth connects to the same file
 - `middleware.ts` — swap Supabase proxy for Better Auth session check
 - All existing API routes — assessments, recording, analysis unchanged
+
+Note: Better Auth creates its own `user`, `session`, `account`, `verification` tables in the same SQLite database. The existing `assessments` table gets a `candidate_user_id` column referencing `user.id`. No separate user table needed.
 
 ### Useful MCP tools for this project
 
@@ -273,7 +275,6 @@ These live alongside `assessments`, `sessions`, `messages`, etc. in the same SQL
 |------|-----|---------|
 | Better Auth MCP | `https://mcp.better-auth.com/mcp` | Auth setup, config, debugging |
 | Better Auth llms.txt | `https://www.better-auth.com/llms.txt` | Complete API reference for AI assistants |
-| Supabase MCP | (exists but not needed) | Would be needed if keeping Supabase |
 
 ---
 
@@ -323,12 +324,24 @@ These live alongside `assessments`, `sessions`, `messages`, etc. in the same SQL
 
 ## What to build and in what order
 
+### Phase 0 — Auth switch to Better Auth + SQLite (before any UI)
+
+Do not mix auth migration with feature work. Phase 0 is a standalone refactor with zero UX change.
+
+1. **Install Better Auth** — `npm install better-auth`, configure `lib/auth.ts` with SQLite connection to `./data/callcallum.db`
+2. **Create auth route handler** — `app/api/auth/[...all]/route.ts` mounts Better Auth handler
+3. **Run Better Auth migration** — `npx auth@latest migrate` creates `user`, `session`, `account`, `verification` tables in the existing SQLite DB
+4. **Create auth client** — `lib/auth-client.ts` with `createAuthClient()`
+5. **Swap middleware** — replace Supabase proxy with Better Auth session check in `middleware.ts`
+6. **Remove Supabase deps** — delete `lib/supabase/`, `app/(auth)/`, `app/api/webhooks/clerk/`, remove `@supabase/ssr` and `@supabase/supabase-js` from `package.json`
+7. **Verify** — sign in/sign up flow works, existing `/mvp/` and `/assessment/:token` public routes still accessible, no regressions
+
 ### Phase 1 — Candidate identity (week 1)
 
-1. **SQLite migration**: Add `candidate_users`, `candidate_profiles`, `featured_attempts` tables, add `candidate_user_id` + `attempt_mode` columns to `assessments`
-2. **`lib/candidate/auth.ts`**: `getOrCreateCandidateUser(authId, email)` — creates user row on first profile visit, links by email
+1. **SQLite migration**: Add `candidate_profiles`, `featured_attempts` tables, add `candidate_user_id` + `attempt_mode` columns to `assessments`
+2. **`lib/candidate/profile.ts`**: `getOrCreateProfile(userId)` — creates profile row on first visit, links assessments by email match
 3. **`app/(candidate)/` route group**: Layout shell with nav (Profile / Attempts / Settings / Sign out)
-4. **`app/(candidate)/profile/settings/page.tsx`**: Username, display name, bio form
+4. **`app/(candidate)/profile/settings/page.tsx`**: Display name, bio, visibility toggles. Username already handled by Better Auth username plugin
 5. **`app/(candidate)/profile/page.tsx`**: Private dashboard — my attempts list, basic stats
 6. **API routes**: `GET/PUT /api/candidate/profile`, `GET /api/candidate/attempts`, `POST /api/candidate/featured`
 
@@ -355,18 +368,17 @@ These live alongside `assessments`, `sessions`, `messages`, etc. in the same SQL
 
 ---
 
-## What stays unchanged
-
-Do not touch:
+## What stays unchanged (do not touch)
 
 - `lib/mvp/sim/` — pack definitions, registry, AI customer, resolver
 - `lib/mvp/analysis/` — scoring engine, prompts, pipeline
 - `lib/mvp/audio/` — recording, analysis, diarization
-- `lib/voice/` — STT/TTS providers
+- `lib/voice/` — STT/TTS providers (except removing unused Supabase imports)
 - `app/mvp/assessment/[token]/` — candidate workspace (the actual call UI)
 - `app/api/mvp/assessment/[token]/` — assessment API endpoints
 - `app/api/mvp/assessments/` — assessment CRUD
 - Existing `assessments` table schema (only additive migrations)
+- `lib/mvp/db.ts` — the SQLite connection Better Auth shares
 
 ---
 
@@ -376,7 +388,6 @@ Do not touch:
 |------|------------|
 | Breaking existing token-based invite flow | Additive only: `candidate_user_id` is nullable, old rows keep working |
 | Username collisions | Unique constraint + availability check endpoint |
-| Supabase auth vs SQLite user sync drift | `getOrCreateCandidateUser` is idempotent — called on every profile visit |
 | Performance — many attempts per user | Index on `assessments.candidate_user_id` + pagination |
 | Public profile exposes sensitive data | Default all private. Candidate explicitly opts in per attempt per field |
 | Route group confusion | Keep existing `/mvp/` routes untouched during transition. New routes under `(candidate)/` and `(manager)/` don't conflict |
@@ -385,6 +396,6 @@ Do not touch:
 
 ## Summary
 
-Build the candidate frontend now. Same codebase, same backend, same database, same scenario engine. Route groups keep surfaces separate. Auth uses existing Supabase magic link. Candidate accounts are additive — no existing flows break.
+Build the candidate frontend now. Same codebase, same backend, same database, same scenario engine. Route groups keep surfaces separate. Auth uses Better Auth + SQLite — no external auth service. Candidate accounts are additive — no existing flows break.
 
 The key object is the attempt. One `assessments` table with a `mode` column. The UI decides who can see what.
