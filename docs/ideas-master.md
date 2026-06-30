@@ -270,6 +270,21 @@ Internal MSP technician tools. Primary interface: ChatGPT Enterprise Custom GPT.
 
 ---
 
+# Product 4: CallCallum
+
+Sales enablement and front-desk call auditing for MSPs. A two-landing-page test of the market, sharing the same evaluation engine.
+
+## Prospect Call Prep
+- [ ] Input: company name/domain, target vertical, MSP/service offer, optional notes
+- [ ] Output: prospect summary, "why they might care", opening line, discovery questions, objections, voicemail, follow-up email
+- [ ] Practice call button (simulated prospect conversation)
+
+## Front Desk Call Audit
+- [ ] Input: call transcript/audio, business type, desired outcome (booking/quote/appointment/complaint resolution)
+- [ ] Output: missed revenue moments, booking/conversion score, better script, coaching drills
+
+---
+
 # Other
 
 Things that don't fit neatly under one product, or are cross-cutting infrastructure.
