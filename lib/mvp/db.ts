@@ -365,16 +365,16 @@ export function initTables(): void {
     const existing = db.prepare('SELECT COUNT(*) as c FROM context_tags').get() as { c: number };
     if (existing.c === 0) {
       const seed = [
-        { id: 'outlook', cat: 'vendor', desc: 'Outlook desktop / email client context' },
-        { id: 'microsoft-365', cat: 'vendor', desc: 'Microsoft 365 / cloud services context' },
-        { id: 'active-directory', cat: 'vendor', desc: 'Active Directory / identity access context' },
-        { id: 'exchange-online', cat: 'vendor', desc: 'Exchange Online / email server context' },
-        { id: 'intune', cat: 'vendor', desc: 'Intune / endpoint management context' },
-        { id: 'vpn', cat: 'tool', desc: 'VPN connectivity context' },
-        { id: 'printer', cat: 'tool', desc: 'Printer troubleshooting context' },
-        { id: 'rmm', cat: 'tool', desc: 'Remote monitoring and management context' },
-        { id: 'security-phishing', cat: 'domain', desc: 'Phishing and security incident context' },
-        { id: 'password-identity', cat: 'domain', desc: 'Password reset and account access context' },
+        { id: 'account-access', cat: 'domain', desc: 'Password reset, account unlock, MFA, login issues' },
+        { id: 'email', cat: 'domain', desc: 'Email client, webmail, send/receive, mailbox issues' },
+        { id: 'printer', cat: 'domain', desc: 'Printer queue, driver, paper jam, network printer' },
+        { id: 'vpn', cat: 'domain', desc: 'VPN connectivity, client issues, remote access' },
+        { id: 'app-software', cat: 'domain', desc: 'Application not working, install, update, crash' },
+        { id: 'network-wifi', cat: 'domain', desc: 'Wi-Fi connectivity, network access, slow connection' },
+        { id: 'device-hardware', cat: 'domain', desc: 'Computer slow, peripheral issue, hardware fault' },
+        { id: 'security-phishing', cat: 'domain', desc: 'Phishing report, suspicious email, security concern' },
+        { id: 'file-access', cat: 'domain', desc: 'Shared drive, permissions, file not found, OneDrive' },
+        { id: 'new-starter', cat: 'domain', desc: 'Account creation, software setup, onboarding' },
       ];
       const ins = db.prepare('INSERT INTO context_tags (id, slug, name, category, description) VALUES (?, ?, ?, ?, ?)');
       for (const s of seed) {

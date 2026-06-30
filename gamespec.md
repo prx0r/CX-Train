@@ -255,7 +255,7 @@ CREATE TABLE context_tags (
 );
 ```
 
-Initial tags: outlook, microsoft-365, active-directory, intune, vpn, printer, rmm, security-phishing, password-identity.
+Initial tags: account-access, email, printer, vpn, app-software, network-wifi, device-hardware, security-phishing, file-access, new-starter.
 
 ### Mapping packs to competencies and contexts
 
