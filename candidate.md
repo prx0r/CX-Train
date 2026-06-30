@@ -1,186 +1,184 @@
 # Candidate Frontend — Build Notes
 
+## Product direction
+
+Candidate training platform first → candidates share proof with hiring managers → managers onboard through challenges/assessments once there is usage evidence.
+
+This is stronger than cold-selling managers a hiring tool with no usage proof.
+
+### Current product loop
+
+```
+/practice → pick scenario → sign up → complete simulated call
+→ submit ticket → get AI analysis report → retry to improve
+→ feature best attempt → share /u/username with hiring manager
+→ manager clicks "Create a Challenge"
+```
+
+The repo already has four hiring packs (Outlook, VPN, Printer, Suspicious Email) — enough for a candidate practice MVP.
+
+---
+
 ## Auth: Better Auth + SQLite
 
 Replaced Supabase auth with Better Auth running on the same `better-sqlite3` database as the rest of the app (`data/callcallum.db`). No external auth service.
 
 ### Auth methods available
 - Email + password
-- Google OAuth
-- GitHub OAuth
-- Username sign-in (via username plugin)
+- Google OAuth (needs credentials configured)
+- GitHub OAuth (needs credentials configured)
+- Username sign-in
+- Dev login button on `/sign-in` (auto-creates session, works on any tunnel URL)
 
 ### Auth files
 | File | Purpose |
 |------|---------|
-| `lib/auth.ts` | Better Auth instance — SQLite connection, OAuth providers, username plugin, database hooks (auto-create profile on signup, link existing assessments by email) |
-| `lib/auth-client.ts` | Client-side auth client — `signUp`, `signIn`, `signOut`, `useSession` |
-| `app/api/auth/[...all]/route.ts` | Auth API handler (mounts Better Auth) |
-| `app/sign-in/page.tsx` | Sign-in page — Google, GitHub, email/password |
-| `app/sign-up/page.tsx` | Sign-up page — Google, GitHub, email |
-| `middleware.ts` | Session cookie check — public routes (`/`, `/sign-in`, `/sign-up`, `/practice`, `/u/*`, `/assessment/*`, `/api/auth/*`) bypass auth |
+| `lib/auth.ts` | Better Auth instance — SQLite, OAuth, username plugin, auto-create profile on signup, auto-link assessments by email |
+| `lib/auth-client.ts` | Client-side auth client |
+| `app/api/auth/[...all]/route.ts` | Auth API handler |
+| `app/sign-in/page.tsx` | Sign-in with Google, GitHub, email, dev login |
+| `app/sign-up/page.tsx` | Create account |
+| `middleware.ts` | Session cookie check — public routes bypass auth |
 
-### Env vars needed
+### Env vars
 ```
 BETTER_AUTH_SECRET=         # openssl rand -base64 32
-BETTER_AUTH_URL=            # e.g. http://localhost:3000
 GOOGLE_CLIENT_ID=           # for Google OAuth
 GOOGLE_CLIENT_SECRET=
-GITHUB_CLIENT_ID=           # for GitHub OAuth
+GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 ```
 
-### OAuth setup
-For Google: create credentials at https://console.cloud.google.com/apis/credentials → OAuth 2.0 Client ID → Authorized redirect URI: `{BETTER_AUTH_URL}/api/auth/callback/google`
-
-For GitHub: create OAuth app at https://github.com/settings/developers → Authorization callback URL: `{BETTER_AUTH_URL}/api/auth/callback/github`
+---
 
 ## Routes
 
 ### Public (no auth required)
-| Route | File | Description |
-|-------|------|-------------|
-| `/` | `app/page.tsx` | Landing page (existing) |
-| `/sign-in` | `app/sign-in/page.tsx` | Sign in with Google, GitHub, or email |
-| `/sign-up` | `app/sign-up/page.tsx` | Create account |
-| `/practice` | `app/(public)/practice/page.tsx` | Scenario library — browse packs, start practice calls |
-| `/u/:username` | `app/(public)/u/[username]/page.tsx` | Public shareable candidate profile (server component) |
-| `/assessment/:token` | existing | Token-based invite flow (unchanged) |
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page — candidate-first CTA |
+| `/sign-in` | Sign in |
+| `/sign-up` | Create account |
+| `/practice` | Scenario library — browse packs, start practice calls |
+| `/u/:username` | Public shareable candidate profile |
+| `/assessment/:token` | Token-based invite flow (unchanged) |
 
 ### Candidate (auth required)
-| Route | File | Description |
-|-------|------|-------------|
-| `/profile` | `app/(candidate)/profile/page.tsx` | Dashboard — stats, recent attempts, start practice |
-| `/profile/attempts` | `app/(candidate)/profile/attempts/page.tsx` | Full attempt history |
-| `/profile/featured` | `app/(candidate)/profile/featured/page.tsx` | Manage featured calls for public profile |
-| `/profile/settings` | `app/(candidate)/profile/settings/page.tsx` | Display name, username, bio, privacy toggles |
+| Route | Description |
+|-------|-------------|
+| `/profile` | Dashboard — stats, attempts, progress |
+| `/profile/attempts` | Full attempt history |
+| `/profile/featured` | Manage featured calls for public profile |
+| `/profile/settings` | Display name, username, bio, privacy toggles |
 
-## Candidate UX flow
+### Manager (existing)
+| Route | Description |
+|-------|-------------|
+| `/mvp` | Manager dashboard |
+| `/mvp/assessments` | Assessment list and review |
+| `/mvp/assessment/:token` | Candidate workspace (call UI) |
+| `/mvp/analysis/:assessmentId` | Analysis report |
 
-```
-/practice (browse scenarios)
-  → "Start Call" → creates practice assessment linked to user
-  → /mvp/assessment/:token (existing call UI, unchanged)
-  → submit ticket → analysis runs
-  → /mvp/analysis/:assessmentId (analysis report)
-  → /profile (see attempt in list)
+---
 
-/profile
-  → Stats: total calls, completed, avg score
-  → Attempt list with scores, status, dates
-  → Click attempt → /mvp/analysis/:assessmentId
+## Database
 
-/profile/featured
-  → Toggle feature/unfeature per attempt
-  → Per-call visibility: audio, transcript, feedback, ticket note
-  → Visibility: public / share link only / private
+### New tables (in existing SQLite `data/callcallum.db`)
 
-/profile/settings
-  → Display name, username (public slug)
-  → Bio
-  → Master toggles: public profile, show attempts, recordings, transcripts, feedback, ticket notes
+**`user`** — Better Auth user table (auto-created). Columns: id, name, email, emailVerified, image, username, displayUsername, bio, createdAt, updatedAt.
 
-/u/:username (public)
-  → Avatar initial, display name, bio
-  → Avg score, call count
-  → Featured attempts with score badges
-  → "Create a Challenge" CTA for hiring managers
-```
+**`candidate_profiles`** — user_id (PK), is_public, show_attempts/recordings/transcripts/feedback/ticket_notes, bio, created_at, updated_at.
 
-## Database changes
+**`featured_attempts`** — id (PK), candidate_user_id (FK), assessment_id (FK), visibility (public/share_link/private), show_audio/transcript/feedback/ticket_note, sort_order, created_at.
 
-### New tables (in existing SQLite DB)
-
-**`candidate_profiles`**
-| Column | Type | Notes |
-|--------|------|-------|
-| user_id | TEXT PK | References Better Auth `user.id` |
-| is_public | INTEGER | Master toggle for public profile |
-| show_attempts/recordings/transcripts/feedback/ticket_notes | INTEGER | Per-section visibility |
-| bio | TEXT | Markdown bio |
-| created_at / updated_at | TEXT | |
-
-**`featured_attempts`**
-| Column | Type | Notes |
-|--------|------|-------|
-| id | TEXT PK | |
-| candidate_user_id | TEXT FK → candidate_profiles | |
-| assessment_id | TEXT FK → assessments | |
-| visibility | TEXT | public / share_link / private |
-| show_audio/transcript/feedback/ticket_note | INTEGER | Per-attempt visibility |
-| sort_order | INTEGER | Display order |
-
-### New columns on existing tables
-
-**`assessments`**
-- `candidate_user_id TEXT` — links attempt to user account (nullable, backward compat)
+### New columns on `assessments`
+- `candidate_user_id TEXT` — links attempt to user (nullable for backward compat)
 - `attempt_mode TEXT NOT NULL DEFAULT 'invited'` — `invited` | `practice` | `challenge`
 
-### Auto-linking
-When a user signs up with an email that matches existing `assessments.candidate_email`, those assessments are automatically linked via `candidate_user_id` (handled by a `databaseHooks.user.create.after` hook in `lib/auth.ts`).
+When a user signs up with an email matching existing `assessments.candidate_email`, those assessments are auto-linked via `databaseHooks` in `lib/auth.ts`.
+
+The existing `assessments` table IS the attempts table. No separate attempts table needed.
+
+---
 
 ## API routes
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/candidate/profile?userId=X` | GET | Get profile |
-| `/api/candidate/profile` | PUT | Update profile fields |
-| `/api/candidate/attempts?userId=X&limit=N` | GET | List attempts for user |
-| `/api/candidate/featured?userId=X` | GET | List featured attempts |
-| `/api/candidate/featured` | POST | Toggle attempt featured status |
-| `/api/candidate/featured` | PATCH | Update per-attempt visibility settings |
+| `/api/candidate/profile` | GET/PUT | Profile read/update |
+| `/api/candidate/attempts` | GET | List attempts (requires userId) |
+| `/api/candidate/featured` | GET/POST/PATCH | Featured attempt CRUD |
+
+---
 
 ## Key design decisions
 
-1. **No separate attempts table** — the existing `assessments` table IS the attempts table. `candidate_user_id` and `attempt_mode` are additive columns.
-2. **Better Auth owns the `user` table** — Better Auth creates its own `user`, `session`, `account`, `verification` tables in the same SQLite DB. Candidate profiles reference `user.id`.
-3. **Default everything private** — profiles start private. Candidates must explicitly opt in to share.
-4. **Same call UI** — `/mvp/assessment/:token` is unchanged. The only difference is practice attempts are linked to the user account.
-5. **Style matches manager dash** — dark sidebar, Connexion CSS vars, light content area, same card/table patterns.
-6. **Old Supabase auth removed** — `app/(auth)/` route group deleted. Clerk webhook still exists as dead code (not configured).
+1. **No separate attempts table** — `assessments` IS the attempts table, with `candidate_user_id` and `attempt_mode`.
+2. **Better Auth owns `user` table** — created in the same SQLite DB alongside app tables.
+3. **Default everything private** — profiles start private, opt-in to share.
+4. **Same call UI** — `/mvp/assessment/:token` unchanged. Practice attempts just link to user.
+5. **Style matches manager dash** — dark sidebar, Saira Condensed font, light content area.
+6. **Logo is SVG `currentColor`** — adapts to any background. File at `components/shared/Logo.tsx`.
+
+---
+
+## Priority queue — next sprint
+
+### 1. Candidate-first landing page
+Update `/` to message: "Practice real MSP support calls. Get scored. Share your best call with hiring managers."
+Primary CTA: "Start Practising" → `/practice`. Secondary: "I'm a Hiring Manager" → `/mvp`.
+
+### 2. Retry loop from analysis report
+The `mvp/analysis/:assessmentId` page needs:
+- "Retry same scenario" button → creates new practice attempt with same pack
+- "Try easier/harder scenario" → link to `/practice`
+- "Feature this attempt" → toggle featured status
+- "Back to practice library"
+
+### 3. Profile progress page
+Beyond total/completed/avg, show: best score, improvement over attempts, weakest skill, recommended next scenario, retry count.
+
+### 4. API ownership checks
+`/api/candidate/*` routes need server-side verification: current session user ID must match requested userId. The middleware protects routes but doesn't do object-level auth.
+
+### 5. Public profile evidence cards
+Each featured attempt on `/u/:username` should show: scenario name, score, verdict, short strengths/improvements, transcript excerpt, ticket note excerpt, recording (if opted in), "Invite to challenge" CTA.
+
+### 6. Supersede dual.md
+`dual.md` was the plan. `candidate.md` is the implementation. Add header: "Superseded by candidate.md as of candidate auth implementation."
+
+---
+
+## Known gaps
+
+- **API ownership**: Candidate routes accept userId from query/body but don't verify against session — fixed in next sprint item #4.
+- **Chunk load errors**: Stale `.next` cache after rebuilds — clear with `rm -rf .next && npm run dev`.
+- **Google/GitHub OAuth**: Needs credentials configured and tunnel URL registered in OAuth provider.
+- **No email sending**: Magic link and email verification not yet configured.
+- **Tunnel URL changes each restart**: update OAuth redirect URIs if using social login.
+
+---
 
 ## Running
 
 ```bash
-# Dev
-npm run dev
-
-# Tests
-npm test   # 248 tests pass
+npm run dev           # dev server on :3000
+npm test              # 248 tests pass
 ```
 
-## Cloudflare tunnel (for sharing)
+### Cloudflare tunnel
 
 ```bash
-# Install cloudflared if needed
-# https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install/
-
-# Start the dev server first, then tunnel
+# Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install/
 npm run dev
-
-# In another terminal, create a tunnel
 cloudflared tunnel --url http://localhost:3000
-
-# You'll get a URL like:
-# https://random-words.trycloudflare.com
-#
-# Share that URL with anyone — they'll see your local dev server.
-#
-# Note: tunnel URL changes each restart. The dev login button
-# on /sign-in works on any tunnel URL without config.
-#
-# For Google/GitHub OAuth, you'd need to:
-# 1. Add the tunnel URL to Google Cloud Console redirect URIs:
-#    https://{tunnel-url}/api/auth/callback/google
-# 2. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local
-# 3. Restart the server
-#
-# Without OAuth, email/password sign-up and the dev login button
-# work immediately.
+# → https://random-words.trycloudflare.com
 ```
+
+The dev login button on `/sign-in` works on any tunnel URL without config.
+
+---
 
 ## Logo
 
-The app uses an inline SVG logo (`components/shared/Logo.tsx`) that renders "CC" in Saira Condensed. It uses `currentColor` so it inverts automatically — white on dark backgrounds, dark on light. No external image file needed.
-
-The original `cclogo.png` is in `public/` at `/cclogo.png` if you want to reference it directly.
+SVG "CC" mark in Saira Condensed at `components/shared/Logo.tsx`. Uses `currentColor` — white on dark, dark on light. Original `cclogo.png` at `/cclogo.png`.

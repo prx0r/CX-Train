@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { getProfile, upsertProfile } from '@/lib/candidate/profile';
+import { headers } from 'next/headers';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId');
   if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session || session.user.id !== userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
 
   const profile = getProfile(userId);
   return NextResponse.json({ profile });
@@ -14,6 +21,11 @@ export async function PUT(req: NextRequest) {
   const body = await req.json();
   const { userId, displayName, bio, isPublic, showAttempts, showRecordings, showTranscripts, showFeedback, showTicketNotes } = body;
   if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session || session.user.id !== userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
 
   try {
     upsertProfile(userId, {

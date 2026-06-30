@@ -1,3 +1,7 @@
+> **Superseded by `candidate.md`** as of candidate auth implementation (June 2026).
+> Better Auth + SQLite replaced Supabase. The route group plan and data model in this doc
+> are still accurate, but auth strategy should reference `candidate.md` instead.
+
 # Dual — Candidate Frontend Architecture
 
 ## Why not a separate repo
