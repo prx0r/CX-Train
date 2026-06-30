@@ -221,84 +221,100 @@ Build this after Sprint 2 (retry + progress loop) but before Sprint 4 (ranked le
 
 The data model is additive — no existing tables change. Existing single-invite assessments continue to work unchanged.
 
-A canonical skill graph turns raw attempts into meaningful analytics.
+The product scores **support workflow competence**, not vendor tool mastery. Competencies are transferable call-handling behaviours. Context tags describe the scenario's technical dressing.
 
-### `skills` table
+### `competencies` table
 
 ```sql
-CREATE TABLE skills (
+CREATE TABLE competencies (
   id             TEXT PRIMARY KEY,
   slug           TEXT NOT NULL UNIQUE,
   name           TEXT NOT NULL,
-  category       TEXT NOT NULL,        -- technical | process | communication
-  parent_skill_id TEXT REFERENCES skills(id),
+  category       TEXT NOT NULL,        -- call_handling | diagnosis | process
+  parent_id      TEXT REFERENCES competencies(id),
   description    TEXT,
-  aliases_json   TEXT,                 -- ["outlook", "exchange", "email client"]
-  vendor         TEXT,                 -- microsoft, cisco, etc.
-  tool           TEXT,                 -- outlook, teams, ninjaone
-  difficulty_band TEXT,               -- beginner | intermediate | advanced
+  difficulty_band TEXT,
   created_at     TEXT NOT NULL DEFAULT (datetime('now'))
 );
 ```
 
-### Initial skill tree
+Initial competencies: call-control, customer-empathy, plain-english, active-listening, impact-discovery, scope-discovery, evidence-gathering, hypothesis-testing, remote-session, ticket-documentation, priority-triage, escalation-quality, fix-verification, next-step-setting.
 
-```
-technical/
-├── microsoft-365
-│   ├── outlook-desktop
-│   ├── exchange-online
-│   ├── teams
-│   └── sharepoint-online
-├── active-directory
-│   ├── password-reset
-│   ├── account-lockout
-│   ├── group-membership
-│   └── mfa
-├── endpoint-management
-│   ├── intune
-│   ├── windows-10-11
-│   └── software-installation
-├── networking
-│   ├── vpn
-│   └── wifi-troubleshooting
-├── printer-troubleshooting
-└── security
-    ├── phishing-identification
-    └── suspicious-activity
+### `context_tags` table
 
-process/
-├── impact-discovery
-├── scope-discovery
-├── urgency-triage
-├── escalation-judgement
-├── ticket-documentation
-├── next-step-setting
-└── fix-verification
-
-communication/
-├── empathy
-├── call-control
-├── plain-english
-├── de-escalation
-├── confidence
-└── active-listening
-```
-
-### `pack_skills` — map packs to skills
+Context tags describe the technical setting for filtering — they are not claimed as skills.
 
 ```sql
-CREATE TABLE pack_skills (
-  pack_version_id TEXT NOT NULL,
-  skill_id        TEXT NOT NULL REFERENCES skills(id),
-  weight          REAL NOT NULL DEFAULT 1.0,
-  required_level  INTEGER,            -- skill level needed to attempt this pack
-  is_primary      INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (pack_version_id, skill_id)
+CREATE TABLE context_tags (
+  id             TEXT PRIMARY KEY,
+  slug           TEXT NOT NULL UNIQUE,
+  name           TEXT NOT NULL,
+  category       TEXT NOT NULL,        -- vendor | tool | domain
+  description    TEXT,
+  created_at     TEXT NOT NULL DEFAULT (datetime('now'))
 );
 ```
 
-This enables: skill-level scoring, skill paths, leaderboards per skill, recommendations ("you're weak in active-directory, try these packs"), and job-posting mapping.
+Initial tags: outlook, microsoft-365, active-directory, intune, vpn, printer, rmm, security-phishing, password-identity.
+
+### Mapping packs to competencies and contexts
+
+```sql
+CREATE TABLE pack_competencies (
+  pack_version_id TEXT NOT NULL,
+  competency_id   TEXT NOT NULL REFERENCES competencies(id),
+  weight          REAL NOT NULL DEFAULT 1.0,
+  is_primary      INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (pack_version_id, competency_id)
+);
+
+CREATE TABLE pack_context_tags (
+  pack_version_id TEXT NOT NULL,
+  tag_id          TEXT NOT NULL REFERENCES context_tags(id),
+  PRIMARY KEY (pack_version_id, tag_id)
+);
+```
+
+### `attempt_competency_scores` table
+
+Generated after each analysis run. Makes every call queryable by competency.
+
+```sql
+CREATE TABLE attempt_competency_scores (
+  attempt_id       TEXT NOT NULL REFERENCES assessments(id),
+  competency_id    TEXT NOT NULL REFERENCES competencies(id),
+  raw_score        REAL NOT NULL,
+  normalized_score REAL NOT NULL,
+  max_score        REAL NOT NULL,
+  evidence_count   INTEGER NOT NULL DEFAULT 0,
+  missed_count     INTEGER NOT NULL DEFAULT 0,
+  percentile       REAL,
+  PRIMARY KEY (attempt_id, competency_id)
+);
+```
+
+Lets the profile say "Strong: call control, empathy. Weak: impact discovery, ticket documentation" — not "mastered Active Directory."
+
+### `attempt_criterion_results` table
+
+Per-criterion evidence for analytics.
+
+```sql
+CREATE TABLE attempt_criterion_results (
+  attempt_id    TEXT NOT NULL REFERENCES assessments(id),
+  criterion_id  TEXT NOT NULL,
+  competency_id TEXT REFERENCES competencies(id),
+  status        TEXT NOT NULL,
+  score         REAL NOT NULL,
+  max_score     REAL NOT NULL,
+  evidence_event_ids_json  TEXT,
+  evidence_message_ids_json TEXT,
+  explanation   TEXT,
+  PRIMARY KEY (attempt_id, criterion_id)
+);
+```
+
+Enables the moat query: "71% of candidates missed asking whether webmail worked."
 
 ---
 
@@ -534,7 +550,7 @@ CREATE TABLE user_stats (
 | Attempts | SQLite `assessments` | Postgres |
 | Transcripts | SQLite `messages` | Postgres |
 | Events | SQLite `session_events`, `attempt_events` | Postgres |
-| Skills/scores | SQLite `attempt_skill_scores`, `attempt_criterion_results` | Postgres |
+| Competencies/scores | SQLite `attempt_competency_scores`, `attempt_criterion_results` | Postgres |
 | Gamification | SQLite `xp_events`, `user_streaks`, `badges` | Postgres |
 | Leaderboards | SQLite `leaderboard_entries` | Postgres or Redis sorted sets |
 | Raw audio | `data/recordings/{id}.webm` | Cloudflare R2 / S3 |
@@ -563,7 +579,7 @@ CREATE TABLE user_stats (
    → Status → 'completed'
 
 4. Post-analysis processing (new)
-   → Explode into attempt_skill_scores
+   → Explode into attempt_competency_scores
    → Explode into attempt_criterion_results
    → Compute XP, update user_skills
    → Update user_streaks (daily)
@@ -791,10 +807,10 @@ Computed nightly or on-demand. These become marketing, product intelligence, and
 - Featured attempts + public profile skeleton
 - Token-based invite flow (unchanged)
 
-### Sprint 1 — Normalize skills and results
-1. Create `skills` table + seed initial skill tree
-2. Create `pack_skills` table, map existing packs to skills
-3. Create `attempt_skill_scores`, `attempt_criterion_results` tables
+### Sprint 1 — Normalize competencies and results
+1. Create `competencies`, `context_tags` tables + seed initial data
+2. Create `pack_competencies`, `pack_context_tags` tables, map existing packs
+3. Create `attempt_competency_scores`, `attempt_criterion_results` tables
 4. After analysis, explode results into normalized tables
 5. Show skill breakdown on analysis report
 6. Show skill levels on `/profile`

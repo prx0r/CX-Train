@@ -270,46 +270,57 @@ export function initTables(): void {
     CREATE INDEX IF NOT EXISTS idx_featured_attempts_user ON featured_attempts(candidate_user_id);
     CREATE INDEX IF NOT EXISTS idx_assessments_candidate_user ON assessments(candidate_user_id);
 
-    /* v7 — skill taxonomy and scoring normalization */
-    CREATE TABLE IF NOT EXISTS skills (
+    /* v7 — support workflow competencies + scenario context tags */
+    CREATE TABLE IF NOT EXISTS competencies (
       id TEXT PRIMARY KEY,
       slug TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
-      category TEXT NOT NULL,
-      parent_skill_id TEXT REFERENCES skills(id),
+      category TEXT NOT NULL,          -- call_handling | diagnosis | process | communication
+      parent_id TEXT REFERENCES competencies(id),
       description TEXT,
-      aliases_json TEXT,
-      vendor TEXT,
-      tool TEXT,
       difficulty_band TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS pack_skills (
+    CREATE TABLE IF NOT EXISTS pack_competencies (
       pack_version_id TEXT NOT NULL,
-      skill_id TEXT NOT NULL REFERENCES skills(id),
+      competency_id TEXT NOT NULL REFERENCES competencies(id),
       weight REAL NOT NULL DEFAULT 1.0,
-      required_level INTEGER,
       is_primary INTEGER NOT NULL DEFAULT 0,
-      PRIMARY KEY (pack_version_id, skill_id)
+      PRIMARY KEY (pack_version_id, competency_id)
     );
 
-    CREATE TABLE IF NOT EXISTS attempt_skill_scores (
+    CREATE TABLE IF NOT EXISTS context_tags (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,          -- vendor | tool | domain
+      description TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pack_context_tags (
+      pack_version_id TEXT NOT NULL,
+      tag_id TEXT NOT NULL REFERENCES context_tags(id),
+      PRIMARY KEY (pack_version_id, tag_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS attempt_competency_scores (
       attempt_id TEXT NOT NULL REFERENCES assessments(id),
-      skill_id TEXT NOT NULL REFERENCES skills(id),
+      competency_id TEXT NOT NULL REFERENCES competencies(id),
       raw_score REAL NOT NULL,
       normalized_score REAL NOT NULL,
       max_score REAL NOT NULL,
       evidence_count INTEGER NOT NULL DEFAULT 0,
       missed_count INTEGER NOT NULL DEFAULT 0,
       percentile REAL,
-      PRIMARY KEY (attempt_id, skill_id)
+      PRIMARY KEY (attempt_id, competency_id)
     );
 
     CREATE TABLE IF NOT EXISTS attempt_criterion_results (
       attempt_id TEXT NOT NULL REFERENCES assessments(id),
       criterion_id TEXT NOT NULL,
-      skill_id TEXT REFERENCES skills(id),
+      competency_id TEXT REFERENCES competencies(id),
       status TEXT NOT NULL,
       score REAL NOT NULL,
       max_score REAL NOT NULL,
@@ -320,40 +331,58 @@ export function initTables(): void {
     );
   `);
 
-  /* Seed initial skills */
+  /* Seed initial competencies */
   try {
-    const existing = db.prepare('SELECT COUNT(*) as c FROM skills').get() as { c: number };
+    const existing = db.prepare('SELECT COUNT(*) as c FROM competencies').get() as { c: number };
     if (existing.c === 0) {
-      const seedSkills = [
-        { id: 'outlook-desktop', slug: 'outlook-desktop', name: 'Outlook Desktop', category: 'technical', parent: null, desc: 'Outlook client troubleshooting', vendor: 'microsoft', tool: 'outlook', difficulty: 'beginner' },
-        { id: 'exchange-online', slug: 'exchange-online', name: 'Exchange Online', category: 'technical', parent: null, desc: 'Exchange Online / cloud email', vendor: 'microsoft', tool: 'exchange', difficulty: 'intermediate' },
-        { id: 'active-directory', slug: 'active-directory', name: 'Active Directory', category: 'technical', parent: null, desc: 'AD user/group/computer management', vendor: 'microsoft', tool: 'ad', difficulty: 'intermediate' },
-        { id: 'password-reset', slug: 'password-reset', name: 'Password Reset', category: 'technical', parent: 'active-directory', desc: 'Password reset and account unlock', vendor: 'microsoft', tool: 'ad', difficulty: 'beginner' },
-        { id: 'mfa', slug: 'mfa', name: 'MFA / Authentication', category: 'technical', parent: null, desc: 'Multi-factor authentication setup and troubleshooting', vendor: 'microsoft', difficulty: 'intermediate' },
-        { id: 'vpn', slug: 'vpn', name: 'VPN Connectivity', category: 'technical', parent: null, desc: 'VPN client and connection troubleshooting', vendor: null, difficulty: 'intermediate' },
-        { id: 'printer', slug: 'printer', name: 'Printer Troubleshooting', category: 'technical', parent: null, desc: 'Printer queue, driver, and connectivity issues', vendor: null, difficulty: 'intermediate' },
-        { id: 'm365', slug: 'm365', name: 'Microsoft 365', category: 'technical', parent: null, desc: 'M365 suite administration and support', vendor: 'microsoft', tool: 'm365', difficulty: 'intermediate' },
-        { id: 'security-awareness', slug: 'security-awareness', name: 'Security Awareness', category: 'technical', parent: null, desc: 'Phishing, suspicious activity, security best practices', vendor: null, difficulty: 'advanced' },
-        { id: 'impact-discovery', slug: 'impact-discovery', name: 'Impact Discovery', category: 'process', parent: null, desc: 'Asking about business impact', difficulty: 'beginner' },
-        { id: 'scope-discovery', slug: 'scope-discovery', name: 'Scope Discovery', category: 'process', parent: null, desc: 'Asking if one or many are affected', difficulty: 'beginner' },
-        { id: 'urgency-triage', slug: 'urgency-triage', name: 'Urgency Triage', category: 'process', parent: null, desc: 'Assessing and documenting urgency', difficulty: 'beginner' },
-        { id: 'escalation-judgement', slug: 'escalation-judgement', name: 'Escalation Judgement', category: 'process', parent: null, desc: 'Knowing when to escalate', difficulty: 'advanced' },
-        { id: 'ticket-documentation', slug: 'ticket-documentation', name: 'Ticket Documentation', category: 'process', parent: null, desc: 'Writing clear, actionable tickets', difficulty: 'beginner' },
-        { id: 'next-steps', slug: 'next-steps', name: 'Next Step Setting', category: 'process', parent: null, desc: 'Setting clear next steps with customer', difficulty: 'beginner' },
-        { id: 'fix-verification', slug: 'fix-verification', name: 'Fix Verification', category: 'process', parent: null, desc: 'Verifying the fix worked before closing', difficulty: 'beginner' },
-        { id: 'call-control', slug: 'call-control', name: 'Call Control', category: 'communication', parent: null, desc: 'Driving the call efficiently', difficulty: 'beginner' },
-        { id: 'empathy', slug: 'empathy', name: 'Empathy', category: 'communication', parent: null, desc: 'Showing understanding and care', difficulty: 'beginner' },
-        { id: 'plain-english', slug: 'plain-english', name: 'Plain English', category: 'communication', parent: null, desc: 'Avoiding jargon, explaining clearly', difficulty: 'beginner' },
-        { id: 'active-listening', slug: 'active-listening', name: 'Active Listening', category: 'communication', parent: null, desc: 'Confirming understanding, paraphrasing', difficulty: 'beginner' },
-        { id: 'de-escalation', slug: 'de-escalation', name: 'De-escalation', category: 'communication', parent: null, desc: 'Handling frustrated or angry callers', difficulty: 'advanced' },
+      const seed = [
+        { id: 'call-control', cat: 'call_handling', desc: 'Driving the call efficiently — greeting, identity check, structured flow', diff: 'beginner' },
+        { id: 'customer-empathy', cat: 'call_handling', desc: 'Showing understanding, managing customer情绪, de-escalating frustration', diff: 'beginner' },
+        { id: 'plain-english', cat: 'call_handling', desc: 'Avoiding jargon, explaining technical concepts clearly', diff: 'beginner' },
+        { id: 'active-listening', cat: 'call_handling', desc: 'Confirming understanding, paraphrasing, asking follow-ups', diff: 'beginner' },
+        { id: 'impact-discovery', cat: 'diagnosis', desc: 'Asking about business impact and urgency', diff: 'beginner' },
+        { id: 'scope-discovery', cat: 'diagnosis', desc: 'Asking whether one or many users are affected', diff: 'beginner' },
+        { id: 'evidence-gathering', cat: 'diagnosis', desc: 'Capturing error messages, device details, recent changes, timelines', diff: 'beginner' },
+        { id: 'hypothesis-testing', cat: 'diagnosis', desc: 'Forming and testing diagnostic hypotheses systematically', diff: 'intermediate' },
+        { id: 'remote-session', cat: 'diagnosis', desc: 'Handling remote desktop connection, checking device state', diff: 'intermediate' },
+        { id: 'ticket-documentation', cat: 'process', desc: 'Writing clear, actionable tickets with user, device, impact, urgency, steps', diff: 'beginner' },
+        { id: 'priority-triage', cat: 'process', desc: 'Assessing and assigning correct priority based on impact and urgency', diff: 'beginner' },
+        { id: 'escalation-quality', cat: 'process', desc: 'Knowing when and how to escalate with proper evidence package', diff: 'advanced' },
+        { id: 'fix-verification', cat: 'process', desc: 'Verifying the fix resolved the issue before closing', diff: 'beginner' },
+        { id: 'next-step-setting', cat: 'process', desc: 'Setting clear next steps and expectations with the customer', diff: 'beginner' },
       ];
-      const insert = db.prepare('INSERT INTO skills (id, slug, name, category, parent_skill_id, description, vendor, tool, difficulty_band) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-      for (const s of seedSkills) {
-        try { insert.run(s.id, s.slug, s.name, s.category, s.parent, s.desc, s.vendor ?? null, s.tool ?? null, s.difficulty); } catch {}
+      const ins = db.prepare('INSERT INTO competencies (id, slug, name, category, description, difficulty_band) VALUES (?, ?, ?, ?, ?, ?)');
+      for (const s of seed) {
+        try { ins.run(s.id, s.id, s.id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), s.cat, s.desc, s.diff); } catch {}
       }
     }
   } catch (e) {
-    console.warn('[Skills] Seed failed (non-fatal):', e);
+    console.warn('[Competencies] Seed failed (non-fatal):', e);
+  }
+
+  /* Seed initial context tags */
+  try {
+    const existing = db.prepare('SELECT COUNT(*) as c FROM context_tags').get() as { c: number };
+    if (existing.c === 0) {
+      const seed = [
+        { id: 'outlook', cat: 'vendor', desc: 'Outlook desktop / email client context' },
+        { id: 'microsoft-365', cat: 'vendor', desc: 'Microsoft 365 / cloud services context' },
+        { id: 'active-directory', cat: 'vendor', desc: 'Active Directory / identity access context' },
+        { id: 'exchange-online', cat: 'vendor', desc: 'Exchange Online / email server context' },
+        { id: 'intune', cat: 'vendor', desc: 'Intune / endpoint management context' },
+        { id: 'vpn', cat: 'tool', desc: 'VPN connectivity context' },
+        { id: 'printer', cat: 'tool', desc: 'Printer troubleshooting context' },
+        { id: 'rmm', cat: 'tool', desc: 'Remote monitoring and management context' },
+        { id: 'security-phishing', cat: 'domain', desc: 'Phishing and security incident context' },
+        { id: 'password-identity', cat: 'domain', desc: 'Password reset and account access context' },
+      ];
+      const ins = db.prepare('INSERT INTO context_tags (id, slug, name, category, description) VALUES (?, ?, ?, ?, ?)');
+      for (const s of seed) {
+        try { ins.run(s.id, s.id, s.id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), s.cat, s.desc); } catch {}
+      }
+    }
+  } catch (e) {
+    console.warn('[Context tags] Seed failed (non-fatal):', e);
   }
 
   /* Backfill pack_snapshot_json for existing assessments that have assessment_pack_id but no snapshot */
