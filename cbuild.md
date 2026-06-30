@@ -366,3 +366,72 @@ taxonomy item (source of truth)
 | Manager report page | High |
 | Level 2 scenarios (password reset, account lockout, etc.) | Medium |
 | Taxonomy GPT instructions update | Medium |
+
+---
+
+## Sprint 4: Callum Action Backend + Manager Dashboard Integration
+
+### What was built (Callum Actions)
+
+| Component | Files | Status |
+|-----------|-------|--------|
+| Callum core pipeline | `lib/callum-actions.ts` | ✅ ticket-assist analyse, sensitivity scan, fact extraction, SLA + taxonomy + client profile lookup, verifier pass, metadata logging |
+| API key auth | `lib/actions-auth.ts` | ✅ `verifyCallumActionAuth()` + `unauthorizedActionResponse()`, all `/api/actions/*` routes use Bearer token |
+| Health endpoint | `app/api/actions/health/route.ts` | ✅ `GET /api/actions/health` — 200 with valid key, 401 without |
+| Ticket assist analyse | `app/api/actions/ticket-assist/analyse/route.ts` | ✅ Main GPT Action — classification, ownership, missing info, response, escalation, SLA, sources |
+| Taxonomy search for GPT | `app/api/actions/taxonomy/search/route.ts` | ✅ Returns machine-parseable matches with item ID, classification path, playbook, tier, escalation |
+| Flag answer | `app/api/actions/answers/[answerId]/flag/route.ts` | ✅ Technicians flag wrong/unclear answers for manager review |
+| Create proposals | `app/api/actions/proposals/route.ts` | ✅ GPT creates proposals (`callum_action_proposals`), never applies directly |
+| Client profiles | `app/api/actions/client-profiles/route.ts` | ✅ Per-MSP client records |
+| Client protocols | `app/api/actions/client-protocols/route.ts` | ✅ Per-client protocol rules (escalation exceptions, VIP handling) |
+| Dashboard API | `app/api/callum/dashboard/route.ts` | ✅ Grouped stats: usage, topics, taxonomy, clients, flags, proposals, system |
+| OpenAPI schema | `docs/callum-actions.openapi.yaml` | ✅ 5 endpoints with Bearer auth, request/response schemas |
+| Custom GPT instructions | `docs/custom-gpt-callum-instructions.md` | ✅ System prompt with response structure, safety rules, actions |
+| Setup guide | `docs/custom-gpt-callum-setup.md` | ✅ 6-step setup with troubleshooting |
+| Auth tests | `tests/callum-actions.test.ts` | ✅ 13 tests: sensitivity scan, fact extraction, API key auth |
+| Seed endpoint | `app/api/actions/seed/route.ts` | ✅ Electracom client + contractor protocol for testing |
+| Proposal table | `lib/mvp/db.ts` | ✅ `callum_action_proposals` — separate from old LangGraph proposals |
+
+### Taxonomy search improvements
+
+- Synonym expansion: "account lockout" also searches "login problem", "locked account", etc.
+- Redirect detection: if a result says "belongs under X", second-pass lookup fetches that item
+- Word-level scoring: individual query words boost matching
+
+### SLA impact fix
+
+- `group (multi-user/site level)` instead of `company-wide` unless ticket explicitly states whole company
+- Always returns `sla_policy: connexion_sla_v1` source
+- Always returns fallback `inference` source if no taxonomy/client match
+
+### Manager dashboard integration
+
+| Page | What was added |
+|------|---------------|
+| `/mvp/assist` | Callum cockpit — usage cards (total actions, active users, open flags, open proposals, low confidence), top topics, recent flags with status/type/comment, proposals list, training recommendations from taxonomy gaps |
+| `/mvp/clients` | Client profile gaps, protocol proposals, protocol type reference table (new_starter, leaver, escalation) |
+| `/mvp/system` | Callum health section — total actions, last action timestamp, action routes table with call counts |
+| Sidebar | Added Assist, Clients, System navigation links |
+
+### End-to-end verification
+
+```
+GET  /api/actions/health                            → 200 {"ok":true,"auth":"valid"}
+GET  /api/actions/taxonomy/search?q=lockout          → 200 returns Login Problem + VPN items
+POST /api/actions/ticket-assist/analyse               → 200 with classification, owner, SLA, sources
+POST /api/actions/answers/{id}/flag                   → 200 flag_id + status: open
+POST /api/actions/proposals                           → 200 proposal_id + status: proposed
+POST /api/actions/seed                                → 200 Electracom client + protocol created
+Electracom contractor query                           → Owner: T1, client_protocol source cited
+Reading office query                                  → group impact (not company-wide), P1, sources include sla_policy
+```
+
+### What remains
+
+| Item | Notes |
+|------|-------|
+| Proposal approval UI | Managers need UI to approve/apply `client_protocol_change` proposals in `/mvp/clients` |
+| Taxonomy proposal apply | Managers need UI to approve/apply taxonomy changes |
+| Standards editor integration | `/mvp/standards` should show SLA/escalation proposals |
+| `/msp/triage` native UI | Secondary technician surface — can reuse same ticket-assist logic |
+| GPT Action deployment | Tunnel URL changes on restart — needs permanent Coolify/Vercel deployment |
