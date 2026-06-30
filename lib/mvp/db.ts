@@ -635,6 +635,83 @@ export function initTables(): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    /* MSP organisation — represents a single Connexion/MSP client */
+    CREATE TABLE IF NOT EXISTS msp_organisations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      settings_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    /* MSP technicians — linked to auth users, with role within the MSP */
+    CREATE TABLE IF NOT EXISTS msp_technicians (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      msp_id TEXT NOT NULL REFERENCES msp_organisations(id),
+      role TEXT NOT NULL DEFAULT 't1',
+      display_name TEXT NOT NULL,
+      job_title TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, msp_id)
+    );
+
+    /* Invite links for manager to grant access */
+    CREATE TABLE IF NOT EXISTS msp_invites (
+      id TEXT PRIMARY KEY,
+      msp_id TEXT NOT NULL REFERENCES msp_organisations(id),
+      token TEXT NOT NULL UNIQUE,
+      role TEXT NOT NULL DEFAULT 't1',
+      created_by TEXT NOT NULL,
+      expires_at TEXT,
+      uses INTEGER NOT NULL DEFAULT 0,
+      max_uses INTEGER NOT NULL DEFAULT 1,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    /* Per-MSP taxonomy visibility — which subTypes each role can see */
+    CREATE TABLE IF NOT EXISTS msp_taxonomy_access (
+      id TEXT PRIMARY KEY,
+      msp_id TEXT NOT NULL REFERENCES msp_organisations(id),
+      role TEXT NOT NULL,
+      sub_type TEXT NOT NULL,
+      can_view INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (msp_id, role, sub_type)
+    );
+
+    /* Per-MSP scoring standards — extends/overrides global standards */
+    CREATE TABLE IF NOT EXISTS msp_standards (
+      msp_id TEXT NOT NULL REFERENCES msp_organisations(id),
+      scoring_categories_json TEXT,
+      sla_overrides_json TEXT,
+      escalation_rules_json TEXT,
+      call_requirements TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (msp_id)
+    );
+
+    /* Technician documentation notes (T2+ can write) */
+    CREATE TABLE IF NOT EXISTS msp_docs (
+      id TEXT PRIMARY KEY,
+      msp_id TEXT NOT NULL REFERENCES msp_organisations(id),
+      taxonomy_item_id TEXT,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      author_id TEXT NOT NULL,
+      tags_json TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_msp_technicians_user ON msp_technicians(user_id);
+    CREATE INDEX IF NOT EXISTS idx_msp_technicians_msp ON msp_technicians(msp_id);
+    CREATE INDEX IF NOT EXISTS idx_msp_invites_token ON msp_invites(token);
+    CREATE INDEX IF NOT EXISTS idx_msp_docs_msp ON msp_docs(msp_id);
   `);
 }
 
