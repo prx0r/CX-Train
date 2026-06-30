@@ -56,7 +56,170 @@ LeetCode/HackerRank for IT support desk hiring. Candidates practice realistic su
 
 ---
 
-## Skills taxonomy — the most important backend unlock
+## Sim-pack controlled modes
+
+Every scenario pack declares its mode. The system renders the appropriate UI based on the pack, not the other way around.
+
+### Modes a pack can declare
+
+| Mode | Description | UI surface | Assessment mode |
+|------|-------------|------------|-----------------|
+| `call_only` | Voice/text call with AI customer, no tools | Call panel + ticket form | `chat_call` |
+| `call_plus_remote` | Call + remote desktop tools (Outlook, browser, CMD) | Full simulator shell | `dashboard_sim` |
+| `ticket_only` | No call, just triage a ticket | Ticket panel only | `chat_call` |
+| `voicemail_plus_ticket` | Voicemail message, then ticket | Voicemail player + ticket form | `chat_call` |
+
+The pack's `mode` field (already in `SimPack` and `SimPackDraft`) drives the `assessment_mode` and the workspace renderer. The current mapping in `create.ts` of `training_drill → dashboard_sim` and `hiring_exam → chat_call` is a simplification — the pack should declare this directly.
+
+### Existing pack modes
+
+| Pack | Current mode |
+|------|-------------|
+| Hiring packs (all 4) | `call_only` (via `templateId`) |
+| Outlook Work Offline | `call_plus_remote` |
+| Password Reset | `call_only` |
+| New Starter Triage | `call_only` |
+| Shared Mailbox | `call_only` |
+
+### What this enables
+
+- A manager can create a "voice-only assessment" by picking a `call_only` pack
+- A manager can create a "full sim assessment" by picking a `call_plus_remote` pack
+- The candidate UI adapts automatically — no separate code path
+- Future modes (`voicemail_plus_ticket`) work with no architectural changes
+
+### Implementation
+
+In `createMvpAssessment()`, the pack's mode determines `assessment_mode`:
+
+```ts
+const assessmentMode = pack.mode === 'call_plus_remote' ? 'dashboard_sim' : 'chat_call';
+```
+
+The frontend (`SimulationWorkspace`) already switches between `<HiringWorkspace>` and `<ServiceDeskSimulatorShell>` based on mode. No major refactor needed — just make the mode selection pack-driven instead of assignment-type-driven.
+
+---
+
+## Manager pathway tracks
+
+Pathway tracks are ordered sequences of scenarios that managers create for candidates. This replaces the single-invite-token flow with a structured progression.
+
+### The problem this solves
+
+Current flow: manager creates one assessment → sends invite link → candidate takes one call → done.
+
+Problem: no multi-call progression, no progress tracking across scenarios, no way for managers to define a curriculum.
+
+### Pathway flow
+
+```
+Manager creates pathway
+  → Names it ("Helpdesk Apprentice Track")
+  → Adds 3-6 scenarios in order (Outlook Basic → VPN → Printer)
+  → Sets passing thresholds per scenario
+  → Shares invite link or email
+
+Candidate opens link
+  → Sees pathway overview ("6 scenarios, ~45 minutes")
+  → Starts scenario 1
+  → Completes call → gets score → passes or fails
+  → If score >= threshold: unlocks scenario 2
+  → If score < threshold: can retry (manager-configurable)
+  → After final scenario: completion summary
+  → Results visible to candidate + manager
+
+Manager views
+  → All candidates on this pathway
+  → Each candidate's current step + scores
+  → Pass/fail per scenario
+  → Overall pathway score
+  → Exportable report
+```
+
+### Data model
+
+```sql
+-- A pathway track created by a manager
+CREATE TABLE pathway_tracks (
+  id              TEXT PRIMARY KEY,
+  manager_id      TEXT NOT NULL,       -- references user id with manager role
+  title           TEXT NOT NULL,
+  description     TEXT,
+  difficulty      TEXT,
+  max_retries     INTEGER NOT NULL DEFAULT 2,  -- per-scenario retry limit
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Ordered scenarios within a track
+CREATE TABLE pathway_scenarios (
+  id              TEXT PRIMARY KEY,
+  track_id        TEXT NOT NULL REFERENCES pathway_tracks(id) ON DELETE CASCADE,
+  pack_id         TEXT NOT NULL,       -- assessment_pack_id or hiring pack id
+  sequence_order  INTEGER NOT NULL,
+  pass_threshold  REAL NOT NULL DEFAULT 60,  -- minimum score to pass
+  required        INTEGER NOT NULL DEFAULT 1,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Candidate enrollment in a track
+CREATE TABLE pathway_enrollments (
+  id              TEXT PRIMARY KEY,
+  track_id        TEXT NOT NULL REFERENCES pathway_tracks(id),
+  candidate_id    TEXT NOT NULL REFERENCES user(id),
+  status          TEXT NOT NULL DEFAULT 'invited',
+    -- invited | active | completed | withdrawn
+  current_step    INTEGER NOT NULL DEFAULT 0,    -- 0-indexed, next scenario to attempt
+  invited_at      TEXT,
+  started_at      TEXT,
+  completed_at    TEXT,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Link attempts to pathway
+ALTER TABLE assessments ADD COLUMN pathway_enrollment_id TEXT;
+ALTER TABLE assessments ADD COLUMN pathway_scenario_id TEXT;
+```
+
+### How it works with existing attempts
+
+Existing `assessments` table IS the attempt table. Pathway attempts get:
+
+```
+attempt_mode = 'pathway'
+pathway_enrollment_id → tracks enrollment progress
+pathway_scenario_id   → links to the specific scenario in the track
+```
+
+The analysis pipeline is unchanged. After analysis completes, the pathway enrollments are updated:
+- If score >= pass_threshold: `current_step += 1`, if last scenario: status = `completed`
+- If score < pass_threshold: increment retry count, if exceeded: scenario marked failed
+
+### Manager views
+
+**Pathway detail page** (`/manager/pathways/:id`):
+- Scenario list with pass thresholds
+- Enrolled candidates table: name, current step, scores per completed scenario, status
+- Invite more candidates (by email or username)
+
+**Candidate progress page** (`/manager/candidates/:id/pathways`):
+- All pathways this candidate is enrolled in
+- Per-pathway: progress bar, scores, completion status
+
+### Candidate views
+
+**Pathway landing** (`/pathway/:enrollmentId`):
+- Pathway title and description
+- Scenario list with: completed (score), current (active), locked (grey)
+- Overall progress
+
+**After completing a scenario**: candidate sees their score and whether they passed. If passed, next scenario unlocks. If failed and retries remain, they can retry.
+
+### When to build
+
+Build this after Sprint 2 (retry + progress loop) but before Sprint 4 (ranked leaderboards). Pathways are the manager-facing counterpart to the candidate practice loop.
+
+The data model is additive — no existing tables change. Existing single-invite assessments continue to work unchanged.
 
 A canonical skill graph turns raw attempts into meaningful analytics.
 
