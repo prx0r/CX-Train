@@ -712,6 +712,137 @@ export function initTables(): void {
     CREATE INDEX IF NOT EXISTS idx_msp_technicians_msp ON msp_technicians(msp_id);
     CREATE INDEX IF NOT EXISTS idx_msp_invites_token ON msp_invites(token);
     CREATE INDEX IF NOT EXISTS idx_msp_docs_msp ON msp_docs(msp_id);
+
+    /* ── Callum ticket-assist metadata tables ── */
+    CREATE TABLE IF NOT EXISTS ticket_assist_requests (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'triage',
+      client_id TEXT,
+      detected_topic TEXT,
+      detected_taxonomy_item_id TEXT,
+      raw_ticket_stored INTEGER NOT NULL DEFAULT 0,
+      redacted_excerpt TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS ticket_assist_answers (
+      id TEXT PRIMARY KEY,
+      request_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      organization_id TEXT NOT NULL,
+      recommended_action TEXT,
+      recommended_owner TEXT,
+      recommended_priority TEXT,
+      classification_json TEXT,
+      missing_information_json TEXT,
+      suggested_client_response TEXT,
+      internal_note TEXT,
+      escalation_note TEXT,
+      confidence TEXT,
+      unsupported_or_inferred_claims_json TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS ticket_answer_sources (
+      id TEXT PRIMARY KEY,
+      answer_id TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      source_id TEXT NOT NULL,
+      source_version TEXT,
+      field_used TEXT,
+      relevance_score REAL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS ticket_answer_audits (
+      id TEXT PRIMARY KEY,
+      answer_id TEXT NOT NULL,
+      unsupported_claims_json TEXT,
+      source_mismatches_json TEXT,
+      confidence_downgrade_reason TEXT,
+      verifier_status TEXT NOT NULL DEFAULT 'passed',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS ticket_answer_flags (
+      id TEXT PRIMARY KEY,
+      answer_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      flag_type TEXT NOT NULL,
+      comment TEXT,
+      redacted_excerpt TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      reviewed_by TEXT,
+      review_notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      resolved_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS action_usage_events (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      action_name TEXT NOT NULL,
+      topic TEXT,
+      client_id TEXT,
+      taxonomy_item_id TEXT,
+      confidence TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    /* ── Client profile tables ── */
+    CREATE TABLE IF NOT EXISTS clients (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      short_name TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS client_contacts (
+      id TEXT PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT,
+      email TEXT,
+      phone TEXT,
+      contact_type TEXT NOT NULL DEFAULT 'unknown',
+      notes TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS client_protocols (
+      id TEXT PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      protocol_type TEXT NOT NULL,
+      trigger_keywords_json TEXT,
+      rule_text TEXT NOT NULL,
+      t1_guidance TEXT,
+      escalation_guidance TEXT,
+      client_response_guidance TEXT,
+      source_type TEXT NOT NULL DEFAULT 'manual',
+      source_note TEXT,
+      approved_by TEXT,
+      last_reviewed_at TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ticket_assist_org ON ticket_assist_requests(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_ticket_assist_user ON ticket_assist_requests(user_id);
+    CREATE INDEX IF NOT EXISTS idx_ticket_flags_status ON ticket_answer_flags(status);
+    CREATE INDEX IF NOT EXISTS idx_usage_org_action ON action_usage_events(organization_id, action_name);
+    CREATE INDEX IF NOT EXISTS idx_clients_org ON clients(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_client_protocols_client ON client_protocols(client_id);
   `);
 }
 
