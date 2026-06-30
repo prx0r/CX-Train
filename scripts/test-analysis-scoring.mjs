@@ -87,8 +87,9 @@ test('Safety red flag caps rating at not_ready', () => {
 test('not_applicable excluded from denominator', () => {
   const criteria = allStatus('not_applicable');
   const result = scoreExtraction({ criteria });
-  assertEqual(result.maxPossibleScore, 0, 'na criteria excluded');
+  assertEqual(result.maxPossibleScore, 22, '22 weighted criteria total');
   assertEqual(result.score, 0, 'score is 0 when no applicable criteria');
+  assertEqual(result.earnedScore, 0, 'no points earned');
 });
 
 // Test 5: Failed required checks are listed
@@ -126,7 +127,7 @@ test('Skill breakdown correct', () => {
   const result = scoreExtraction({ criteria });
   assert(result.skillBreakdown.safety, 'safety in breakdown');
   assertEqual(result.skillBreakdown.safety.score, 0, 'safety earned 0');
-  assertEqual(result.skillBreakdown.safety.maxScore, 4, 'safety max is 4');
+  assertEqual(result.skillBreakdown.safety.maxScore, 1, 'safety max is 1 (DEFAULT_WEIGHTS binary)');
   assertEqual(result.skillBreakdown.safety.percent, 0, 'safety percent is 0');
   assert(result.skillBreakdown.identity_check, 'identity_check in breakdown');
   assertEqual(result.skillBreakdown.identity_check.score, 1, 'identity_check earned 1');

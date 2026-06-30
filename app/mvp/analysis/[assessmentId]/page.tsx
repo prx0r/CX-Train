@@ -7,6 +7,7 @@ import { AcousticMetrics, TurnTimingMetrics, DiarizationMetrics } from '@/compon
 import { TranscriptView } from '@/components/mvp/analysis/TranscriptView';
 import { AssessmentOverview } from '@/components/mvp/analysis/AssessmentOverview';
 import { CompetencyBreakdown } from '@/components/mvp/analysis/CompetencyBreakdown';
+import { RetakeComparison } from '@/components/mvp/analysis/RetakeComparison';
 import { Logo } from '@/components/shared/Logo';
 
 interface MessageRow {
@@ -84,6 +85,7 @@ interface AssessmentData {
   assessment: {
     id: string;
     candidate_name: string;
+    candidate_user_id?: string | null;
     invite_token: string;
     status: string;
     assignment_type: string;
@@ -316,6 +318,7 @@ export default function AnalysisReportPage() {
         <div style={{ ...s, marginBottom: 16 }}>
           <h2 style={h2}>Competency Breakdown</h2>
           <CompetencyBreakdown attemptId={assessmentId} />
+          <RetakeComparison attemptId={assessmentId} userId={assessment.candidate_user_id} />
         </div>
 
         {/* Acoustics + Transcript side by side */}

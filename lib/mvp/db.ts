@@ -346,6 +346,18 @@ export function initTables(): void {
       FOREIGN KEY (attempt_id, criterion_id) REFERENCES attempt_criterion_results(attempt_id, criterion_id)
     );
 
+    /* Candidate aggregate stats for profile trends — updated post-analysis */
+    CREATE TABLE IF NOT EXISTS candidate_competency_stats (
+      user_id TEXT NOT NULL,
+      competency_id TEXT NOT NULL REFERENCES competencies(id),
+      attempts_count INTEGER NOT NULL DEFAULT 0,
+      best_score REAL NOT NULL DEFAULT 0,
+      average_score REAL NOT NULL DEFAULT 0,
+      latest_score REAL NOT NULL DEFAULT 0,
+      last_attempt_at TEXT,
+      PRIMARY KEY (user_id, competency_id)
+    );
+
     /* v8 — analysis background jobs */
     CREATE TABLE IF NOT EXISTS analysis_jobs (
       id              TEXT PRIMARY KEY,

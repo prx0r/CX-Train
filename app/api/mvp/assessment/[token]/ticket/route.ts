@@ -89,32 +89,50 @@ export async function POST(
       }
     }
 
-    /* Trigger AI analysis synchronously */
+    /* Trigger AI analysis with timeout + background fallback */
     let analysisResults = null;
     let candidateAnalysis = null;
+    let analysisPending = false;
     try {
-      const { runBaseCallumAnalysis, buildCandidateAnalysis } = await import('@/lib/mvp/analysis/runBaseCallumAnalysis');
-      analysisResults = await runBaseCallumAnalysis(assessment.id);
+      const { runAnalysisWithTimeout } = await import('@/lib/mvp/analysis/jobs');
+      const { buildCandidateAnalysis } = await import('@/lib/mvp/analysis/runBaseCallumAnalysis');
+      const result = await runAnalysisWithTimeout(assessment.id);
 
-      if (analysisResults.status === 'analysed') {
-        const { getPackById } = await import('@/lib/mvp/sim/packRegistry');
-        let pack = null;
-        try {
-          const packId = (assessment as any).assessment_pack_id;
-          if (packId) pack = getPackById(packId);
-        } catch {}
-        candidateAnalysis = buildCandidateAnalysis(analysisResults, pack);
+      if (result.status === 'completed') {
+        analysisResults = result.analysis;
 
-        /* Normalize scores into skill/criterion tables */
-        try {
-          const { normalizeAnalysisScores } = await import('@/lib/mvp/analysis/normalize-scores');
-          normalizeAnalysisScores(assessment.id, analysisResults);
-        } catch (normErr) {
-          console.error('[MVP] Score normalization error (non-fatal):', normErr);
+        if (analysisResults.status === 'analysed') {
+          const { getPackById } = await import('@/lib/mvp/sim/packRegistry');
+          let pack = null;
+          try {
+            const packId = (assessment as any).assessment_pack_id;
+            if (packId) pack = getPackById(packId);
+          } catch {}
+          candidateAnalysis = buildCandidateAnalysis(analysisResults, pack);
+
+          /* Normalize scores into skill/criterion tables */
+          try {
+            const { normalizeAnalysisScores } = await import('@/lib/mvp/analysis/normalize-scores');
+            normalizeAnalysisScores(assessment.id, analysisResults);
+          } catch (normErr) {
+            console.error('[MVP] Score normalization error (non-fatal):', normErr);
+          }
         }
+      } else if (result.status === 'pending') {
+        analysisPending = true;
       }
     } catch (analyseErr) {
       console.error('[MVP] Auto-analysis error:', analyseErr);
+      analysisPending = true;
+    }
+
+    if (analysisPending && !analysisResults) {
+      return NextResponse.json({
+        status: 'completed',
+        message: 'Ticket submitted',
+        analysis_pending: true,
+        analysis_status: 'Analysis queued for background processing',
+      });
     }
 
     return NextResponse.json({

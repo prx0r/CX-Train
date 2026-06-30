@@ -86,6 +86,38 @@ export function normalizeAnalysisScores(assessmentId: string, analysisResult: an
     VALUES (?, ?, ?)
   `);
 
+  /* Load messages and events for evidence ID resolution */
+  const sessionRow = db.prepare(
+    'SELECT id FROM sessions WHERE assessment_id = ? ORDER BY started_at DESC LIMIT 1'
+  ).get(assessmentId) as { id: string } | undefined;
+  const allMessages = sessionRow
+    ? db.prepare('SELECT id, content FROM messages WHERE session_id = ?').all(sessionRow.id) as Array<{ id: string; content: string }>
+    : [];
+  const allEvents = sessionRow
+    ? db.prepare('SELECT id, text, label, result_text FROM session_events WHERE session_id = ?').all(sessionRow.id) as Array<{ id: string; text: string | null; label: string | null; result_text: string | null }>
+    : [];
+
+  function resolveEvidenceIds(quotes: string[]): { messageIds: string[]; eventIds: string[] } {
+    const messageIds: string[] = [];
+    const eventIds: string[] = [];
+    for (const q of quotes) {
+      const qLower = q.toLowerCase().trim();
+      if (!qLower) continue;
+      for (const m of allMessages) {
+        if (m.content.toLowerCase().includes(qLower) || qLower.includes(m.content.toLowerCase().trim())) {
+          if (!messageIds.includes(m.id)) messageIds.push(m.id);
+        }
+      }
+      for (const e of allEvents) {
+        const eText = [e.text, e.label, e.result_text].filter(Boolean).join(' ').toLowerCase();
+        if (eText.includes(qLower)) {
+          if (!eventIds.includes(e.id)) eventIds.push(e.id);
+        }
+      }
+    }
+    return { messageIds, eventIds };
+  }
+
   for (const [criterionId, criterion] of Object.entries(rawCriteria)) {
     const skillEntry = skillBreakdown[criterionId];
     const earned = skillEntry?.score ?? (criterion.status === 'pass' ? 1 : criterion.status === 'partial' ? 0.5 : 0);
@@ -98,12 +130,17 @@ export function normalizeAnalysisScores(assessmentId: string, analysisResult: an
     const explanation = criterion.notes || (evidenceQuotes.length > 0 ? evidenceQuotes[0] : null);
     const evidenceQuotesJson = evidenceQuotes.length > 0 ? JSON.stringify(evidenceQuotes) : null;
 
+    /* Resolve evidence quotes to actual message/event IDs */
+    const { messageIds, eventIds } = resolveEvidenceIds(evidenceQuotes);
+    const evidenceMessageIdsJson = messageIds.length > 0 ? JSON.stringify(messageIds) : null;
+    const evidenceEventIdsJson = eventIds.length > 0 ? JSON.stringify(eventIds) : null;
+
     /* Insert one row per criterion with primary competency and evidence */
     insertCriterion.run(
       assessmentId, criterionId, matchedComps[0] || null,
       status, earned, maxScore,
-      null, /* evidence_event_ids_json — not yet populated */
-      null, /* evidence_message_ids_json — not yet populated (future) */
+      evidenceEventIdsJson,
+      evidenceMessageIdsJson,
       evidenceQuotesJson,
       explanation
     );
@@ -127,8 +164,34 @@ export function normalizeAnalysisScores(assessmentId: string, analysisResult: an
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
+  const now = new Date().toISOString();
+
   for (const [compId, data] of Object.entries(compScores)) {
     const normalized = data.max > 0 ? Math.round((data.earned / data.max) * 100) : 0;
     insertCompScore.run(assessmentId, compId, data.earned, normalized, data.max, data.evidence, data.missed);
+  }
+
+  /* Update candidate aggregate stats for profile trends */
+  const userId = db.prepare(
+    'SELECT candidate_user_id FROM assessments WHERE id = ?'
+  ).get(assessmentId) as { candidate_user_id: string | null } | undefined;
+
+  if (userId?.candidate_user_id) {
+    const upsertStats = db.prepare(`
+      INSERT INTO candidate_competency_stats
+        (user_id, competency_id, attempts_count, best_score, average_score, latest_score, last_attempt_at)
+      VALUES (?, ?, 1, ?, ?, ?, ?)
+      ON CONFLICT(user_id, competency_id) DO UPDATE SET
+        attempts_count = attempts_count + 1,
+        best_score = MAX(best_score, excluded.best_score),
+        average_score = (average_score * attempts_count + excluded.average_score) / (attempts_count + 1),
+        latest_score = excluded.latest_score,
+        last_attempt_at = excluded.last_attempt_at
+    `);
+
+    for (const [compId, data] of Object.entries(compScores)) {
+      const normalized = data.max > 0 ? Math.round((data.earned / data.max) * 100) : 0;
+      upsertStats.run(userId.candidate_user_id, compId, normalized, normalized, normalized, now);
+    }
   }
 }
