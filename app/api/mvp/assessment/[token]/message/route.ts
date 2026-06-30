@@ -66,10 +66,12 @@ export async function POST(
 
     /* Determine if this is a sim pack assessment or a legacy chat call */
     const packId = (assessment as any).assessment_pack_id;
+    const assignmentType = (assessment as any).assignment_type || 'hiring_exam';
+    const isSim = assignmentType === 'training_drill' && packId;
     let systemMessage: string;
 
-    if (packId) {
-      /* Sim pack assessment — use pack snapshot for AI caller context */
+    if (isSim) {
+      /* Training drill — use pack snapshot for AI caller context */
       let snapshot: PackSnapshot;
       try {
         snapshot = getSnapshotFromAssessment(assessment as unknown as Record<string, unknown>);
@@ -104,26 +106,59 @@ export async function POST(
       } as unknown as SimPack, currentState);
       systemMessage = ctx.systemPrompt;
     } else {
-      /* Legacy chat_call mode — use scenario-based prompt */
-      const scenario = assessment.scenario_id
-        ? (db.prepare('SELECT * FROM scenarios WHERE id = ?').get(assessment.scenario_id) as any)
-        : null;
-      const hiddenFacts = scenario ? JSON.parse(scenario.hidden_facts_json) : {};
-      const callerPrompt = scenario?.caller_behaviour_prompt || 'You are an MSP client calling for help.';
+      /* Hiring exam or legacy chat_call — use hiring pack or scenario-based prompt */
+      const rawAssessment = assessment as any;
+      let customerName = 'Customer';
+      let customerIssue = '';
+      let customerCompany = '';
+      let customerRole = '';
+      let customerTemperament = 'neutral';
+      let openingLine = '';
+      let hiddenFacts: Record<string, unknown> = {};
 
-      systemMessage = `${callerPrompt}
+      /* Try hiring pack snapshot first */
+      if (rawAssessment.pack_snapshot_json) {
+        try {
+          const ps = JSON.parse(rawAssessment.pack_snapshot_json);
+          if (ps.customer) {
+            customerName = ps.customer.name || customerName;
+            customerCompany = ps.customer.company || '';
+            customerRole = ps.customer.role || '';
+            customerTemperament = ps.customer.temperament || 'neutral';
+            openingLine = ps.customer.opening_line || ps.customer.openingLine || '';
+            customerIssue = ps.customer.subject || ps.customer.issue || '';
+            hiddenFacts = ps.hiddenFacts || ps.hidden_facts || {};
+          }
+        } catch {}
+      }
 
-HIDDEN FACTS (use these to answer truthfully, but do not volunteer them):
-${JSON.stringify(hiddenFacts, null, 2)}
+      /* Fall back to scenario table if no pack snapshot */
+      if (!openingLine) {
+        const scenario = assessment.scenario_id
+          ? (db.prepare('SELECT * FROM scenarios WHERE id = ?').get(assessment.scenario_id) as any)
+          : null;
+        if (scenario) {
+          openingLine = scenario.initial_message || '';
+          hiddenFacts = JSON.parse(scenario.hidden_facts_json || '{}');
+          const personaParts = (scenario.caller_persona || '').split(',');
+          customerName = personaParts[0]?.trim() || customerName;
+        }
+      }
 
-CRITICAL RULES:
-- Do NOT reveal hidden facts unless the candidate directly asks about them
-- If asked about hostname, reveal it
-- If asked about urgency/deadline, mention the 30-minute meeting
-- If asked about web/browser access, mention Outlook web works
-- Stay in character and be realistic
-- Keep responses concise (1-3 sentences)
-- Never break character or mention that you are an AI`;
+      systemMessage = `You are ${customerName}, ${customerRole ? 'a ' + customerRole.toLowerCase() + ' ' : ''}at ${customerCompany || 'your company'}. You are on a support call with an IT technician.
+
+Your temperament: ${customerTemperament}
+${customerIssue ? 'Your issue: ' + customerIssue : ''}
+
+RULES:
+- Stay in character as a non-technical user.
+- Keep replies short (1-3 sentences).
+- Do NOT reveal the solution. The technician must diagnose and fix it.
+- Do NOT reveal information the technician hasn't asked about.
+- Never break character or mention that you are an AI.
+
+HIDDEN FACTS (know these but do not volunteer them):
+${JSON.stringify(hiddenFacts, null, 2)}`;
     }
 
     const conversation = [
