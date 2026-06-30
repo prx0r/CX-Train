@@ -47,7 +47,7 @@
 html, body {
   margin: 0;
   padding: 0;
-  font-family: var(--cx-font);
+  font-family: var(--font-saira-condensed), var(--cx-font);
   background: var(--cx-bg-main);
   color: var(--cx-text-primary);
   -webkit-font-smoothing: antialiased;

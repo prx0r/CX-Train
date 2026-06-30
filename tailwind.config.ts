@@ -9,7 +9,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-saira-condensed)', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        saira: ['var(--font-saira-condensed)', 'sans-serif'],
       },
       colors: {
         connexion: {
