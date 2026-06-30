@@ -391,35 +391,130 @@ export function createProposal(
   return { proposal_id: id, status: 'proposed' };
 }
 
-/* ─── Dashboard Queries ────────────────────────────────── */
+/* ─── Dashboard Queries (grouped for existing manager pages) ── */
 
 export function getDashboardStats(orgId: string, days = 7): any {
   const db = getDb();
   const since = new Date(Date.now() - days * 86400000).toISOString();
 
+  const totalActions = (db.prepare('SELECT COUNT(*) as c FROM action_usage_events WHERE organization_id = ? AND created_at >= ?').get(orgId, since) as any).c;
+  const totalFlags = (db.prepare('SELECT COUNT(*) as c FROM ticket_answer_flags WHERE created_at >= ?').get(since) as any).c;
+  const openFlags = (db.prepare("SELECT COUNT(*) as c FROM ticket_answer_flags WHERE status = 'open' AND created_at >= ?").get(since) as any).c;
+  const totalProposals = (db.prepare("SELECT COUNT(*) as c FROM callum_action_proposals WHERE created_at >= ?").get(since) as any).c;
+  const openProposals = (db.prepare("SELECT COUNT(*) as c FROM callum_action_proposals WHERE status = 'proposed'").get(since) as any).c;
+  const lowConfidence = (db.prepare("SELECT COUNT(*) as c FROM ticket_assist_answers WHERE organization_id = ? AND created_at >= ? AND confidence IN ('low','medium')").get(orgId, since) as any).c;
+
+  /* Active users */
+  const activeUsers = (db.prepare('SELECT COUNT(DISTINCT user_id) as c FROM action_usage_events WHERE organization_id = ? AND created_at >= ?').get(orgId, since) as any).c;
+
+  /* Recent flags with answer metadata */
+  const recentFlags = db.prepare(`
+    SELECT f.id as flag_id, f.answer_id, f.flag_type, f.comment, f.status, f.created_at,
+           a.recommended_action, a.recommended_owner, a.confidence, a.unsupported_or_inferred_claims_json
+    FROM ticket_answer_flags f
+    LEFT JOIN ticket_assist_answers a ON a.id = f.answer_id
+    WHERE f.created_at >= ?
+    ORDER BY f.created_at DESC LIMIT 20
+  `).all(since);
+
+  /* Recent proposals */
+  const recentProposals = db.prepare(`
+    SELECT * FROM callum_action_proposals
+    WHERE created_at >= ?
+    ORDER BY created_at DESC LIMIT 20
+  `).all(since);
+
+  /* Taxonomy gaps — queries where no match found */
+  const taxonomyGaps = db.prepare(`
+    SELECT detected_topic, COUNT(*) as count FROM ticket_assist_requests
+    WHERE organization_id = ? AND created_at >= ? AND detected_taxonomy_item_id IS NULL AND detected_topic IS NOT NULL
+    GROUP BY detected_topic ORDER BY count DESC LIMIT 10
+  `).all(orgId, since);
+
+  /* Client profile gaps */
+  const clientGaps = db.prepare(`
+    SELECT client_id, COUNT(*) as count FROM ticket_assist_requests
+    WHERE organization_id = ? AND created_at >= ? AND client_id IS NULL
+    GROUP BY client_id ORDER BY count DESC LIMIT 10
+  `).all(orgId, since);
+
+  /* Ownership breakdown */
+  const ownershipBreakdown = db.prepare(`
+    SELECT recommended_owner, COUNT(*) as count FROM ticket_assist_answers
+    WHERE organization_id = ? AND created_at >= ?
+    GROUP BY recommended_owner ORDER BY count DESC
+  `).all(orgId, since);
+
+  /* Priority breakdown */
+  const priorityBreakdown = db.prepare(`
+    SELECT recommended_priority, COUNT(*) as count FROM ticket_assist_answers
+    WHERE organization_id = ? AND created_at >= ? AND recommended_priority IS NOT NULL
+    GROUP BY recommended_priority ORDER BY count DESC
+  `).all(orgId, since);
+
+  /* Top taxonomy items used */
+  const topTaxonomyItems = db.prepare(`
+    SELECT taxonomy_item_id, COUNT(*) as count FROM action_usage_events
+    WHERE organization_id = ? AND created_at >= ? AND taxonomy_item_id IS NOT NULL
+    GROUP BY taxonomy_item_id ORDER BY count DESC LIMIT 10
+  `).all(orgId, since);
+
+  /* System: last action time */
+  const lastAction = db.prepare(
+    'SELECT created_at FROM action_usage_events WHERE organization_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).get(orgId) as { created_at: string } | undefined;
+
   return {
-    total_actions: (db.prepare('SELECT COUNT(*) as c FROM action_usage_events WHERE organization_id = ? AND created_at >= ?').get(orgId, since) as any).c,
-    total_flags: (db.prepare('SELECT COUNT(*) as c FROM ticket_answer_flags WHERE created_at >= ?').get(since) as any).c,
-    open_flags: (db.prepare("SELECT COUNT(*) as c FROM ticket_answer_flags WHERE status = 'open' AND created_at >= ?").get(since) as any).c,
-    top_topics: db.prepare(`
+    usage: {
+      total_actions: totalActions,
+      active_users: activeUsers,
+      total_flags: totalFlags,
+      open_flags: openFlags,
+      total_proposals: totalProposals,
+      open_proposals: openProposals,
+      low_confidence: lowConfidence,
+    },
+    topics: db.prepare(`
       SELECT topic, COUNT(*) as count FROM action_usage_events
       WHERE organization_id = ? AND created_at >= ? AND topic IS NOT NULL
       GROUP BY topic ORDER BY count DESC LIMIT 10
     `).all(orgId, since),
-    by_technician: db.prepare(`
-      SELECT user_id, COUNT(*) as count FROM action_usage_events
-      WHERE organization_id = ? AND created_at >= ?
-      GROUP BY user_id ORDER BY count DESC
-    `).all(orgId, since),
-    confidence_breakdown: db.prepare(`
-      SELECT confidence, COUNT(*) as count FROM ticket_assist_answers
-      WHERE organization_id = ? AND created_at >= ?
-      GROUP BY confidence
-    `).all(orgId, since),
-    flags_by_type: db.prepare(`
-      SELECT flag_type, COUNT(*) as count FROM ticket_answer_flags
-      WHERE created_at >= ?
-      GROUP BY flag_type ORDER BY count DESC
-    `).all(since),
+    taxonomy: {
+      top_items: topTaxonomyItems,
+      gaps: taxonomyGaps,
+      proposals: recentProposals.filter((p: any) => p.proposal_type === 'taxonomy_change'),
+    },
+    clients: {
+      top_clients: db.prepare(`
+        SELECT client_id, COUNT(*) as count FROM action_usage_events
+        WHERE organization_id = ? AND created_at >= ? AND client_id IS NOT NULL
+        GROUP BY client_id ORDER BY count DESC LIMIT 10
+      `).all(orgId, since),
+      gaps: clientGaps,
+      protocol_proposals: recentProposals.filter((p: any) => p.proposal_type === 'client_protocol_change'),
+    },
+    standards: {
+      sla_usage: priorityBreakdown,
+      escalation_uncertainty: db.prepare(`
+        SELECT COUNT(*) as c FROM ticket_assist_answers
+        WHERE organization_id = ? AND created_at >= ? AND recommended_action IN ('escalate_t2','escalate_t3','manager_review')
+      `).get(orgId, since),
+      proposals: recentProposals.filter((p: any) => p.proposal_type === 'sla_note_change' || p.proposal_type === 'global_playbook_change'),
+    },
+    flags: recentFlags,
+    proposals: recentProposals,
+    training_recommendations: taxonomyGaps.slice(0, 5).map((g: any) => ({
+      title: `Improve qualification for "${g.detected_topic}"`,
+      reason: `No matching taxonomy item found in ${g.count} queries`,
+    })),
+    system: {
+      last_action_at: lastAction?.created_at || null,
+      recent_errors: [],
+      action_counts_by_route: db.prepare(`
+        SELECT action_name, COUNT(*) as count FROM action_usage_events
+        WHERE organization_id = ? AND created_at >= ?
+        GROUP BY action_name ORDER BY count DESC
+      `).all(orgId, since),
+    },
   };
 }

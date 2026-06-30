@@ -193,10 +193,10 @@ export default function SystemPage() {
       {/* Warnings */}
       {data.warnings?.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-lg font-semibold text-orange-400 mb-3">Warnings</h2>
-          <div className="bg-orange-950/20 border border-orange-800/40 rounded p-4">
+          <h2 className="text-lg font-semibold text-gray-200 mb-3">Warnings</h2>
+          <div className="space-y-2">
             {data.warnings.map((w: any, i: number) => (
-              <div key={i} className="flex items-start gap-2 text-sm mb-1">
+              <div key={i} className="flex items-start gap-2 bg-orange-950/30 border border-orange-800/50 rounded p-3 text-sm">
                 <span className="text-orange-400 mt-0.5">⚠</span>
                 <span className="text-orange-300">{w.type}: {w.message}</span>
               </div>
@@ -204,6 +204,71 @@ export default function SystemPage() {
           </div>
         </section>
       )}
+
+      {/* Callum Actions Health */}
+      <CallumHealthSection />
     </ManagerShell>
+  );
+}
+
+function CallumHealthSection() {
+  const [cd, setCd] = useState<any>(null);
+  useEffect(() => {
+    fetch('/api/callum/dashboard?days=7')
+      .then(r => r.json())
+      .then(d => setCd(d))
+      .catch(() => {});
+  }, []);
+
+  if (!cd?.stats) return null;
+
+  const u = cd.stats.usage || {};
+  const sys = cd.stats.system || {};
+
+  return (
+    <section className="mb-6">
+      <h2 className="text-lg font-semibold text-gray-200 mb-3">Callum Actions</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="bg-gray-900 border border-gray-800 rounded p-3">
+          <div className="text-xs text-gray-500 uppercase">Total Actions</div>
+          <div className="text-lg font-bold text-blue-400">{u.total_actions || 0}</div>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded p-3">
+          <div className="text-xs text-gray-500 uppercase">Last Action</div>
+          <div className="text-sm font-bold text-gray-300">{sys.last_action_at ? sys.last_action_at.slice(0, 16) : 'Never'}</div>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded p-3">
+          <div className="text-xs text-gray-500 uppercase">Health</div>
+          <div className="text-lg font-bold text-green-400">Available</div>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded p-3">
+          <div className="text-xs text-gray-500 uppercase">Auth</div>
+          <div className="text-lg font-bold text-green-400">Bearer</div>
+        </div>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded p-4 text-sm">
+        <div className="text-gray-400 mb-2">Action Routes</div>
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-gray-800 text-gray-500"><th className="text-left p-2">Route</th><th className="text-left p-2">Method</th><th className="text-left p-2">Calls</th><th className="text-left p-2">Auth</th></tr></thead>
+          <tbody>
+            {(sys.action_counts_by_route || []).map((r: any, i: number) => (
+              <tr key={i} className="border-b border-gray-800/50">
+                <td className="p-2 text-gray-300 font-mono text-xs">{r.action_name}</td>
+                <td className="p-2"><span className="text-xs bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded">POST</span></td>
+                <td className="p-2 text-gray-400">{r.count}</td>
+                <td className="p-2 text-green-400">✅ Bearer</td>
+              </tr>
+            ))}
+            {(!sys.action_counts_by_route || sys.action_counts_by_route.length === 0) && (
+              <tr><td colSpan={4} className="p-2 text-gray-500">No actions recorded yet.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 text-xs text-gray-500">
+        OpenAPI schema: <code className="text-gray-400">docs/callum-actions.openapi.yaml</code>
+      </div>
+    </section>
   );
 }

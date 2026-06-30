@@ -7,12 +7,13 @@ import { Logo } from '@/components/shared/Logo';
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/mvp', icon: '≡' },
   { label: 'Assessments', href: '/mvp/assessments', icon: '⚠' },
+  { label: 'Assist', href: '/mvp/assist', icon: '💡' },
+  { label: 'Clients', href: '/mvp/clients', icon: '🏢' },
   { label: 'Standards', href: '/mvp/standards', icon: '⚙' },
   { label: 'Taxonomy', href: '/mvp/taxonomy', icon: '⊞' },
+  { label: 'System', href: '/mvp/system', icon: '🔧' },
   { label: 'CMDB', href: '/mvp/knowledge', icon: '🗄' },
   { label: 'Reports', href: '/mvp/analytics', icon: '📊' },
-  { label: 'Voice Lab', href: '/mvp/voice-test', icon: '🎙' },
-  { label: 'Settings', href: '/mvp/settings', icon: '⚙' },
 ];
 
 export default function ItsmSidebar() {
