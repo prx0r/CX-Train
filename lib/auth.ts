@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import Database from "better-sqlite3";
 import path from "path";
 import { username } from "better-auth/plugins";
+import { nextCookies } from "better-auth/next-js";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -10,6 +11,9 @@ const resolvedPath = path.resolve(process.cwd(), dbPath);
 
 export const auth = betterAuth({
   database: new Database(resolvedPath),
+  baseURL: {
+    allowedHosts: ['*.trycloudflare.com', 'localhost:3000', '127.0.0.1:3000'],
+  },
   emailAndPassword: {
     enabled: true,
   },
@@ -28,6 +32,7 @@ export const auth = betterAuth({
       minUsernameLength: 3,
       maxUsernameLength: 30,
     }),
+    nextCookies(),
   ],
   user: {
     additionalFields: {
