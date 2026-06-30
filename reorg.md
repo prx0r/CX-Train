@@ -3,32 +3,69 @@
 ## The three products
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    SHARED INFRASTRUCTURE                     │
-│  taxonomy (source of truth) · SLA classifier · auth · DB   │
-│  scoring engine · analysis pipeline · event system         │
-└─────────────────────────────────────────────────────────────┘
-          │                    │                    │
-          ▼                    ▼                    ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│   CANDIDATE      │  │    MANAGER      │  │   TECHNICIAN    │
-│   DASHBOARD      │  │   DASHBOARD     │  │   DASHBOARD     │
-│                  │  │                 │  │                 │
-│ Standalone       │  │ Sends hiring    │  │ Child of        │
-│ hiring platform  │  │ assessments     │  │ manager dash    │
-│                  │  │ to candidates   │  │                 │
-│ Candidates       │  │ Creates/manages │  │ T1/T2 techs     │
-│ practise calls,  │  │ MSP orgs        │  │ access training,│
-│ submit tickets,  │  │                 │  │ taxonomy,       │
-│ get scored       │  │ Sets standards  │  │ triage tool,    │
-│                  │  │ & procedures    │  │ docs, Ask Callum│
-│                  │  │ per MSP client  │  │                 │
-│                  │  │                 │  │ Each MSP has    │
-│                  │  │ Invites techs   │  │ own custom      │
-│                  │  │ to their MSP    │  │ standards &     │
-│                  │  │ org             │  │ procedures      │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                       CALLUM BACKEND                             │
+│  Auditable MSP decision engine — called from ChatGPT Enterprise  │
+│  Taxonomy · SLA matrix · Client profiles · Proposals · Metadata  │
+└──────────────────────────────────────────────────────────────────┘
+          │                    │                    │              │
+          ▼                    ▼                    ▼              ▼
+┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐  ┌───────────┐
+│  CHATGPT     │  │    MANAGER       │  │   TECHNICIAN     │  │ CANDIDATE │
+│  ENTERPRISE  │  │   DASHBOARD      │  │   DASHBOARD      │  │ DASHBOARD │
+│  (Custom GPT)│  │                  │  │                  │  │           │
+│              │  │ Sends hiring     │  │ Child of         │  │Standalone │
+│ Calls Callum │  │ assessments      │  │ manager dash     │  │hiring     │
+│ Actions for  │  │ to candidates    │  │                  │  │platform   │
+│ ticket help  │  │                  │  │ T1/T2 techs use  │  │           │
+│              │  │ Creates/manages  │  │ triage, taxonomy, │  │Candidates │
+│ No raw data  │  │ MSP orgs         │  │ training, docs,  │  │practise   │
+│ stored       │  │                  │  │ Ask Callum via   │  │calls, get │
+│              │  │ Sets standards   │  │ ChatGPT or web   │  │scored     │
+│              │  │ & procedures     │  │                  │  │           │
+│              │  │ per MSP client   │  │ Each MSP has     │  │           │
+│              │  │                  │  │ own custom       │  │           │
+│              │  │ Invites techs    │  │ standards &      │  │           │
+│              │  │ to their MSP     │  │ procedures       │  │           │
+│              │  │ Reviews Callum   │  │                  │  │           │
+│              │  │ flags & usage    │  │                  │  │           │
+└──────────────┘  └──────────────────┘  └──────────────────┘  └───────────┘
 ```
+
+## Product 0: Callum Action Backend
+
+**Purpose:** Auditable MSP decision engine called from ChatGPT Enterprise Actions. Technicians keep using ChatGPT Enterprise; Callum provides the taxonomy, SLA, client profile, and recommendation logic, and stores only decision metadata (no raw ticket content).
+
+**Route group:** `/api/actions/` + `/api/callum/`
+
+| Endpoint | What |
+|----------|------|
+| `POST /api/actions/ticket-assist/analyse` | Main ticket analysis — classify, ownership, missing info, response, escalation, SLA |
+| `GET /api/actions/taxonomy/search?q=` | Search taxonomy for GPT |
+| `POST /api/actions/answers/{answerId}/flag` | Flag wrong or unclear answers |
+| `POST /api/actions/proposals` | Create taxonomy/client-protocol change proposals |
+| `GET/POST /api/actions/client-profiles` | Per-MSP client records |
+| `GET/POST /api/actions/client-protocols` | Per-client protocol rules (escalation exceptions, VIP handling, etc.) |
+| `GET /api/callum/dashboard?days=7` | Usage stats, flags, topics, confidence breakdown |
+
+**Pipeline for every ticket-assist request:**
+1. Sensitivity scan — reject/report passwords, tokens, MFA codes, API keys
+2. Fact extraction — detect client, symptoms, classification clues, ownership hints
+3. Taxonomy search — match against 162-item source of truth
+4. Client profile lookup — find client-specific protocols if client identified
+5. SLA classification — Connexion priority matrix
+6. Structured recommendation — ownership, missing info, response, escalation, sources
+7. Verifier pass — flag unsupported claims and missing citations
+8. Metadata-only storage — no raw ticket chain saved by default
+
+**Key files:**
+- `lib/callum-actions.ts` — core pipeline, sensitivity scan, fact extraction, dashboard stats
+- `app/api/actions/` — all GPT Action endpoints
+- `app/api/callum/dashboard/` — manager dashboard API
+
+**Entry point:** ChatGPT Enterprise Custom GPT → calls Callum Actions → returns structured JSON → GPT formats for technician.
+
+---
 
 ## Product 1: Candidate Dashboard
 
@@ -107,9 +144,11 @@
 |-------|-----------|---------|
 | Taxonomy | `lib/taxonomy.ts`, `taxonomy/taxonomy.json`, `app/api/taxonomy/` | All |
 | SLA classifier | `lib/mvp/analysis/slaClassifier.ts` | All |
+| Callum actions | `lib/callum-actions.ts`, `app/api/actions/`, `app/api/callum/` | ChatGPT + Manager |
 | Auth | `lib/auth.ts`, `lib/auth-client.ts` | All |
 | Database | `lib/mvp/db.ts` | All |
 | AI provider | `lib/ai/provider.ts` | All |
+| Client profiles | `app/api/actions/client-profiles/`, `app/api/actions/client-protocols/` | Callum + Manager |
 | Scoring engine | `lib/mvp/analysis/scoring.ts` | Candidate + Manager |
 | Analysis pipeline | `lib/mvp/analysis/runBaseCallumAnalysis.ts`, `normalize-scores.ts` | Candidate |
 | Event system | `lib/mvp/events/` | Candidate |
@@ -148,6 +187,13 @@ The global defaults are the starting point. Managers override per-MSP.
 
 | Route | Product | Status |
 |-------|---------|--------|
+| `POST /api/actions/ticket-assist/analyse` | Callum → ChatGPT | ✅ Fresh |
+| `GET /api/actions/taxonomy/search` | Callum → ChatGPT | ✅ Fresh |
+| `POST /api/actions/answers/{id}/flag` | Callum → ChatGPT | ✅ Fresh |
+| `POST /api/actions/proposals` | Callum → ChatGPT | ✅ Fresh |
+| `GET/POST /api/actions/client-profiles` | Callum → Manager | ✅ Fresh |
+| `GET/POST /api/actions/client-protocols` | Callum → Manager | ✅ Fresh |
+| `GET /api/callum/dashboard` | Callum → Manager | ✅ Fresh |
 | `/mvp/assessment/[token]` | Candidate | ✅ Active |
 | `/mvp/analysis/[assessmentId]` | Candidate | ✅ Active |
 | `/mvp` | Manager | ✅ Active |
@@ -175,6 +221,9 @@ The global defaults are the starting point. Managers override per-MSP.
 - `app/api/msp/` — MSP APIs
 - `app/taxonomy/` — taxonomy browser + chat
 - `app/api/taxonomy/` — taxonomy APIs
+- `app/api/actions/` — Callum GPT Action endpoints
+- `app/api/callum/` — Callum dashboard API
+- `lib/callum-actions.ts` — Callum core pipeline
 - `app/mvp/assessment/[token]/` — candidate assessment flow
 - `app/mvp/analysis/` — candidate report
 - `app/mvp/` — manager dashboard
