@@ -128,7 +128,7 @@ NEW:
   components/mvp/analysis/CompetencyBreakdown.tsx — Report page component
 
 MODIFIED:
-  lib/mvp/db.ts                              — 4 new tables + 3 seed blocks + analysis_jobs
+  lib/mvp/db.ts                              — 5 new tables (incl. attempt_criterion_competencies bridge) + 3 seed blocks + analysis_jobs + evidence_quotes_json column
   lib/mvp/assessments/create.ts              — Pack-mode rendering
   app/api/mvp/assessment/[token]/ticket/route.ts — Wired normalizeAnalysisScores()
   app/mvp/analysis/[assessmentId]/page.tsx   — Added CompetencyBreakdown
@@ -186,12 +186,54 @@ MVP flow test: 37/37 pass
 Competency mapping: 32/32 pass (now testing real source, catches drift)
 ```
 
+---
+
+## Sprint 1.2: Idempotent Rebuild + Evidence Column Split
+
+### What was wrong
+
+| Issue | Severity | Detail |
+|-------|----------|--------|
+| `INSERT OR REPLACE` breaks FK with bridge table | 🔴 Critical | SQLite `INSERT OR REPLACE` is delete-then-insert. Rerunning normalization could delete parent rows in `attempt_criterion_results` while `attempt_criterion_competencies` still references them via FK, causing cascading weirdness |
+| `evidence_message_ids_json` stores quotes, not IDs | 🟡 Medium | Column name is misleading — it holds AI evidence quote text, not resolved message IDs. Makes the schema harder to reason about |
+
+### What was fixed
+
+| Fix | Files |
+|-----|-------|
+| **Delete-and-rebuild**: Normalizer now DELETEs all existing derived rows (`attempt_criterion_competencies`, `attempt_competency_scores`, `attempt_criterion_results`) for the attempt before inserting fresh. Uses plain `INSERT` instead of `INSERT OR REPLACE`. Fully idempotent — safe to rerun. | `lib/mvp/analysis/normalize-scores.ts` |
+| **`evidence_quotes_json` column**: Added to `attempt_criterion_results`. Stores AI evidence quotes as JSON array. `evidence_message_ids_json` kept for future resolved message-ID linking (null for now). Migration v9. | `lib/mvp/db.ts`, `lib/mvp/analysis/normalize-scores.ts` |
+
+### Normalizer contract
+
+```
+Normalized scoring is derived data.
+Calling normalizeAnalysisScores() for an attempt:
+  1. DELETEs all existing derived rows for that attempt_id
+  2. Re-inserts fresh from raw_model_json
+This makes it safe to rerun on old analysis results (e.g. after
+competency mapping changes).
+```
+
+### Testing results
+
+```
+npm test
+
+ℹ tests 280
+ℹ suites 23
+ℹ pass 280
+ℹ fail 0
+```
+
 ### What remains (next priorities)
 
 | Item | Notes |
 |------|-------|
 | `analysis_jobs` runner | Schema exists but no job creator/poller/retry. Timeout still fails synchronously |
 | Evidence event IDs | `evidence_event_ids_json` stays null — no session_event → message ID linking yet |
+| Evidence message IDs | `evidence_message_ids_json` stays null — no resolved message ID linking yet |
 | Candidate aggregate stats | No `candidate_competency_stats` table — /profile can't show trends |
 | Retake comparison | No attempt-to-attempt diff view yet |
+| Manager competency read route | `/api/candidate/competency-scores` is candidate-owner-only. Report page needs a token/auth-gated path for shared/manager views |
 | `npm test` 2 pre-existing failures | Analysis scoring test expects pack-level weights (safety=4) but `DEFAULT_WEIGHTS` are all 1 — pre-existing, unrelated to these fixes |

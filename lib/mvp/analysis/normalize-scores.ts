@@ -42,10 +42,14 @@ export const CRITERION_COMPETENCY_MAP: Record<string, string[]> = {
 
 /**
  * After analysis completes, explode the structured result into
- * attempt_competency_scores and attempt_criterion_results.
+ * attempt_competency_scores, attempt_criterion_results, and
+ * attempt_criterion_competencies.
+ *
+ * Normalized scoring is derived data — this function uses delete-and-rebuild
+ * for the attempt so it is fully idempotent and safe to rerun.
+ * Called from the ticket submission route after runBaseCallumAnalysis().
  *
  * This makes every call queryable by competency, criterion, and trend.
- * Called from the ticket submission route after runBaseCallumAnalysis().
  */
 export function normalizeAnalysisScores(assessmentId: string, analysisResult: any): void {
   const db = getDb();
@@ -59,20 +63,25 @@ export function normalizeAnalysisScores(assessmentId: string, analysisResult: an
 
   if (!rawCriteria || !skillBreakdown) return;
 
+  /* Delete existing derived rows for this attempt (idempotent rebuild) */
+  db.prepare('DELETE FROM attempt_criterion_competencies WHERE attempt_id = ?').run(assessmentId);
+  db.prepare('DELETE FROM attempt_competency_scores WHERE attempt_id = ?').run(assessmentId);
+  db.prepare('DELETE FROM attempt_criterion_results WHERE attempt_id = ?').run(assessmentId);
+
   /* Track per-competency accumulated scores */
   const compScores: Record<string, { earned: number; max: number; evidence: number; missed: number }> = {};
 
   /* Insert criterion result (one row per criterion, stores primary competency + evidence) */
   const insertCriterion = db.prepare(`
-    INSERT OR REPLACE INTO attempt_criterion_results
+    INSERT INTO attempt_criterion_results
       (attempt_id, criterion_id, competency_id, status, score, max_score,
-       evidence_event_ids_json, evidence_message_ids_json, explanation)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       evidence_event_ids_json, evidence_message_ids_json, evidence_quotes_json, explanation)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   /* Insert bridge table rows (one row per criterion × competency mapping) */
   const insertBridge = db.prepare(`
-    INSERT OR IGNORE INTO attempt_criterion_competencies
+    INSERT INTO attempt_criterion_competencies
       (attempt_id, criterion_id, competency_id)
     VALUES (?, ?, ?)
   `);
@@ -87,13 +96,16 @@ export function normalizeAnalysisScores(assessmentId: string, analysisResult: an
     /* Extract evidence from AI output */
     const evidenceQuotes = criterion.evidence || [];
     const explanation = criterion.notes || (evidenceQuotes.length > 0 ? evidenceQuotes[0] : null);
-    const evidenceMessageIds = evidenceQuotes.length > 0 ? JSON.stringify(evidenceQuotes) : null;
+    const evidenceQuotesJson = evidenceQuotes.length > 0 ? JSON.stringify(evidenceQuotes) : null;
 
     /* Insert one row per criterion with primary competency and evidence */
     insertCriterion.run(
       assessmentId, criterionId, matchedComps[0] || null,
       status, earned, maxScore,
-      null, evidenceMessageIds, explanation
+      null, /* evidence_event_ids_json — not yet populated */
+      null, /* evidence_message_ids_json — not yet populated (future) */
+      evidenceQuotesJson,
+      explanation
     );
 
     /* Insert bridge rows for ALL competency mappings (many-to-many) */
@@ -110,7 +122,7 @@ export function normalizeAnalysisScores(assessmentId: string, analysisResult: an
 
   /* Insert competency scores (aggregated, one per attempt × competency) */
   const insertCompScore = db.prepare(`
-    INSERT OR REPLACE INTO attempt_competency_scores
+    INSERT INTO attempt_competency_scores
       (attempt_id, competency_id, raw_score, normalized_score, max_score, evidence_count, missed_count)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);

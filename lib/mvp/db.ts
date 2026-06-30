@@ -232,6 +232,9 @@ export function initTables(): void {
     /* v6 — candidate profiles and user linking */
     `ALTER TABLE assessments ADD COLUMN candidate_user_id TEXT`,
     `ALTER TABLE assessments ADD COLUMN attempt_mode TEXT NOT NULL DEFAULT 'invited'`,
+
+    /* v9 — evidence quotes column for criterion results */
+    `ALTER TABLE attempt_criterion_results ADD COLUMN evidence_quotes_json TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }
@@ -326,6 +329,7 @@ export function initTables(): void {
       max_score REAL NOT NULL,
       evidence_event_ids_json TEXT,
       evidence_message_ids_json TEXT,
+      evidence_quotes_json TEXT,
       explanation TEXT,
       PRIMARY KEY (attempt_id, criterion_id)
     );
