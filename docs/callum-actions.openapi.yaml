@@ -9,8 +9,8 @@ info:
   version: 1.0.0
 
 servers:
-  - url: https://cx-train.example.com
-    description: Production
+  - url: https://YOUR-CALLUM-DOMAIN.com
+    description: "⚠️  Replace with actual deployed domain. Example: https://cx-train.vercel.app"
 
 security:
   - ApiKeyAuth: []
@@ -24,6 +24,25 @@ components:
       description: "Bearer token. Format: Authorization: Bearer <CALLUM_ACTIONS_KEY>"
 
 paths:
+  /api/actions/health:
+    get:
+      summary: Health check
+      description: Test authentication and backend availability.
+      operationId: healthCheck
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Authenticated OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  service: { type: string }
+                  auth: { type: string }
+
   /api/actions/ticket-assist/analyse:
     post:
       summary: Analyse a ticket chain

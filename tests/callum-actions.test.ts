@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { scanForSensitive, extractFacts } from '../lib/callum-actions';
-import { verifyActionsKey } from '../lib/callum-auth';
+import { verifyCallumActionAuth } from '../lib/actions-auth';
 
 describe('Callum Actions — sensitivity scan', () => {
   it('detects obvious passwords', () => {
@@ -53,34 +53,40 @@ describe('Callum Auth — API key verification', () => {
   const KEY = 'test-key-123';
 
   it('rejects missing auth header', () => {
+    const old = process.env.CALLUM_ACTIONS_KEY;
+    process.env.CALLUM_ACTIONS_KEY = 'test-key-123';
     const req = new Request('http://localhost', { headers: {} });
-    const result = verifyActionsKey(req, KEY);
-    assert.ok(!result.valid);
-    assert.equal(result.error, 'Unauthorized');
+    assert.ok(!verifyCallumActionAuth(req));
+    if (old) process.env.CALLUM_ACTIONS_KEY = old;
   });
 
   it('rejects wrong key', () => {
+    const old = process.env.CALLUM_ACTIONS_KEY;
+    process.env.CALLUM_ACTIONS_KEY = 'test-key-123';
     const req = new Request('http://localhost', {
       headers: { authorization: 'Bearer wrong-key' },
     });
-    const result = verifyActionsKey(req, KEY);
-    assert.ok(!result.valid);
+    assert.ok(!verifyCallumActionAuth(req));
+    if (old) process.env.CALLUM_ACTIONS_KEY = old;
   });
 
   it('accepts correct key', () => {
+    const old = process.env.CALLUM_ACTIONS_KEY;
+    process.env.CALLUM_ACTIONS_KEY = 'test-key-123';
     const req = new Request('http://localhost', {
       headers: { authorization: 'Bearer test-key-123' },
     });
-    const result = verifyActionsKey(req, KEY);
-    assert.ok(result.valid);
+    assert.ok(verifyCallumActionAuth(req));
+    if (old) process.env.CALLUM_ACTIONS_KEY = old;
   });
 
-  it('rejects when key is empty', () => {
+  it('rejects when key is not configured', () => {
+    const old = process.env.CALLUM_ACTIONS_KEY;
+    delete process.env.CALLUM_ACTIONS_KEY;
     const req = new Request('http://localhost', {
       headers: { authorization: 'Bearer some-key' },
     });
-    const result = verifyActionsKey(req, '');
-    assert.ok(!result.valid);
-    assert.ok(result.error?.includes('not configured'));
+    assert.ok(!verifyCallumActionAuth(req));
+    if (old) process.env.CALLUM_ACTIONS_KEY = old;
   });
 });

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createProposal } from '@/lib/callum-actions';
-import { verifyActionsKey } from '@/lib/callum-auth';
+import { verifyCallumActionAuth, unauthorizedActionResponse } from '@/lib/actions-auth';
 
 export async function POST(req: NextRequest) {
-  const auth = verifyActionsKey(req);
-  if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: 401 });
+  if (!verifyCallumActionAuth(req)) return unauthorizedActionResponse();
 
   const body = await req.json();
   const { proposal_type, reason, proposed_change, client_name, taxonomy_item_id } = body;

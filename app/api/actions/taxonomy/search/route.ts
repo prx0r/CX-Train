@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadTaxonomy, searchTaxonomyItems } from '@/lib/taxonomy';
-import { verifyActionsKey } from '@/lib/callum-auth';
+import { verifyCallumActionAuth, unauthorizedActionResponse } from '@/lib/actions-auth';
 
 /**
  * Search taxonomy for GPT Actions.
  * GET /api/actions/taxonomy/search?q=account+lockout&limit=5
  */
 export async function GET(req: NextRequest) {
-  const auth = verifyActionsKey(req);
-  if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: 401 });
+  if (!verifyCallumActionAuth(req)) return unauthorizedActionResponse();
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q');

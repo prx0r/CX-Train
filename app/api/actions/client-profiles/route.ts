@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyActionsKey } from '@/lib/callum-auth';
+import { verifyCallumActionAuth, unauthorizedActionResponse } from '@/lib/actions-auth';
 import { getDb } from '@/lib/mvp/db';
 import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
-  const auth = verifyActionsKey(req);
-  if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: 401 });
+  if (!verifyCallumActionAuth(req)) return unauthorizedActionResponse();
 
   const db = getDb();
   const clients = db.prepare('SELECT id, name, short_name, status, created_at FROM clients ORDER BY name').all();
@@ -13,8 +12,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = verifyActionsKey(req);
-  if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: 401 });
+  if (!verifyCallumActionAuth(req)) return unauthorizedActionResponse();
 
   const body = await req.json();
   const { name, short_name, notes } = body;

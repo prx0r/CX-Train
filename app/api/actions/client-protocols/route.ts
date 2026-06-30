@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyActionsKey } from '@/lib/callum-auth';
+import { verifyCallumActionAuth, unauthorizedActionResponse } from '@/lib/actions-auth';
 import { getDb } from '@/lib/mvp/db';
 import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
-  const auth = verifyActionsKey(req);
-  if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: 401 });
+  if (!verifyCallumActionAuth(req)) return unauthorizedActionResponse();
 
   const { searchParams } = new URL(req.url);
   const clientId = searchParams.get('client_id');
@@ -19,8 +18,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = verifyActionsKey(req);
-  if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: 401 });
+  if (!verifyCallumActionAuth(req)) return unauthorizedActionResponse();
 
   const body = await req.json();
   const { client_id, title, protocol_type, rule_text, t1_guidance, escalation_guidance, trigger_keywords } = body;

@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { flagAnswer } from '@/lib/callum-actions';
-import { verifyActionsKey } from '@/lib/callum-auth';
+import { verifyCallumActionAuth, unauthorizedActionResponse } from '@/lib/actions-auth';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { answerId: string } }
 ) {
-  const auth = verifyActionsKey(req);
-  if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: 401 });
+  if (!verifyCallumActionAuth(req)) return unauthorizedActionResponse();
 
   const body = await req.json();
   const { flag_type, comment, save_redacted_excerpt, redacted_excerpt } = body;
