@@ -7,7 +7,7 @@ Connexion's operational helpdesk playbook, turned into an interactive training a
 - **Training Simulator** — drill technicians on call handling, SLA judgement, first-call resolution, and taxonomy-driven classification
 - **Taxonomy Copilot** — let techs ask "what do I do with this ticket?" and get the agreed classification, playbook, and escalation rule
 
-## Architecture: one brain, two surfaces
+## Architecture: one brain, three surfaces
 
 ```
 taxonomy_items (162 items, source of truth)
@@ -20,6 +20,13 @@ taxonomy_items (162 items, source of truth)
   │
   ├── Scenario Generator
   │     └── POST /api/taxonomy/scenario — creates training scenario from item
+  │
+  ├── MSP Technician Dashboard (/msp)
+  │     └── /msp/triage — classify tickets against taxonomy, get playbook/escalation
+  │     └── /msp/taxonomy — role-filtered taxonomy browser
+  │     └── /msp/training — role-specific drills generated from taxonomy items
+  │     └── /msp/docs — T2+ documentation linked to taxonomy items
+  │     └── /msp/admin — manager creates org, generates invites, sets SLA overrides
   │
   ├── Training Simulator
   │     └── simulated call against taxonomy item
@@ -51,7 +58,7 @@ taxonomy_items (162 items, source of truth)
 | `last_updated` | date | `2026-06-30` |
 | `version` | number | `1` |
 
-### Endpoints
+### Taxonomy Endpoints
 
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -62,6 +69,25 @@ taxonomy_items (162 items, source of truth)
 | `POST` | `/api/taxonomy/scenario` | Generate training scenario from item |
 | `POST` | `/api/taxonomy/propose-change` | Create proposal (safe, no direct mutation) |
 | `POST` | `/api/taxonomy/approve-change` | Apply approved proposal |
+
+### MSP Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/msp/me` | Current user's MSP context (org, role, technician id) |
+| `POST` | `/api/msp/org` | Create MSP organisation |
+| `GET` | `/api/msp/invite?token=` | Check invite details |
+| `POST` | `/api/msp/invite` | Create invite link |
+| `PUT` | `/api/msp/invite` | Redeem invite token |
+| `GET` | `/api/msp/technicians?msp_id=` | List technicians |
+| `PATCH` | `/api/msp/technicians` | Update technician role |
+| `GET` | `/api/msp/standards?msp_id=` | Get per-MSP standards |
+| `POST` | `/api/msp/standards` | Update per-MSP standards |
+| `POST` | `/api/msp/triage` | Classify ticket description against taxonomy |
+| `GET` | `/api/msp/docs?msp_id=` | List documentation |
+| `POST` | `/api/msp/docs` | Create document |
+| `PATCH` | `/api/msp/docs` | Update document |
+| `GET` | `/api/msp/scenarios?role=` | List role-filtered training scenarios |
 
 ### Safe update workflow
 
@@ -148,6 +174,13 @@ Scenarios derived from taxonomy items that are T1-closeable:
 taxonomy_items        ← 162 items, source of truth
 taxonomy_changes      ← proposal/approve/apply audit log
 
+msp_organisations     ← per-MSP client config
+msp_technicians       ← linked to auth users with role (t1/t2/manager)
+msp_invites           ← manager-generated invite links with role + expiry
+msp_taxonomy_access   ← per-role taxonomy subType visibility
+msp_standards         ← per-MSP scoring, SLA, escalation overrides
+msp_docs              ← T2+ documentation linked to taxonomy items
+
 training_scenarios    ← derived from taxonomy items (via scenario generator)
 training_attempts     ← per-attempt records
 assessment_results    ← analysis output, scores, structured JSON
@@ -160,6 +193,17 @@ technician_progress   ← per-user level tracking, stats (planned)
 ```
 
 ## Frontend surfaces
+
+### MSP Technician Dashboard (`/msp`)
+Role-based access: T1, T2, or Manager. Manager creates org → generates invite link → technician accepts with role.
+
+| Page | T1 | T2 | Manager | What it does |
+|------|:--:|:--:|:-------:|-------------|
+| `/msp/triage` | ✅ | ✅ | ✅ | Paste ticket description → get classification, playbook, escalation, evidence from taxonomy |
+| `/msp/taxonomy` | ✅ | ✅ | ✅ | Browse/search 162 items with role-filtered visibility |
+| `/msp/training` | ✅ | ✅ | ✅ | Role-specific scenarios generated from taxonomy items |
+| `/msp/docs` | ❌ | ✅ | ✅ | Browse/create/edit operational documentation linked to taxonomy |
+| `/msp/admin` | ❌ | ❌ | ✅ | Create org, generate invites, manage techs, set SLA overrides |
 
 ### Taxonomy Browser (`/taxonomy`)
 - Search, filter by type/subType
@@ -201,6 +245,12 @@ technician_progress   ← per-user level tracking, stats (planned)
 - Evidence ID resolution (quotes → message/event IDs)
 - Candidate aggregate stats (per-competency)
 - Manager-safe competency route (token/auth-gated)
+- **MSP dashboard** — /msp with role-based access (T1/T2/Manager)
+- **Ticket triage** — classify descriptions against taxonomy, get playbook/escalation
+- **Role-filtered training** — scenarios filtered by technician tier
+- **MSP documentation** — T2+ can write operational notes
+- **Invite flow** — manager creates org, generates links, technicians accept
+- **Per-MSP standards** — SLA overrides per organisation
 
 ### 🔜 Next (Phase 2)
 - Level 1 scoring with James's 6 categories
@@ -261,3 +311,7 @@ Ready for Level 2: Yes
 | `lib/mvp/analysis/slaClassifier.ts` | SLA matrix classifier + scoring |
 | `lib/mvp/analysis/normalize-scores.ts` | Post-analysis normalization |
 | `lib/mvp/analysis/jobs.ts` | Analysis timeout + background retry |
+| `lib/msp.ts` | MSP library — orgs, technicians, invites, triage, docs, role filtering |
+| `lib/mvp/db.ts` | Core schema — includes 6 MSP tables (orgs, techs, invites, taxonomy access, standards, docs) |
+| `app/msp/` | MSP dashboard routes — layout, triage, taxonomy, training, docs, admin, accept-invite |
+| `app/api/msp/` | MSP API routes — me, org, invite, technicians, standards, triage, docs, scenarios |
