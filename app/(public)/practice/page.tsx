@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authClient } from '@/lib/auth-client';
+import { Logo } from '@/components/shared/Logo';
 
 interface HiringPack {
   id: string;
@@ -92,8 +93,8 @@ export default function PracticePage() {
         background: '#111', borderBottom: '1px solid #000',
         padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <div style={{ width: 22, height: 22, border: '2px solid #7dd3fc', borderRadius: 4 }} />
-        <span style={{ fontWeight: 700, fontSize: 14, color: '#fff', flex: 1 }}>CallCallum</span>
+        <Logo size={22} showLabel />
+          <span style={{ flex: 1 }} />
         {session ? (
           <Link href="/profile" style={{ color: '#7dd3fc', fontSize: 13, textDecoration: 'none' }}>Dashboard</Link>
         ) : (

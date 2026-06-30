@@ -1,14 +1,12 @@
 import Link from 'next/link';
+import { Logo } from '@/components/shared/Logo';
 
 export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950">
       <header className="border-b border-zinc-800/80 px-4 py-4 flex items-center justify-between">
         <Link href="/" className="inline-block">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 20, height: 20, border: '2px solid #7dd3fc', borderRadius: 4 }} />
-            <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>CallCallum</span>
-          </div>
+          <Logo size={20} showLabel />
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/sign-in" className="text-zinc-400 hover:text-white text-sm transition-colors">

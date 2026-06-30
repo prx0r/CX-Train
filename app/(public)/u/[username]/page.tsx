@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Logo } from '@/components/shared/Logo';
 
 interface AttemptProps {
   id: string;
@@ -77,8 +78,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         background: '#111', borderBottom: '1px solid #000',
         padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <div style={{ width: 22, height: 22, border: '2px solid #7dd3fc', borderRadius: 4 }} />
-        <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>CallCallum</span>
+        <Logo size={22} showLabel />
       </div>
 
       <div className="max-w-3xl mx-auto p-4 md:p-6">

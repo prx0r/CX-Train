@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { authClient } from '@/lib/auth-client';
+import { Logo } from '@/components/shared/Logo';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/profile', icon: '≡' },
@@ -54,8 +55,7 @@ export default function CandidateLayout({ children }: { children: React.ReactNod
           padding: '14px 16px', background: '#000', borderBottom: '1px solid #2f2f2f',
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
-          <div style={{ width: 22, height: 22, border: '2px solid #7dd3fc', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>CallCallum</div>
+          <Logo size={22} showLabel />
         </div>
         <div style={{
           padding: '10px 16px', borderBottom: '1px solid #2f2f2f',

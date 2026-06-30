@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import CallumSidebar from './CallumSidebar';
+import { Logo } from '@/components/shared/Logo';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/mvp', icon: '≡' },
@@ -27,8 +28,7 @@ export default function ItsmSidebar() {
         padding: '14px 16px', background: '#000', borderBottom: '1px solid #2f2f2f',
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <div style={{ width: 22, height: 22, border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-        <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>Connexion PSA</div>
+        <Logo size={22} showLabel />
       </div>
       <div style={{ padding: '8px 12px', borderBottom: '1px solid #2f2f2f' }}>
         <input

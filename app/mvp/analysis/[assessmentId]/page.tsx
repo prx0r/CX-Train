@@ -6,6 +6,7 @@ import { CallRecordingPlayer } from '@/components/mvp/analysis/CallRecordingPlay
 import { AcousticMetrics, TurnTimingMetrics, DiarizationMetrics } from '@/components/mvp/analysis/AcousticMetrics';
 import { TranscriptView } from '@/components/mvp/analysis/TranscriptView';
 import { AssessmentOverview } from '@/components/mvp/analysis/AssessmentOverview';
+import { Logo } from '@/components/shared/Logo';
 
 interface MessageRow {
   role: string;
@@ -220,8 +221,7 @@ export default function AnalysisReportPage() {
         background: '#16162a', borderBottom: '1px solid #2d2d4a',
         padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        <div style={{ width: 20, height: 20, border: '2px solid #7dd3fc', borderRadius: 4 }} />
-        <span style={{ fontWeight: 700, fontSize: 14, color: '#e2e8f0' }}>Connexion PSA</span>
+        <Logo size={20} showLabel />
         <span style={{ fontSize: 10, color: '#7dd3fc', background: '#1e3a5f', padding: '2px 8px', borderRadius: 4 }}>
           {assessment.assignment_type === 'hiring_exam' ? 'HIRING ASSESSMENT' : 'TRAINING DRILL'}
         </span>

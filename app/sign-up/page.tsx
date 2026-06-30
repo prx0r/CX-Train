@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authClient } from '@/lib/auth-client';
+import { Logo } from '@/components/shared/Logo';
 
 export default function SignUpPage() {
   const [name, setName] = useState('');
@@ -45,7 +46,7 @@ export default function SignUpPage() {
     <div className="min-h-screen bg-connexion-black flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <div style={{ width: 40, height: 40, border: '2px solid #7dd3fc', borderRadius: 8, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+          <Logo size={40} />
           <h1 className="text-xl font-semibold text-slate-100">Create account</h1>
           <p className="text-sm text-connexion-grey-muted mt-1">start practising support calls</p>
         </div>
