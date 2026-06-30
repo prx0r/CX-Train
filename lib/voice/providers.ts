@@ -30,6 +30,7 @@ export interface SttResult {
   confidence?: number;
   durationMs: number;
   model: string;
+  provider?: string;
 }
 
 export interface TtsResult {
@@ -105,10 +106,21 @@ export interface VoiceSession {
   endedAt?: string;
 }
 
+export type TtsProviderName = 'fixture' | 'kokoro' | 'openrouter' | 'openai';
+export type SttProviderName = 'fixture' | 'vosk' | 'sherpa' | 'whisper_cpp' | 'openrouter' | 'groq';
+
+export const DEFAULT_TTS_VOICE = 'af_heart';
+export const MAX_TTS_TEXT_LENGTH = 1000;
+export const MAX_AUDIO_SIZE_BYTES = 8 * 1024 * 1024;
+
 export const VOICE_PROVIDER_COSTS: Record<string, { sttPerSecond: number; ttsPerSecond: number; llmPerInputToken: number; llmPerOutputToken: number }> = {
   openrouter: { sttPerSecond: 0.000011, ttsPerSecond: 0.000000172, llmPerInputToken: 0.00000005, llmPerOutputToken: 0.00000008 },
   groq: { sttPerSecond: 0.000011, ttsPerSecond: 0, llmPerInputToken: 0.0000001, llmPerOutputToken: 0.0000004 },
   openai: { sttPerSecond: 0.006, ttsPerSecond: 0.015, llmPerInputToken: 0.0000025, llmPerOutputToken: 0.00001 },
   chutes: { sttPerSecond: 0, ttsPerSecond: 0.0005, llmPerInputToken: 0, llmPerOutputToken: 0 },
+  kokoro: { sttPerSecond: 0, ttsPerSecond: 0, llmPerInputToken: 0, llmPerOutputToken: 0 },
+  vosk: { sttPerSecond: 0, ttsPerSecond: 0, llmPerInputToken: 0, llmPerOutputToken: 0 },
+  whisper_cpp: { sttPerSecond: 0, ttsPerSecond: 0, llmPerInputToken: 0, llmPerOutputToken: 0 },
+  fixture: { sttPerSecond: 0, ttsPerSecond: 0, llmPerInputToken: 0, llmPerOutputToken: 0 },
   mock: { sttPerSecond: 0, ttsPerSecond: 0, llmPerInputToken: 0, llmPerOutputToken: 0 },
 };

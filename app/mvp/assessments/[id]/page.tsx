@@ -397,25 +397,33 @@ export default function ManagerDetailPage() {
 
         {analysisResult?.overall_score !== undefined && (
           <div>
-            <div className="flex gap-6 mb-3">
-              <div>
-                <span className="text-sm text-gray-400">Score</span>
-                <div className={`text-3xl font-bold ${readinessColors[analysisResult.readiness_label || ''] || ''}`}>
-                  {analysisResult.overall_score}/100
-                </div>
-              </div>
-              <div>
-                <span className="text-sm text-gray-400">Readiness</span>
-                <div className={`text-lg font-semibold ${readinessColors[analysisResult.readiness_label || ''] || ''}`}>
-                  {analysisResult.readiness_label?.replace('_', ' ') || 'Unknown'}
-                </div>
-              </div>
-              {analysisResult.ticket_score !== undefined && (
+            <div className="flex items-start justify-between gap-6 mb-3">
+              <div className="flex gap-6">
                 <div>
-                  <span className="text-sm text-gray-400">Ticket Score</span>
-                  <div className="text-lg font-semibold">{analysisResult.ticket_score}/100</div>
+                  <span className="text-sm text-gray-400">Score</span>
+                  <div className={`text-3xl font-bold ${readinessColors[analysisResult.readiness_label || ''] || ''}`}>
+                    {analysisResult.overall_score}/100
+                  </div>
                 </div>
-              )}
+                <div>
+                  <span className="text-sm text-gray-400">Readiness</span>
+                  <div className={`text-lg font-semibold ${readinessColors[analysisResult.readiness_label || ''] || ''}`}>
+                    {analysisResult.readiness_label?.replace('_', ' ') || 'Unknown'}
+                  </div>
+                </div>
+                {analysisResult.ticket_score !== undefined && (
+                  <div>
+                    <span className="text-sm text-gray-400">Ticket Score</span>
+                    <div className="text-lg font-semibold">{analysisResult.ticket_score}/100</div>
+                  </div>
+                )}
+              </div>
+              <a
+                href={`/mvp/analysis/${id}`}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium shrink-0"
+              >
+                View Candidate Report
+              </a>
             </div>
 
             {analysisResult.summary && (

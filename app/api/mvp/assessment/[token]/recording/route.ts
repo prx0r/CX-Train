@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { spawn } from 'child_process';
+import fs from 'fs';
 import { getDb } from '@/lib/mvp/db';
-import { saveRecording, getRecordingStream, deleteRecording } from '@/lib/mvp/audio/recorder';
+import { saveRecording, getRecordingStream, deleteRecording, getMp3Path } from '@/lib/mvp/audio/recorder';
 import { analyzeAudio } from '@/lib/mvp/audio/analyzer';
 import { runDiarization, diarizationAvailable } from '@/lib/mvp/audio/diarizer';
 import { buildEmotionalTrajectory, buildEmotionalEvidence } from '@/lib/mvp/analysis/emotionalState';
@@ -39,6 +41,27 @@ export async function POST(
     const recording = saveRecording(buffer, params.token, durationMs);
 
     const audioBytes = new Uint8Array(arrayBuffer);
+
+    /* Convert WebM to MP3 for browser playback */
+    const mp3Path = getMp3Path(params.token, recording.id);
+    await new Promise<void>((resolve) => {
+      const ff = spawn('ffmpeg', [
+        '-y', '-i', recording.filePath,
+        '-codec:a', 'libmp3lame', '-b:a', '64k',
+        '-ar', '22050', '-ac', '1',
+        mp3Path,
+      ]);
+      const errChunks: Buffer[] = [];
+      if (ff.stderr) ff.stderr.on('data', (d: Buffer) => errChunks.push(d));
+      ff.on('close', (code) => {
+        if (code !== 0) {
+          const stderr = Buffer.concat(errChunks).toString();
+          console.warn('[MP3] ffmpeg failed:', stderr.slice(-400));
+        }
+        resolve();
+      });
+      ff.on('error', (e) => { console.warn('[MP3] spawn error:', e.message); resolve(); });
+    });
 
     const analysis = await analyzeAudio(audioBytes);
 
@@ -110,6 +133,9 @@ export async function GET(
   { params }: { params: { token: string } },
 ) {
   try {
+    const { searchParams } = new URL(req.url);
+    const format = searchParams.get('format') || 'webm';
+
     const db = getDb();
     const result = db.prepare(`
       SELECT recording_path FROM assessment_results
@@ -128,6 +154,20 @@ export async function GET(
     const id = fileName.startsWith(tokenDash)
       ? fileName.replace(tokenDash, '').replace('.webm', '')
       : fileName.replace('.webm', '');
+
+    if (format === 'mp3') {
+      const mp3Path = getMp3Path(params.token, id);
+      if (!fs.existsSync(mp3Path)) {
+        return NextResponse.json({ error: 'MP3 not found' }, { status: 404 });
+      }
+      const stream = fs.createReadStream(mp3Path);
+      return new NextResponse(stream as any, {
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Disposition': `inline; filename="call-${params.token}.mp3"`,
+        },
+      });
+    }
 
     const { getRecordingStream: streamRecording } = await import('@/lib/mvp/audio/recorder');
     const stream = streamRecording(params.token, id);

@@ -5,6 +5,12 @@ import { buildTimeline } from '@/lib/mvp/sim/timeline';
 import { getPackById } from '@/lib/mvp/sim/packRegistry';
 import { getSessionEvents } from '@/lib/mvp/events/eventLog';
 import { buildEvidenceTimeline, calculateTimingMetrics } from '@/lib/mvp/events/timeline';
+import { getHiringPack } from '@/lib/mvp/sim/hiringPacks';
+
+function safeJsonParse(raw: string | null | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
 
 export async function GET(
   _request: NextRequest,
@@ -32,6 +38,43 @@ export async function GET(
         if (ar.category_scores_json) result.categoryScores = JSON.parse(ar.category_scores_json);
         if (ar.recording_analysis_json) result.recordingAnalysis = JSON.parse(ar.recording_analysis_json);
         if (ar.recording_path) result.recordingPath = ar.recording_path;
+      }
+
+      /* Pack snapshot — includes customer persona, hidden truth, scenario context */
+      const rawAssessment = full.assessment as any;
+      const packSnapshot = rawAssessment.pack_snapshot_json
+        ? safeJsonParse(rawAssessment.pack_snapshot_json)
+        : null;
+      if (packSnapshot) {
+        result.packSnapshot = packSnapshot;
+        result.packCustomer = packSnapshot.customer || null;
+      } else {
+        /* Fallback: try to load hiring pack by id */
+        const packId = rawAssessment.assessment_pack_id;
+        if (packId) {
+          const hp = getHiringPack(packId);
+          if (hp) {
+            const hpSnapshot = {
+              pack_id: hp.id,
+              pack_title: hp.title,
+              customer: {
+                name: hp.customer.name,
+                company: hp.customer.company,
+                role: hp.customer.role,
+                temperament: hp.customer.temperament,
+                opening_line: hp.customer.openingLine,
+                subject: hp.customer.issue,
+              },
+              hidden_truth: { root_cause: '', correct_fix: '', ideal_diagnostic_path: [], facts_only_reveal_after: {} },
+              severity: hp.difficulty,
+              level: 0,
+              queue_title: '',
+              taxonomy_classification: [],
+            };
+            result.packSnapshot = hpSnapshot;
+            result.packCustomer = hpSnapshot.customer;
+          }
+        }
       }
     }
 

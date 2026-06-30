@@ -26,6 +26,10 @@ export function getRecordingPath(token: string, id: string): string {
   return path.join(RECORDINGS_DIR, `${token}-${id}.webm`);
 }
 
+export function getMp3Path(token: string, id: string): string {
+  return path.join(RECORDINGS_DIR, `${token}-${id}.mp3`);
+}
+
 export function saveRecording(
   audioBuffer: Buffer,
   token: string,
