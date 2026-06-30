@@ -15,8 +15,13 @@ describe('Callum Actions — sensitivity scan', () => {
     assert.ok(result.hasSensitive);
   });
 
-  it('detects MFA references', () => {
-    const result = scanForSensitive('MFA code is 123456');
+  it('detects MFA codes with value', () => {
+    const result = scanForSensitive('MFA: 123456');
+    assert.ok(result.hasSensitive);
+  });
+
+  it('detects MFA code pattern', () => {
+    const result = scanForSensitive('MFA code 123456');
     assert.ok(result.hasSensitive);
   });
 

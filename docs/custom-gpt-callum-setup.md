@@ -8,6 +8,32 @@
 
 ---
 
+## Live Testing URLs (current tunnel)
+
+These are active right now via the cloudflared tunnel to the dev server:
+
+- **Base URL:** `https://aggregate-manually-coffee-formed.trycloudflare.com`
+- **API Key:** `8a6811fa85c9603020274d53af2f42dc77c88ee6a8e97a50eeb3bac8e601c839`
+
+```bash
+# Test health
+curl -s -H "Authorization: Bearer 8a6811fa85c9603020274d53af2f42dc77c88ee6a8e97a50eeb3bac8e601c839" \
+  https://aggregate-manually-coffee-formed.trycloudflare.com/api/actions/health
+
+# Test taxonomy search
+curl -s -H "Authorization: Bearer 8a6811fa85c9603020274d53af2f42dc77c88ee6a8e97a50eeb3bac8e601c839" \
+  "https://aggregate-manually-coffee-formed.trycloudflare.com/api/actions/taxonomy/search?q=account+lockout"
+
+# Test ticket assist analyse
+curl -s -X POST \
+  -H "Authorization: Bearer 8a6811fa85c9603020274d53af2f42dc77c88ee6a8e97a50eeb3bac8e601c839" \
+  -H "Content-Type: application/json" \
+  -d '{"ticket_chain":"User cannot login after password reset. Account locked. Single user. Urgent.","user_question":"Is this T1 or T2?","mode":"triage"}' \
+  https://aggregate-manually-coffee-formed.trycloudflare.com/api/actions/ticket-assist/analyse
+```
+
+> **Note:** The cloudflared tunnel URL will change if the tunnel is restarted. Replace with a permanent domain before production.
+
 ## Step 1: Deploy Backend
 
 Ensure the app is deployed to a public HTTPS domain that ChatGPT servers can reach.
@@ -21,9 +47,23 @@ openssl rand -hex 32
 # e.g. Render: add to environment variables
 ```
 
+### Quick tunnel (for testing)
+
+If you need a temporary public HTTPS URL for testing without deploying:
+
+```bash
+# Start dev server
+npx next dev -p 3099
+
+# In another terminal, create cloudflare tunnel
+cloudflared tunnel --url http://localhost:3099
+# Output: https://random-name.trycloudflare.com
+```
+
 Verify the deployment is reachable:
 
 ```bash
+# Replace URL with your actual domain or tunnel URL
 curl -i https://YOUR-DOMAIN.com/api/actions/health
 # Expected: 401 (no auth header)
 

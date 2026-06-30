@@ -676,7 +676,6 @@ export function initTables(): void {
 
     /* Per-MSP taxonomy visibility — which subTypes each role can see */
     CREATE TABLE IF NOT EXISTS msp_taxonomy_access (
-      id TEXT PRIMARY KEY,
       msp_id TEXT NOT NULL REFERENCES msp_organisations(id),
       role TEXT NOT NULL,
       sub_type TEXT NOT NULL,

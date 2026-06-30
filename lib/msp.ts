@@ -122,9 +122,9 @@ export function getInviteByToken(token: string): MSPInvite | null {
 export function setTaxonomyAccess(mspId: string, role: MSPRole, subType: string, canView: boolean): void {
   const db = getDb();
   db.prepare(`
-    INSERT OR REPLACE INTO msp_taxonomy_access (id, msp_id, role, sub_type, can_view)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(crypto.randomBytes(16).toString('hex'), mspId, role, subType, canView ? 1 : 0);
+    INSERT OR REPLACE INTO msp_taxonomy_access (msp_id, role, sub_type, can_view)
+    VALUES (?, ?, ?, ?)
+  `).run(mspId, role, subType, canView ? 1 : 0);
 }
 
 export function getVisibleSubTypes(mspId: string, role: MSPRole): string[] {

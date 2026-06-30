@@ -14,11 +14,12 @@ import crypto from 'crypto';
 /* ─── Sensitivity Scan ─────────────────────────────────── */
 
 const SENSITIVE_PATTERNS = [
-  /password/i, /pass[:=\s]/i, /secret[:=\s]/i,
-  /API[ _-]?key/i, /token[:=\s]/i, /MFA/i, /OTP/i,
-  /recovery code/i, /private key/i, /connection string/i,
-  /Wi[ -]Fi password/i, /VPN password/i, /RDP credential/i,
-  /license key/i,
+  /password[:\s=]\s*\S+/i, /pass[:\s=]\s*\S+/i, /secret[:\s=]\s*\S+/i,
+  /API[ _-]?key[:\s=]\s*\S+/i, /token[:\s=]\s*\S+/i, /MFA[:\s=]\s*\d+/i, /MFA\s+code/i,
+  /OTP[:\s=]\s*\d+/i, /recovery code[:\s=]\s*\S+/i,
+  /private key/i, /connection string/i,
+  /Wi[ -]Fi password[:\s=]\s*\S+/i, /VPN password[:\s=]\s*\S+/i,
+  /RDP credential/i, /license key[:\s=]\s*\S+/i,
 ];
 
 export function scanForSensitive(content: string): { hasSensitive: boolean; matchedPatterns: string[] } {
