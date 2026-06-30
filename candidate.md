@@ -145,10 +145,42 @@ When a user signs up with an email that matches existing `assessments.candidate_
 # Dev
 npm run dev
 
-# Tunnel (for OAuth testing)
-cloudflared tunnel --url http://localhost:3000
-# Set BETTER_AUTH_URL to the tunnel URL
-
 # Tests
 npm test   # 248 tests pass
 ```
+
+## Cloudflare tunnel (for sharing)
+
+```bash
+# Install cloudflared if needed
+# https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install/
+
+# Start the dev server first, then tunnel
+npm run dev
+
+# In another terminal, create a tunnel
+cloudflared tunnel --url http://localhost:3000
+
+# You'll get a URL like:
+# https://random-words.trycloudflare.com
+#
+# Share that URL with anyone — they'll see your local dev server.
+#
+# Note: tunnel URL changes each restart. The dev login button
+# on /sign-in works on any tunnel URL without config.
+#
+# For Google/GitHub OAuth, you'd need to:
+# 1. Add the tunnel URL to Google Cloud Console redirect URIs:
+#    https://{tunnel-url}/api/auth/callback/google
+# 2. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local
+# 3. Restart the server
+#
+# Without OAuth, email/password sign-up and the dev login button
+# work immediately.
+```
+
+## Logo
+
+The app uses an inline SVG logo (`components/shared/Logo.tsx`) that renders "CC" in Saira Condensed. It uses `currentColor` so it inverts automatically — white on dark backgrounds, dark on light. No external image file needed.
+
+The original `cclogo.png` is in `public/` at `/cclogo.png` if you want to reference it directly.
