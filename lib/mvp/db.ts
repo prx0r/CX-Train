@@ -329,6 +329,20 @@ export function initTables(): void {
       explanation TEXT,
       PRIMARY KEY (attempt_id, criterion_id)
     );
+
+    /* v8 — analysis background jobs */
+    CREATE TABLE IF NOT EXISTS analysis_jobs (
+      id              TEXT PRIMARY KEY,
+      assessment_id   TEXT NOT NULL REFERENCES assessments(id),
+      session_id      TEXT,
+      status          TEXT NOT NULL DEFAULT 'pending',
+      attempts        INTEGER NOT NULL DEFAULT 0,
+      max_attempts    INTEGER NOT NULL DEFAULT 3,
+      last_error      TEXT,
+      run_after       TEXT,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   /* Seed initial competencies */
@@ -383,6 +397,27 @@ export function initTables(): void {
     }
   } catch (e) {
     console.warn('[Context tags] Seed failed (non-fatal):', e);
+  }
+
+  /* Seed pack_competencies + pack_context_tags for the 4 hiring packs */
+  try {
+    const existing = db.prepare('SELECT COUNT(*) as c FROM pack_competencies').get() as { c: number };
+    if (existing.c === 0) {
+      const packData: Array<{ id: string; comps: string[]; tags: string[] }> = [
+        { id: 'hiring-outlook-basic', comps: ['call-control','customer-empathy','impact-discovery','scope-discovery','evidence-gathering','hypothesis-testing','ticket-documentation','next-step-setting'], tags: ['email','account-access'] },
+        { id: 'hiring-vpn-triage',    comps: ['call-control','customer-empathy','impact-discovery','evidence-gathering','hypothesis-testing','escalation-quality','ticket-documentation'], tags: ['vpn','network-wifi'] },
+        { id: 'hiring-printer-down',  comps: ['customer-empathy','call-control','evidence-gathering','hypothesis-testing','escalation-quality','ticket-documentation','fix-verification'], tags: ['printer','device-hardware'] },
+        { id: 'hiring-email-phishing', comps: ['call-control','evidence-gathering','escalation-quality','ticket-documentation','next-step-setting'], tags: ['security-phishing','email'] },
+      ];
+      const insComp = db.prepare('INSERT OR IGNORE INTO pack_competencies (pack_version_id, competency_id, weight) VALUES (?, ?, 1.0)');
+      const insTag = db.prepare('INSERT OR IGNORE INTO pack_context_tags (pack_version_id, tag_id) VALUES (?, ?)');
+      for (const p of packData) {
+        for (const c of p.comps) insComp.run(p.id, c);
+        for (const t of p.tags) insTag.run(p.id, t);
+      }
+    }
+  } catch (e) {
+    console.warn('[Pack competencies] Seed failed (non-fatal):', e);
   }
 
   /* Backfill pack_snapshot_json for existing assessments that have assessment_pack_id but no snapshot */

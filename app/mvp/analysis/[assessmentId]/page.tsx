@@ -6,6 +6,7 @@ import { CallRecordingPlayer } from '@/components/mvp/analysis/CallRecordingPlay
 import { AcousticMetrics, TurnTimingMetrics, DiarizationMetrics } from '@/components/mvp/analysis/AcousticMetrics';
 import { TranscriptView } from '@/components/mvp/analysis/TranscriptView';
 import { AssessmentOverview } from '@/components/mvp/analysis/AssessmentOverview';
+import { CompetencyBreakdown } from '@/components/mvp/analysis/CompetencyBreakdown';
 import { Logo } from '@/components/shared/Logo';
 
 interface MessageRow {
@@ -309,6 +310,12 @@ export default function AnalysisReportPage() {
             result={analysisResult}
             narrative={narrative ?? null}
           />
+        </div>
+
+        {/* Competency breakdown */}
+        <div style={{ ...s, marginBottom: 16 }}>
+          <h2 style={h2}>Competency Breakdown</h2>
+          <CompetencyBreakdown attemptId={assessmentId} />
         </div>
 
         {/* Acoustics + Transcript side by side */}
