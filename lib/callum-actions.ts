@@ -160,7 +160,7 @@ export async function analyseTicket(input: TicketAssistInput, userId: string, or
 
   /* 3. Search taxonomy */
   const taxonomy = await loadTaxonomy();
-  const searchQuery = facts.classificationHint || input.ticket_chain.slice(0, 200);
+  const searchQuery = facts.classificationHint || input.ticket_chain.slice(0, 300);
   const matches = searchTaxonomyItems(taxonomy, searchQuery, 3);
   const bestMatch = matches[0] || null;
 
@@ -179,12 +179,27 @@ export async function analyseTicket(input: TicketAssistInput, userId: string, or
     }
   }
 
-  /* 5. SLA classification */
-  const slaResult = classifySLA({
-    affected_users: facts.priorityHint === 'P1' ? 'company' : facts.priorityHint === 'P2' ? 'group' : 'single',
-    business_state: facts.priorityHint === 'P1' ? 'stopped' : facts.priorityHint === 'P2' ? 'degraded' : 'irritation',
-    workaround: 'unknown',
-  });
+  /* 5. SLA classification with strict impact mapping */
+  const ticketLower = input.ticket_chain.toLowerCase();
+  const hasCompanyWide = /whole company|all users|all sites|company.wide|everyone|entire business/i.test(ticketLower);
+  const hasMultiUser = /several users|multiple users|group of users|office|site|team|department/i.test(ticketLower);
+  const hasWorkaround = /workaround|alternative|temporary|manual workaround/i.test(ticketLower);
+  const hasStoppage = /cannot work|cannot access|blocked from|stopped|down|not working at all/i.test(ticketLower);
+
+  const slaInput = {
+    affected_users: hasCompanyWide ? 'company' as const : hasMultiUser ? 'group' as const : 'single' as const,
+    business_state: hasStoppage ? 'stopped' as const : hasMultiUser ? 'degraded' as const : 'irritation' as const,
+    workaround: hasWorkaround ? 'yes' as const : 'unknown' as const,
+  };
+
+  const slaResult = classifySLA(slaInput);
+
+  /* Build reasoning that reflects actual scope, not over-inference */
+  const slaReasoning = [
+    `Affected users: ${slaInput.affected_users}${slaInput.affected_users === 'company' ? ' (stated explicitly)' : slaInput.affected_users === 'group' ? ' (multi-user/site level)' : ' (single user inferred from text)'}`,
+    `Business state: ${slaInput.business_state}, workaround: ${slaInput.workaround}`,
+    `Priority: ${slaResult.priority} — ${slaResult.response_target} response, ${slaResult.resolution_target} resolution`,
+  ];
 
   /* 6. Build recommendation */
   const classificationConfidence = bestMatch ? (bestMatch.helpdesk_tier ? 'high' : 'medium') : null;
@@ -194,11 +209,11 @@ export async function analyseTicket(input: TicketAssistInput, userId: string, or
   } as { category: string; type: string; subtype: string; item: string; taxonomy_item_id: string; confidence: 'high' | 'medium' | 'low' } : null;
 
   const recommendedOwner = bestMatch?.helpdesk_tier || facts.ownerHint || 'T1';
-  const escalateTo = bestMatch?.escalation_guidance?.toLowerCase().includes('escalate') ? 'T2' : null;
+  const escalateTo = bestMatch?.escalation_guidance?.toLowerCase().includes('escalate') || hasMultiUser ? 'T2' : null;
 
   const escalateWhen = bestMatch?.escalation_guidance
     ? bestMatch.escalation_guidance.split(/\.\s+/).filter(s => s.toLowerCase().includes('escalat') || s.toLowerCase().includes('route')).map(s => s.trim()).filter(Boolean)
-    : ['If issue persists after basic T1 checks'];
+    : hasMultiUser ? ['Multi-user/site level impact — escalate if issue persists'] : ['If issue persists after basic T1 checks'];
 
   const missingInfo: string[] = [];
   if (bestMatch?.playbook_steps?.toLowerCase().includes('scope')) missingInfo.push('Scope: one user or multiple?');
@@ -206,12 +221,13 @@ export async function analyseTicket(input: TicketAssistInput, userId: string, or
   if (bestMatch?.playbook_steps?.toLowerCase().includes('impact')) missingInfo.push('Business impact');
   if (bestMatch?.playbook_steps?.toLowerCase().includes('when') || bestMatch?.playbook_steps?.toLowerCase().includes('tim')) missingInfo.push('When issue started');
   if (bestMatch?.playbook_steps?.toLowerCase().includes('device') || bestMatch?.playbook_steps?.toLowerCase().includes('hostname')) missingInfo.push('Device name or hostname');
-  if (!input.ticket_chain.toLowerCase().includes('workaround')) missingInfo.push('Does a workaround exist?');
+  if (!hasWorkaround) missingInfo.push('Does a workaround exist?');
 
   const unsupportedClaims: string[] = [];
   if (!bestMatch) unsupportedClaims.push('No matching taxonomy item found — using general MSP reasoning');
   if (sensitive.hasSensitive) unsupportedClaims.push('Sensitive content detected — verify no credentials were pasted');
 
+  /* Sources — always include at least inference and SLA */
   const sources: TicketAssistOutput['sources_used'] = [];
   if (bestMatch) {
     sources.push({
@@ -231,9 +247,21 @@ export async function analyseTicket(input: TicketAssistInput, userId: string, or
       source_version: String(p.version), fields: ['rule_text', 't1_guidance', 'escalation_guidance'],
     });
   }
+  /* Always include SLA policy source */
+  sources.push({
+    source_type: 'sla_policy', source_id: 'connexion_sla_v1',
+    source_version: 'v1', fields: ['impact', 'severity', 'priority_matrix', 'response_target', 'resolution_target'],
+  });
+  /* Always include inference/fallback if no other sources */
+  if (!bestMatch && !clientRecord && protocols.length === 0) {
+    sources.push({
+      source_type: 'inference', source_id: 'inference:no_matching_taxonomy_item',
+      fields: ['general_msp_reasoning'],
+    } as any);
+  }
 
   let action: string;
-  if (escalateTo && input.mode === 'escalation') {
+  if (escalateTo && (input.mode === 'escalation' || hasMultiUser)) {
     action = 'escalate_t2';
   } else if (!bestMatch) {
     action = 'needs_manager_review';
@@ -257,12 +285,12 @@ export async function analyseTicket(input: TicketAssistInput, userId: string, or
     missing_information: missingInfo,
     suggested_client_response: buildClientResponse(input, bestMatch, recommendedOwner),
     internal_note: buildInternalNote(input, bestMatch, clientRecord),
-    escalation_note: bestMatch?.escalation_guidance || '',
+    escalation_note: bestMatch?.escalation_guidance || (hasMultiUser ? 'Multi-user impact — consider escalation' : ''),
     sla: {
       priority: slaResult.priority,
       response_target: slaResult.response_target,
       resolution_target: slaResult.resolution_target,
-      reasoning: slaResult.reasoning.join('; '),
+      reasoning: slaReasoning.join('; '),
     },
     sources_used: sources,
     confidence,
@@ -294,6 +322,25 @@ export async function analyseTicket(input: TicketAssistInput, userId: string, or
     INSERT INTO action_usage_events (id, organization_id, user_id, action_name, topic, client_id, taxonomy_item_id, confidence)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(crypto.randomBytes(16).toString('hex'), orgId, userId, 'ticket-assist/analyse', bestMatch?.item || null, clientRecord?.id || null, bestMatch?.id || null, confidence);
+
+  /* Debug log */
+  console.log(JSON.stringify({
+    action: 'ticket-assist/analyse',
+    request_id: requestId,
+    answer_id: answerId,
+    auth_valid: true,
+    mode: input.mode,
+    taxonomy_matches_count: matches.length,
+    top_taxonomy_item_ids: matches.map(m => m.id).join(', '),
+    client_detected: !!clientRecord,
+    client_protocol_matches_count: protocols.length,
+    sla_policy_used: true,
+    sources_used_count: sources.length,
+    confidence,
+    metadata_logged: true,
+    raw_ticket_stored: false,
+    error: null,
+  }));
 
   return output;
 }
@@ -333,14 +380,14 @@ export type ProposalType = 'taxonomy_change' | 'client_protocol_change' | 'sla_n
 
 export function createProposal(
   proposalType: ProposalType, requestedBy: string, reason: string,
-  payload: any, organizationId: string,
+  payload: any, organizationId: string, clientName?: string, taxonomyItemId?: string, relatedAnswerId?: string,
 ): { proposal_id: string; status: string } {
   const db = getDb();
   const id = crypto.randomBytes(16).toString('hex');
   db.prepare(`
-    INSERT INTO taxonomy_changes (id, change_type, proposed_by, reason, item, target_id, status, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'proposed', datetime('now'))
-  `).run(id, proposalType, requestedBy, reason, JSON.stringify(payload), null);
+    INSERT INTO callum_action_proposals (id, proposal_type, status, requested_by, reason, client_name, taxonomy_item_id, related_answer_id, proposed_change_json, organization_id)
+    VALUES (?, ?, 'proposed', ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, proposalType, requestedBy, reason, clientName || null, taxonomyItemId || null, relatedAnswerId || null, JSON.stringify(payload), organizationId);
   return { proposal_id: id, status: 'proposed' };
 }
 

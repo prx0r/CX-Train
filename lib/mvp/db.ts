@@ -842,6 +842,24 @@ export function initTables(): void {
     CREATE INDEX IF NOT EXISTS idx_usage_org_action ON action_usage_events(organization_id, action_name);
     CREATE INDEX IF NOT EXISTS idx_clients_org ON clients(organization_id);
     CREATE INDEX IF NOT EXISTS idx_client_protocols_client ON client_protocols(client_id);
+
+    /* Callum action change proposals — GPT Actions may create, managers approve/apply */
+    CREATE TABLE IF NOT EXISTS callum_action_proposals (
+      id TEXT PRIMARY KEY,
+      proposal_type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'proposed',
+      requested_by TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      client_name TEXT,
+      taxonomy_item_id TEXT,
+      related_answer_id TEXT,
+      proposed_change_json TEXT,
+      organization_id TEXT,
+      approved_by TEXT,
+      rejection_reason TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      applied_at TEXT
+    );
   `);
 }
 

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createProposal } from '@/lib/callum-actions';
 import { verifyCallumActionAuth, unauthorizedActionResponse } from '@/lib/actions-auth';
+import { initTables } from '@/lib/mvp/db';
 
 export async function POST(req: NextRequest) {
   if (!verifyCallumActionAuth(req)) return unauthorizedActionResponse();
+  initTables();
 
   const body = await req.json();
-  const { proposal_type, reason, proposed_change, client_name, taxonomy_item_id } = body;
+  const { proposal_type, reason, proposed_change, client_name, taxonomy_item_id, related_answer_id } = body;
   if (!proposal_type || !reason) {
     return NextResponse.json({ error: 'Missing proposal_type or reason' }, { status: 400 });
   }
@@ -16,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Invalid proposal_type` }, { status: 400 });
   }
 
-  const result = createProposal(proposal_type, 'gpt-action-user', reason, proposed_change || {}, 'action-org');
+  const result = createProposal(proposal_type, 'gpt-action-user', reason, proposed_change || {}, 'action-org', client_name, taxonomy_item_id, related_answer_id);
 
   return NextResponse.json({
     proposal_id: result.proposal_id,

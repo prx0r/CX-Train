@@ -58,42 +58,95 @@ export function hashTaxonomy(taxonomy: TaxonomyFile): string {
   return hash.digest('hex');
 }
 
+/* Synonym groups for query expansion — maps common terms to taxonomy items */
+const SYNONYM_GROUPS: Record<string, string[]> = {
+  'account lockout': ['login problem', 'cannot sign in', 'locked account', 'password reset', 'mfa issue', 'authentication failed', 'identity access', 'user access'],
+  'login': ['sign in', 'authentication', 'credential', 'password', 'account access'],
+  'password': ['credential', 'login', 'account access', 'authentication'],
+  'internet': ['connectivity', 'network', 'wifi', 'browsing', 'web access'],
+  'printer': ['print', 'scan', 'printing', 'scanner'],
+  'email': ['outlook', 'mailbox', 'mail', 'webmail'],
+  'vpn': ['remote access', 'connectivity', 'tunnel', 'offsite access'],
+};
+
 export function searchTaxonomyItems(taxonomy: TaxonomyFile, query: string, limit = 5): TaxonomyItem[] {
   const q = query.toLowerCase().trim();
   if (!q) return [];
 
-  const scored = taxonomy.items.map((item) => {
-    const hay = [
-      item.id,
-      item.category,
-      item.type,
-      item.subType,
-      item.item,
-      item.definition_scope,
-      ...(item.keywords || []),
-      item.helpdesk_tier,
-      item.escalation_guidance,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+  /* Build expanded queries: original + synonyms */
+  const queries = [q];
+  for (const [key, synonyms] of Object.entries(SYNONYM_GROUPS)) {
+    if (q.includes(key)) {
+      queries.push(...synonyms);
+    }
+  }
+  /* Also add individual words from the query */
+  const words = q.split(/\s+/).filter(w => w.length > 3);
+  queries.push(...words);
 
-    let score = 0;
-    if (item.id.toLowerCase() === q) score += 5;
-    if (item.item.toLowerCase().includes(q)) score += 4;
-    if (item.subType.toLowerCase().includes(q)) score += 3;
-    if (item.type.toLowerCase().includes(q)) score += 2;
-    if (hay.includes(q)) score += 2;
-    /* Boost if query matches keywords */
-    if ((item.keywords || []).some(k => k.toLowerCase().includes(q))) score += 3;
-    return { item, score };
-  });
+  const seenIds = new Set<string>();
+  const results: TaxonomyItem[] = [];
 
-  return scored
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((s) => s.item);
+  for (const subQuery of [...new Set(queries)]) {
+    if (subQuery.length < 3) continue;
+
+    const scored = taxonomy.items
+      .filter(item => !seenIds.has(item.id))
+      .map((item) => {
+        const hay = [
+          item.id, item.category, item.type, item.subType, item.item,
+          item.definition_scope,
+          ...(item.keywords || []),
+          item.helpdesk_tier, item.escalation_guidance,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+
+        let score = 0;
+        if (item.id.toLowerCase() === subQuery) score += 10;
+        if (item.item.toLowerCase() === subQuery) score += 8;
+        if (item.subType.toLowerCase().includes(subQuery)) score += 4;
+        if (item.item.toLowerCase().includes(subQuery)) score += 5;
+        if (item.type.toLowerCase().includes(subQuery)) score += 3;
+        if (hay.includes(subQuery)) score += 2;
+        if ((item.keywords || []).some(k => k.toLowerCase().includes(subQuery))) score += 4;
+        /* Boost if definition_scope mentions the query (redirect detection) */
+        if (item.definition_scope?.toLowerCase().includes(subQuery)) score += 2;
+        return { item, score };
+      })
+      .filter(s => s.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    for (const s of scored) {
+      if (!seenIds.has(s.item.id)) {
+        seenIds.add(s.item.id);
+        results.push(s.item);
+      }
+    }
+  }
+
+  /* Redirect pass: if any result's definition mentions "use X" or "belongs under X", include that item */
+  const redirectTargets: string[] = [];
+  for (const item of results) {
+    const scope = (item.definition_scope || '') + ' ' + (item.playbook_steps || '');
+    const redirectMatch = scope.match(/(?:classify|use|belongs? under|see)\s+([A-Z][a-zA-Z\s]+?)(?:\.|,|;|$)/i);
+    if (redirectMatch) {
+      const target = redirectMatch[1].toLowerCase().trim();
+      redirectTargets.push(target);
+    }
+  }
+  for (const target of redirectTargets) {
+    const found = taxonomy.items.find(i =>
+      !seenIds.has(i.id) && (i.item.toLowerCase().includes(target) || i.subType.toLowerCase().includes(target))
+    );
+    if (found) {
+      seenIds.add(found.id);
+      results.push(found);
+    }
+  }
+
+  return results.slice(0, limit);
 }
 
 export function validateTaxonomy(taxonomy: TaxonomyFile): {

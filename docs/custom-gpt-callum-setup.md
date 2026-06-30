@@ -12,7 +12,7 @@
 
 These are active right now via the cloudflared tunnel to the dev server:
 
-- **Base URL:** `https://aggregate-manually-coffee-formed.trycloudflare.com`
+- **Base URL:** `https://switching-rank-diff-born.trycloudflare.com`
 - **API Key:** `8a6811fa85c9603020274d53af2f42dc77c88ee6a8e97a50eeb3bac8e601c839`
 
 ```bash

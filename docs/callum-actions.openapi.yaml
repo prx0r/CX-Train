@@ -9,7 +9,7 @@ info:
   version: 1.0.0
 
 servers:
-  - url: https://aggregate-manually-coffee-formed.trycloudflare.com
+  - url: https://switching-rank-diff-born.trycloudflare.com
     description: "Cloudflare tunnel to dev server (replace with permanent domain before production)"
 
 security:
