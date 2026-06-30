@@ -58,9 +58,6 @@ export function createMvpAssessment(input: CreateMvpAssessmentInput): CreateMvpA
     throw new Error('Training Drill is not enabled.');
   }
 
-  const assessmentMode = assignmentType === 'training_drill' ? 'dashboard_sim' : 'chat_call';
-  const modeConfigJson = serializeModeConfigForAssignmentType(assignmentType);
-
   const scenario = getActiveScenario();
   const criteria = getActiveCriteria();
 
@@ -117,6 +114,17 @@ export function createMvpAssessment(input: CreateMvpAssessmentInput): CreateMvpA
     packInitialState = codePack.initialState as unknown as Record<string, unknown>;
     firstMessage = snapshot.customer.opening_line;
   }
+
+  /* Derive assessment mode from pack mode — pack is the authority, not assignment type */
+  let packMode: string;
+  if (assignmentType === 'training_drill') {
+    const codePack = getPackById(packId!);
+    packMode = codePack.mode;
+  } else {
+    packMode = 'call_only';
+  }
+  const assessmentMode = packMode === 'call_plus_remote' ? 'dashboard_sim' : 'chat_call';
+  const modeConfigJson = serializeModeConfigForAssignmentType(assignmentType);
 
   const standards = getManagerStandards();
   const standardsSnapshot = standards ? {

@@ -104,6 +104,14 @@ export async function POST(
           if (packId) pack = getPackById(packId);
         } catch {}
         candidateAnalysis = buildCandidateAnalysis(analysisResults, pack);
+
+        /* Normalize scores into skill/criterion tables */
+        try {
+          const { normalizeAnalysisScores } = await import('@/lib/mvp/analysis/normalize-scores');
+          normalizeAnalysisScores(assessment.id, analysisResults);
+        } catch (normErr) {
+          console.error('[MVP] Score normalization error (non-fatal):', normErr);
+        }
       }
     } catch (analyseErr) {
       console.error('[MVP] Auto-analysis error:', analyseErr);
