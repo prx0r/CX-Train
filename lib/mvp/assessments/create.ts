@@ -12,6 +12,8 @@ import { getHiringPack, defaultHiringPack } from '../sim/hiringPacks';
 export interface CreateMvpAssessmentInput {
   candidateName?: string;
   candidateEmail?: string | null;
+  candidateUserId?: string | null;
+  attemptMode?: string;
   managerProfileId?: string;
   assignmentType?: string;
   assessmentPackId?: string | null;
@@ -35,6 +37,8 @@ export function createMvpAssessment(input: CreateMvpAssessmentInput): CreateMvpA
   const baseUrl = input.baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const candidateName = input.candidateName || 'Unnamed Candidate';
   const candidateEmail = input.candidateEmail || null;
+  const candidateUserId = input.candidateUserId || null;
+  const attemptMode = input.attemptMode || 'invited';
   const managerProfileId = input.managerProfileId || 'manager-default-v1';
 
   const rawAssignmentType = input.assignmentType || 'hiring_exam';
@@ -138,9 +142,9 @@ export function createMvpAssessment(input: CreateMvpAssessmentInput): CreateMvpA
 
   const storedScenarioId = assignmentType === 'training_drill' ? null : scenario.id;
 
-  db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, scoring_snapshot_json, mode_config_json, pack_snapshot_json, assessment_pack_id, assessment_mode, assignment_type, created_at)
-    VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
-    assessmentId, title, candidateName, candidateEmail, inviteToken,
+  db.prepare(`INSERT INTO assessments (id, title, candidate_name, candidate_email, candidate_user_id, attempt_mode, invite_token, status, scenario_id, criteria_version_id, manager_profile_id, standards_snapshot_json, scoring_snapshot_json, mode_config_json, pack_snapshot_json, assessment_pack_id, assessment_mode, assignment_type, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'invited', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(
+    assessmentId, title, candidateName, candidateEmail, candidateUserId, attemptMode, inviteToken,
     storedScenarioId, criteria?.id || null,
     managerProfileId,
     standardsSnapshot ? JSON.stringify(standardsSnapshot) : null,

@@ -228,10 +228,48 @@ export function initTables(): void {
     /* v5 — audio recording analysis */
     `ALTER TABLE assessment_results ADD COLUMN recording_path TEXT`,
     `ALTER TABLE assessment_results ADD COLUMN recording_analysis_json TEXT`,
+
+    /* v6 — candidate profiles and user linking */
+    `ALTER TABLE assessments ADD COLUMN candidate_user_id TEXT`,
+    `ALTER TABLE assessments ADD COLUMN attempt_mode TEXT NOT NULL DEFAULT 'invited'`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }
   }
+
+  /* Candidate-facing tables (created here, managed by app; Better Auth creates its own user/session/account tables) */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS candidate_profiles (
+      user_id TEXT PRIMARY KEY,
+      is_public INTEGER NOT NULL DEFAULT 0,
+      show_attempts INTEGER NOT NULL DEFAULT 0,
+      show_recordings INTEGER NOT NULL DEFAULT 0,
+      show_transcripts INTEGER NOT NULL DEFAULT 0,
+      show_feedback INTEGER NOT NULL DEFAULT 0,
+      show_ticket_notes INTEGER NOT NULL DEFAULT 0,
+      bio TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS featured_attempts (
+      id TEXT PRIMARY KEY,
+      candidate_user_id TEXT NOT NULL,
+      assessment_id TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'public',
+      show_audio INTEGER NOT NULL DEFAULT 1,
+      show_transcript INTEGER NOT NULL DEFAULT 1,
+      show_feedback INTEGER NOT NULL DEFAULT 1,
+      show_ticket_note INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (candidate_user_id) REFERENCES candidate_profiles(user_id),
+      FOREIGN KEY (assessment_id) REFERENCES assessments(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_featured_attempts_user ON featured_attempts(candidate_user_id);
+    CREATE INDEX IF NOT EXISTS idx_assessments_candidate_user ON assessments(candidate_user_id);
+  `);
 
   /* Backfill pack_snapshot_json for existing assessments that have assessment_pack_id but no snapshot */
   try {

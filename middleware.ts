@@ -1,16 +1,26 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getSessionCookie } from 'better-auth/cookies';
+
+const PUBLIC_ROUTES = [
+  '/', '/sign-in', '/sign-up', '/practice', '/u/',
+  '/assessment/', '/voice/', '/api/auth/',
+  '/api/mvp/', '/mvp/',
+];
 
 export async function middleware(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { pathname } = request.nextUrl;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.next({ request });
+  const isPublic = PUBLIC_ROUTES.some(r => pathname === r || pathname.startsWith(r));
+  if (isPublic) return NextResponse.next();
+
+  const sessionCookie = getSessionCookie(request);
+  if (!sessionCookie) {
+    const signInUrl = new URL('/sign-in', request.url);
+    signInUrl.searchParams.set('redirectTo', pathname);
+    return NextResponse.redirect(signInUrl);
   }
 
-  // Dynamic import so it doesn't fail when Supabase env vars are missing
-  const { updateSession } = await import('@/lib/supabase/proxy');
-  return await updateSession(request);
+  return NextResponse.next();
 }
 
 export const config = {

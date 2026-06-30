@@ -9,9 +9,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     try {
+      const isPractice = !!body.candidate_user_id;
       const result = createMvpAssessment({
         candidateName: body.candidate_name,
         candidateEmail: body.candidate_email || null,
+        candidateUserId: body.candidate_user_id || null,
+        attemptMode: isPractice ? 'practice' : (body.attempt_mode || 'invited'),
         managerProfileId: body.manager_profile_id || 'manager-default-v1',
         assignmentType: body.assignmentType || body.assignment_type || 'hiring_exam',
         assessmentPackId: body.assessmentPackId || body.assessment_pack_id || null,
