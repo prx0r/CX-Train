@@ -9,6 +9,7 @@
 import { getDb } from './mvp/db';
 import { loadTaxonomy, searchTaxonomyItems } from './taxonomy';
 import { classifySLA } from './mvp/analysis/slaClassifier';
+import { mapAnswerToCompetencies, aggregateCompetencyWeaknesses, COMPETENCY_LABELS } from './callum/competency-map';
 import crypto from 'crypto';
 
 /* ─── Sensitivity Scan ─────────────────────────────────── */
@@ -503,10 +504,70 @@ export function getDashboardStats(orgId: string, days = 7): any {
     },
     flags: recentFlags,
     proposals: recentProposals,
-    training_recommendations: taxonomyGaps.slice(0, 5).map((g: any) => ({
-      title: `Improve qualification for "${g.detected_topic}"`,
-      reason: `No matching taxonomy item found in ${g.count} queries`,
-    })),
+    /* Competency-based training recommendations */
+    training_recommendations: (() => {
+      /* Fetch recent answer metadata for competency mapping */
+      const recentAnswers = db.prepare(`
+        SELECT missing_information_json, unsupported_or_inferred_claims_json,
+               recommended_action, confidence
+        FROM ticket_assist_answers
+        WHERE organization_id = ? AND created_at >= ?
+        ORDER BY created_at DESC LIMIT 50
+      `).all(orgId, since) as Array<{
+        missing_information_json: string | null;
+        unsupported_or_inferred_claims_json: string | null;
+        recommended_action: string | null;
+        confidence: string | null;
+      }>;
+
+      const allSignals = recentAnswers.map(a => mapAnswerToCompetencies({
+        missing_information: a.missing_information_json ? JSON.parse(a.missing_information_json) : [],
+        unsupported_or_inferred_claims: a.unsupported_or_inferred_claims_json ? JSON.parse(a.unsupported_or_inferred_claims_json) : [],
+        recommended_action: a.recommended_action || undefined,
+        confidence: a.confidence || undefined,
+      }));
+
+      /* Also add signals from flags */
+      const recentFlagsForComp = db.prepare(`
+        SELECT f.flag_type, a.recommended_action, a.confidence,
+               a.missing_information_json, a.unsupported_or_inferred_claims_json
+        FROM ticket_answer_flags f
+        LEFT JOIN ticket_assist_answers a ON a.id = f.answer_id
+        WHERE f.created_at >= ?
+        ORDER BY f.created_at DESC LIMIT 20
+      `).all(since) as Array<{
+        flag_type: string | null;
+        recommended_action: string | null;
+        confidence: string | null;
+        missing_information_json: string | null;
+        unsupported_or_inferred_claims_json: string | null;
+      }>;
+
+      for (const f of recentFlagsForComp) {
+        allSignals.push(mapAnswerToCompetencies({
+          flag_type: f.flag_type || undefined,
+          recommended_action: f.recommended_action || undefined,
+          confidence: f.confidence || undefined,
+          missing_information: f.missing_information_json ? JSON.parse(f.missing_information_json) : [],
+          unsupported_or_inferred_claims: f.unsupported_or_inferred_claims_json ? JSON.parse(f.unsupported_or_inferred_claims_json) : [],
+        }));
+      }
+
+      const aggregated = aggregateCompetencyWeaknesses(allSignals);
+
+      return aggregated.slice(0, 8).map(a => {
+        const info = COMPETENCY_LABELS[a.competency_id] || { name: a.competency_id, category: '', suggestedPacks: [] };
+        return {
+          competency_id: a.competency_id,
+          competency_name: info.name,
+          category: info.category,
+          occurrences: a.count,
+          reasons: a.reasons,
+          severity: a.avg_severity,
+          suggested_packs: info.suggestedPacks,
+        };
+      });
+    })(),
     system: {
       last_action_at: lastAction?.created_at || null,
       recent_errors: [],

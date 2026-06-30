@@ -88,16 +88,33 @@ export default function AssistPage() {
           ))}
         </div>
 
-        {/* Training recommendations */}
+        {/* Training recommendations (competency-based) */}
         <div style={{ background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e2e8f0' }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: '#333' }}>Training Recommendations</h2>
+          <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>Based on Callum Action metadata — maps repeated weaknesses to existing competencies.</p>
           {training.length === 0 && <p style={{ color: '#94a3b8', fontSize: 12 }}>No gaps detected.</p>}
-          {training.map((t: any, i: number) => (
-            <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
-              <div style={{ fontWeight: 600, color: '#333' }}>{t.title}</div>
-              <div style={{ color: '#64748b' }}>{t.reason}</div>
-            </div>
-          ))}
+          {training.map((t: any, i: number) => {
+            const severityColor = t.severity === 'high' ? '#ef4444' : t.severity === 'medium' ? '#f59e0b' : '#64748b';
+            return (
+              <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <span style={{ fontWeight: 700, color: '#333' }}>{t.competency_name || t.competency_id}</span>
+                  <span style={{ padding: '1px 6px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: severityColor + '20', color: severityColor }}>
+                    {t.severity}
+                  </span>
+                  <span style={{ color: '#94a3b8', marginLeft: 'auto' }}>{t.occurrences} occurrences</span>
+                </div>
+                {t.reasons?.slice(0, 2).map((r: string, j: number) => (
+                  <div key={j} style={{ color: '#64748b', marginLeft: 0 }}>· {r}</div>
+                ))}
+                {t.suggested_packs?.length > 0 && (
+                  <div style={{ color: '#3b82f6', marginTop: 2, fontSize: 11 }}>
+                    Suggested: {t.suggested_packs.join(', ')}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </ManagerShell>
