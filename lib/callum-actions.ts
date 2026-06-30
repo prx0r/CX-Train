@@ -14,8 +14,8 @@ import crypto from 'crypto';
 /* ─── Sensitivity Scan ─────────────────────────────────── */
 
 const SENSITIVE_PATTERNS = [
-  /password[:=\s]\S+/i, /pass[:=\s]\S+/i, /secret[:=\s]\S+/i,
-  /API[ _-]?key[:=\s]\S+/i, /token[:=\s]\S+/i, /MFA/i, /OTP/i,
+  /password/i, /pass[:=\s]/i, /secret[:=\s]/i,
+  /API[ _-]?key/i, /token[:=\s]/i, /MFA/i, /OTP/i,
   /recovery code/i, /private key/i, /connection string/i,
   /Wi[ -]Fi password/i, /VPN password/i, /RDP credential/i,
   /license key/i,
@@ -186,10 +186,11 @@ export async function analyseTicket(input: TicketAssistInput, userId: string, or
   });
 
   /* 6. Build recommendation */
+  const classificationConfidence = bestMatch ? (bestMatch.helpdesk_tier ? 'high' : 'medium') : null;
   const taxonomyItem = bestMatch ? {
     category: bestMatch.category, type: bestMatch.type, subtype: bestMatch.subType,
-    item: bestMatch.item, taxonomy_item_id: bestMatch.id,
-  } : null;
+    item: bestMatch.item, taxonomy_item_id: bestMatch.id, confidence: classificationConfidence,
+  } as { category: string; type: string; subtype: string; item: string; taxonomy_item_id: string; confidence: 'high' | 'medium' | 'low' } : null;
 
   const recommendedOwner = bestMatch?.helpdesk_tier || facts.ownerHint || 'T1';
   const escalateTo = bestMatch?.escalation_guidance?.toLowerCase().includes('escalate') ? 'T2' : null;

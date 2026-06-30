@@ -1,36 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createProposal } from '@/lib/callum-actions';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import { getDb } from '@/lib/mvp/db';
+import { verifyActionsKey } from '@/lib/callum-auth';
 
 export async function POST(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-
-  const db = getDb();
-  const msp = db.prepare(`
-    SELECT o.id as org_id FROM msp_technicians t
-    JOIN msp_organisations o ON o.id = t.msp_id
-    WHERE t.user_id = ? AND t.active = 1 LIMIT 1
-  `).get(session.user.id) as { org_id: string } | undefined;
-  if (!msp) return NextResponse.json({ error: 'No MSP organisation found' }, { status: 400 });
+  const auth = verifyActionsKey(req);
+  if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: 401 });
 
   const body = await req.json();
-  const { proposal_type, reason, payload } = body;
+  const { proposal_type, reason, proposed_change, client_name, taxonomy_item_id } = body;
   if (!proposal_type || !reason) {
     return NextResponse.json({ error: 'Missing proposal_type or reason' }, { status: 400 });
   }
 
   const validTypes = ['taxonomy_change', 'client_protocol_change', 'sla_note_change', 'global_playbook_change'];
   if (!validTypes.includes(proposal_type)) {
-    return NextResponse.json({ error: `Invalid proposal_type. Must be one of: ${validTypes.join(', ')}` }, { status: 400 });
+    return NextResponse.json({ error: `Invalid proposal_type` }, { status: 400 });
   }
 
-  const result = createProposal(proposal_type, session.user.name || session.user.id, reason, payload || {}, msp.org_id);
+  const result = createProposal(proposal_type, 'gpt-action-user', reason, proposed_change || {}, 'action-org');
 
   return NextResponse.json({
-    ...result,
-    message: 'Proposal created. A manager must approve it before it takes effect.',
+    proposal_id: result.proposal_id,
+    status: result.status,
+    message: 'Proposal created. A manager must approve it before it takes effect in the Callum dashboard.',
   });
 }

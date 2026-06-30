@@ -1,0 +1,238 @@
+openapi: 3.1.0
+info:
+  title: Callum Actions — Connexion MSP Decision Engine
+  description: |
+    Auditable MSP backend called from ChatGPT Enterprise Custom GPT.
+    Provides ticket classification, T1/T2 ownership, SLA priority,
+    missing information, client response drafts, escalation guidance,
+    and taxonomy search.
+  version: 1.0.0
+
+servers:
+  - url: https://cx-train.example.com
+    description: Production
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: "Bearer token. Format: Authorization: Bearer <CALLUM_ACTIONS_KEY>"
+
+paths:
+  /api/actions/ticket-assist/analyse:
+    post:
+      summary: Analyse a ticket chain
+      description: |
+        Classify a pasted ticket chain, recommend ownership, identify missing
+        information, draft client response and escalation note, apply SLA matrix.
+        Stores metadata only — never persists raw ticket chain by default.
+      operationId: ticketAssistAnalyse
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket_chain, user_question]
+              properties:
+                ticket_chain:
+                  type: string
+                  description: Pasted ticket chain from the technician
+                client_name:
+                  type: string
+                  description: Optional client name hint
+                user_question:
+                  type: string
+                  description: What the technician is asking
+                mode:
+                  type: string
+                  enum: [triage, ownership, response, escalation, sla, general]
+                  default: triage
+                user_identifier:
+                  type: string
+                  description: Optional technician identifier for usage tracking
+      responses:
+        "200":
+          description: Structured recommendation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer_id: { type: string }
+                  recommended_action:
+                    type: string
+                    enum: [qualify_before_escalating, keep_t1, escalate_t2, escalate_t3, manager_review, vendor, client_response_only, unknown]
+                  classification:
+                    type: object
+                    properties:
+                      category: { type: string }
+                      type: { type: string }
+                      subtype: { type: string }
+                      item: { type: string }
+                      taxonomy_item_id: { type: string }
+                      confidence: { type: string, enum: [high, medium, low] }
+                  ownership:
+                    type: object
+                    properties:
+                      recommended_owner: { type: string }
+                      escalate_to: { type: string, nullable: true }
+                      escalate_when: { type: array, items: { type: string } }
+                  missing_information:
+                    type: array
+                    items: { type: string }
+                  suggested_client_response: { type: string }
+                  internal_note: { type: string }
+                  escalation_note: { type: string }
+                  sla:
+                    type: object
+                    properties:
+                      priority: { type: string }
+                      response_target: { type: string }
+                      resolution_target: { type: string }
+                      reasoning: { type: string }
+                  sources_used:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source_type: { type: string }
+                        source_id: { type: string }
+                        source_version: { type: string }
+                        fields: { type: array, items: { type: string } }
+                  confidence: { type: string, enum: [high, medium, low] }
+                  unsupported_or_inferred_claims:
+                    type: array
+                    items: { type: string }
+                  metadata_logged: { type: boolean }
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "400":
+          description: Missing required fields
+
+  /api/actions/taxonomy/search:
+    get:
+      summary: Search taxonomy source of truth
+      description: Search Connexion's 162-item taxonomy for matching classification items.
+      operationId: taxonomySearch
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+          description: Search query
+        - name: limit
+          in: query
+          schema: { type: integer, default: 5 }
+      responses:
+        "200":
+          description: Matching taxonomy items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matches:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        taxonomy_item_id: { type: string }
+                        classification_path: { type: string }
+                        category: { type: string }
+                        type: { type: string }
+                        subType: { type: string }
+                        item: { type: string }
+                        definition_scope: { type: string }
+                        playbook_steps: { type: array, items: { type: string } }
+                        helpdesk_tier: { type: string }
+                        escalation_guidance: { type: string }
+                        confidence: { type: string, enum: [high, medium, low] }
+                  total: { type: integer }
+
+  /api/actions/answers/{answerId}/flag:
+    post:
+      summary: Flag an answer for manager review
+      description: Let technicians flag wrong or unclear Callum recommendations.
+      operationId: flagAnswer
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: answerId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flag_type, comment]
+              properties:
+                flag_type:
+                  type: string
+                  enum: [wrong_classification, wrong_escalation, missing_client_exception, unclear, hallucination, missing_info, other]
+                comment: { type: string }
+                save_redacted_excerpt: { type: boolean }
+                redacted_excerpt: { type: string }
+      responses:
+        "200":
+          description: Flag created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flag_id: { type: string }
+                  status: { type: string }
+                  message: { type: string }
+
+  /api/actions/proposals:
+    post:
+      summary: Create a source-of-truth change proposal
+      description: |
+        Create a proposal for taxonomy, client protocol, SLA note, or playbook
+        changes. Proposals must be approved in the Callum dashboard. GPT Actions
+        may create proposals but must never apply them directly.
+      operationId: createProposal
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [proposal_type, reason]
+              properties:
+                proposal_type:
+                  type: string
+                  enum: [client_protocol_change, taxonomy_change, sla_note_change, global_playbook_change]
+                related_answer_id: { type: string }
+                client_name: { type: string }
+                taxonomy_item_id: { type: string }
+                reason: { type: string }
+                proposed_change:
+                  type: object
+                  description: The proposed change payload
+      responses:
+        "200":
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposal_id: { type: string }
+                  status: { type: string }
+                  message: { type: string }
