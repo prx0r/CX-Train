@@ -6,9 +6,11 @@ import assert from 'node:assert';
  * If a new criterion is added to the scoring engine without a competency mapping,
  * this test fails — preventing silent gaps in the behavioural dataset.
  *
- * The mapping lives in lib/mvp/analysis/normalize-scores.ts → CRITERION_COMPETENCY_MAP.
+ * The mapping is imported from lib/mvp/analysis/normalize-scores.ts (source of truth).
  * It maps criterion_id → competency_id[] (many-to-many).
  */
+
+import { CRITERION_COMPETENCY_MAP } from '../lib/mvp/analysis/normalize-scores';
 
 /* Mirror of CATEGORY_CRITERIA_MAP from criteriaRegistry.ts — keep in sync */
 const CATEGORY_CRITERIA_MAP: Record<string, string[]> = {
@@ -18,42 +20,6 @@ const CATEGORY_CRITERIA_MAP: Record<string, string[]> = {
   resolution: ['safety', 'escalation_judgement'],
   ticket_quality: ['ticket_user_company', 'ticket_issue_summary', 'ticket_impact', 'ticket_urgency', 'ticket_checks_attempted', 'ticket_next_step'],
   professionalism: ['unsafe_security_behaviour', 'severe_customer_abuse', 'refusal_to_help', 'hallucinated_fix', 'unsafe_advice', 'invented_fix_without_evidence', 'no_troubleshooting'],
-};
-
-/* Mirror of CRITERION_COMPETENCY_MAP from normalize-scores.ts — keep in sync */
-const CRITERION_COMPETENCY_MAP: Record<string, string[]> = {
-  identity_check: ['customer-empathy'],
-  company_check: ['active-listening'],
-  issue_clarification: ['active-listening', 'call-control'],
-  started_when: ['scope-discovery', 'evidence-gathering'],
-  impact: ['impact-discovery'],
-  urgency: ['priority-triage'],
-  scope: ['scope-discovery'],
-  technical_discovery: ['evidence-gathering', 'hypothesis-testing'],
-  error_or_status_capture: ['evidence-gathering'],
-  recent_changes: ['evidence-gathering', 'hypothesis-testing'],
-  next_steps: ['next-step-setting'],
-  customer_tone: ['customer-empathy'],
-  professional_conduct: ['call-control'],
-  customer_communication: ['plain-english', 'active-listening'],
-  ticket_user_company: ['ticket-documentation'],
-  ticket_issue_summary: ['ticket-documentation'],
-  ticket_impact: ['ticket-documentation', 'impact-discovery'],
-  ticket_urgency: ['ticket-documentation', 'priority-triage'],
-  ticket_checks_attempted: ['ticket-documentation'],
-  ticket_next_step: ['ticket-documentation', 'next-step-setting'],
-  escalation_judgement: ['escalation-quality'],
-  safety: ['escalation-quality'],
-  performed_triage: ['scope-discovery', 'impact-discovery'],
-  submitted_ticket: ['ticket-documentation'],
-  /* Red-flag criteria — mapped to escalation-quality since they involve judgement calls */
-  unsafe_security_behaviour: ['escalation-quality'],
-  severe_customer_abuse: ['escalation-quality', 'customer-empathy'],
-  refusal_to_help: ['escalation-quality'],
-  hallucinated_fix: ['escalation-quality', 'hypothesis-testing'],
-  unsafe_advice: ['escalation-quality'],
-  invented_fix_without_evidence: ['escalation-quality', 'evidence-gathering'],
-  no_troubleshooting: ['escalation-quality', 'hypothesis-testing'],
 };
 
 describe('Competency mapping coverage', () => {

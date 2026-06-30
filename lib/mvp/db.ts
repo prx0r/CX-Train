@@ -330,6 +330,18 @@ export function initTables(): void {
       PRIMARY KEY (attempt_id, criterion_id)
     );
 
+    /* Bridge table for many-to-many criterion → competency mapping.
+       Each criterion can map to multiple competencies (e.g. ticket_impact →
+       ticket-documentation AND impact-discovery). This preserves the full
+       mapping that the aggregate scores already account for. */
+    CREATE TABLE IF NOT EXISTS attempt_criterion_competencies (
+      attempt_id TEXT NOT NULL REFERENCES assessments(id),
+      criterion_id TEXT NOT NULL,
+      competency_id TEXT NOT NULL REFERENCES competencies(id),
+      PRIMARY KEY (attempt_id, criterion_id, competency_id),
+      FOREIGN KEY (attempt_id, criterion_id) REFERENCES attempt_criterion_results(attempt_id, criterion_id)
+    );
+
     /* v8 — analysis background jobs */
     CREATE TABLE IF NOT EXISTS analysis_jobs (
       id              TEXT PRIMARY KEY,

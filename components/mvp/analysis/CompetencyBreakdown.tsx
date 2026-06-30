@@ -61,8 +61,10 @@ export function CompetencyBreakdown({ attemptId }: { attemptId: string }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
                 <span style={{ color: '#cbd5e1' }}>{s.competency_name}</span>
                 <span className={textColor(s.normalized_score)} style={{ fontFamily: 'monospace' }}>
-                  {s.normalized_score}
-                  <span style={{ color: '#64748b', fontSize: 10 }}>/{s.max_score}</span>
+                  {s.normalized_score}%
+                  <span style={{ color: '#64748b', fontSize: 10 }}>
+                    {' '}{s.raw_score}/{s.max_score} · {s.evidence_count}+ {s.missed_count}-
+                  </span>
                 </span>
               </div>
               <div style={{ height: 6, background: '#1e293b', borderRadius: 3, overflow: 'hidden' }}>

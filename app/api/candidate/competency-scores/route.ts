@@ -12,6 +12,19 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
   const db = getDb();
+
+  /* Verify ownership: attempt must belong to the signed-in user */
+  const assessment = db.prepare(
+    'SELECT candidate_user_id FROM assessments WHERE id = ?'
+  ).get(attemptId) as { candidate_user_id: string | null } | undefined;
+
+  if (!assessment) {
+    return NextResponse.json({ error: 'Attempt not found' }, { status: 404 });
+  }
+  if (assessment.candidate_user_id !== session.user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const scores = db.prepare(`
     SELECT acs.competency_id, c.name as competency_name, c.category,
            acs.raw_score, acs.normalized_score, acs.max_score,

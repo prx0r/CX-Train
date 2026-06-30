@@ -134,3 +134,64 @@ MODIFIED:
   app/mvp/analysis/[assessmentId]/page.tsx   — Added CompetencyBreakdown
   package.json                               — Added test to runner
 ```
+
+---
+
+## Sprint 1.1: Hardening — Ownership, Many-to-Many, Evidence, Test Import Fix
+
+### What was wrong
+
+| Issue | Severity | Detail |
+|-------|----------|--------|
+| Competency API ownership hole | 🔴 Critical | Route checked "signed in" but not "owns this attempt" — any user could query any `attemptId` |
+| Criterion → competency many-to-many lost | 🔴 Critical | Schema had `PRIMARY KEY (attempt_id, criterion_id)` with single `competency_id`. Normalizer inserted only `matchedComps[0]`. Multi-competency mappings (e.g. `ticket_impact → ticket-documentation + impact-discovery`) silently lost in criterion evidence table |
+| Evidence fields null | 🔴 Critical | `explanation`, `evidence_event_ids_json`, `evidence_message_ids_json` all inserted as `null` despite AI returning `evidence: string[]` and `notes` per criterion |
+| Red-flag criteria missing from normalizer | 🔴 Drift | Normalizer's `CRITERION_COMPETENCY_MAP` lacked 7 red-flag criteria. Test had its own duplicate copy so never caught the gap |
+| Score display confusing | 🟡 Medium | `CompetencyBreakdown` showed `75 / 6` (percentage over raw weight). Candidates see weird values |
+
+### What was fixed
+
+| Fix | Files |
+|-----|-------|
+| **Ownership check**: route now `SELECT candidate_user_id` and verifies `=== session.user.id`. Returns 403/404 as appropriate | `app/api/candidate/competency-scores/route.ts` |
+| **Bridge table**: `attempt_criterion_competencies (attempt_id, criterion_id, competency_id)` preserves full many-to-many mapping. Normalizer inserts all `matchedComps` into bridge | `lib/mvp/db.ts`, `lib/mvp/analysis/normalize-scores.ts` |
+| **Evidence population**: `explanation` = `criterion.notes` or first evidence quote. `evidence_message_ids_json` = JSON array of all evidence quotes | `lib/mvp/analysis/normalize-scores.ts` |
+| **Red-flag mappings added**: All 7 red-flag criteria now mapped to competencies in normalizer. Map exported and test now imports the real map (relative import) instead of a local copy | `lib/mvp/analysis/normalize-scores.ts`, `tests/competency-mapping.test.ts` |
+| **UI display**: Shows `75% 4.5/6 · 3+ 1-` (percentage, raw/max, evidence passed/failed) | `components/mvp/analysis/CompetencyBreakdown.tsx` |
+| **Test compilation**: Added `normalize-scores.ts` and `db.ts` to test tsc command. Changed normalizer to relative import so tsc resolves it | `package.json`, `lib/mvp/analysis/normalize-scores.ts` |
+
+### Updated data flow
+
+```
+Ticket submitted
+  → runBaseCallumAnalysis()
+  → assessment_results row created
+  → normalizeAnalysisScores()
+      → attempt_competency_scores inserted (aggregated, multi-competency)
+      → attempt_criterion_results inserted (one per criterion + evidence)
+      → attempt_criterion_competencies inserted (bridge, many-to-many) ← NEW
+```
+
+### Testing results
+
+```
+npm test
+
+ℹ tests 280
+ℹ suites 23
+ℹ pass 280       ← unchanged (still 280)
+ℹ fail 0
+
+MVP flow test: 37/37 pass
+Competency mapping: 32/32 pass (now testing real source, catches drift)
+```
+
+### What remains (next priorities)
+
+| Item | Notes |
+|------|-------|
+| `analysis_jobs` runner | Schema exists but no job creator/poller/retry. Timeout still fails synchronously |
+| Evidence event IDs | `evidence_event_ids_json` stays null — no session_event → message ID linking yet |
+| Candidate aggregate stats | No `candidate_competency_stats` table — /profile can't show trends |
+| Retake comparison | No attempt-to-attempt diff view yet |
+| `npm test` 2 pre-existing failures | Analysis scoring test expects pack-level weights (safety=4) but `DEFAULT_WEIGHTS` are all 1 — pre-existing, unrelated to these fixes |
