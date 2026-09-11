@@ -1,0 +1,130 @@
+openapi: 3.1.0
+info:
+  title: CallCallum Manager Actions (v2 Bearer-gated)
+  version: 2.0.0
+servers:
+  - url: https://YOUR-DOMAIN/api
+security:
+  - ApiKey: []
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: authorization
+      description: Bearer CALLUM_ACTIONS_KEY (see lib/callum-auth.ts)
+paths:
+  /gpt/v1/create:
+    post:
+      operationId: createAssessment
+      summary: Create assessment, returns invite URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [candidate_name]
+              properties:
+                candidate_name: { type: string }
+                assignment_type:
+                  type: string
+                  description: hiring_exam and training_drill work; training_shift is refused by the server (400)
+      responses:
+        '200': { description: assessment id and invite URL }
+  /gpt/v1/review:
+    get:
+      operationId: reviewAssessment
+      summary: Full manager report including hidden truth
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: full report with verdict and evidence }
+  /gpt/v1/feedback:
+    post:
+      operationId: saveFeedback
+      summary: Record manager label/score/notes override
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, manager_label]
+              properties:
+                id: { type: string }
+                manager_label:
+                  type: string
+                  enum: [agree, too_harsh, too_generous, wrong, useful, not_useful]
+                manager_score: { type: number }
+                notes: { type: string }
+                criterion_overrides:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      criterion_id: { type: string }
+                      manager_status: { type: string }
+                      manager_score: { type: number }
+      responses:
+        '200': { description: feedback stored }
+  /gpt/v1/standards:
+    get:
+      operationId: getStandards
+      summary: Show current standards
+      responses:
+        '200': { description: standards object }
+    post:
+      operationId: updateStandards
+      summary: Update standards (explicit instruction only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                required_ticket_fields:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200': { description: saved standards }
+  /gpt/v1/confirm:
+    post:
+      operationId: confirmProposal
+      summary: Approve one proposal by id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string }
+                manager_profile_id:
+                  type: string
+                  description: optional; server resolves a default profile when omitted
+      responses:
+        '200': { description: proposal applied }
+  /gpt/v1/reject:
+    post:
+      operationId: rejectProposal
+      summary: Reject one proposal by id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string }
+                manager_profile_id:
+                  type: string
+                  description: optional; server resolves a default profile when omitted
+      responses:
+        '200': { description: proposal rejected }

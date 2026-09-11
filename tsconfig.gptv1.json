@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": ".test-dist-tmp",
+    "incremental": false
+  },
+  "include": [
+    "tests/assessment-scoring.test.ts",
+    "tests/evaluation-scoring.test.ts",
+    "tests/voice-session.test.ts",
+    "tests/analysis-engine.test.ts",
+    "tests/mvp-analysis-scoring.test.ts",
+    "tests/datasets-quality.test.ts",
+    "tests/taxonomy.test.ts",
+    "tests/analysis-gold.test.ts",
+    "tests/pack-factory.test.ts",
+    "tests/audio-analysis.test.ts",
+    "tests/callum-contracts.test.ts",
+    "tests/callum-routes.test.ts",
+    "tests/langgraph-callum.test.ts",
+    "tests/competency-mapping.test.ts",
+    "tests/gpt-v1.test.ts",
+    "lib/**/*.ts",
+    "app/api/gpt/**/*.ts"
+  ]
+}

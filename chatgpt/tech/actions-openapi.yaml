@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info:
+  title: CallCallum Tech Actions (v2 Bearer-gated)
+  version: 2.0.0
+servers:
+  - url: https://YOUR-DOMAIN/api
+security:
+  - ApiKey: []
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: authorization
+      description: Bearer CALLUM_ACTIONS_KEY (see lib/callum-auth.ts)
+paths:
+  /gpt/v1/triage:
+    post:
+      operationId: triageTicket
+      summary: Classify a ticket description against the taxonomy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description: { type: string }
+      responses:
+        '200': { description: classification and playbook }
+  /gpt/v1/taxonomy-search:
+    get:
+      operationId: searchTaxonomy
+      summary: Search playbook procedures
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        '200': { description: matching procedures }
+  /gpt/v1/scenario:
+    post:
+      operationId: generateScenario
+      summary: Generate a practice scenario from a taxonomy item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_id]
+              properties:
+                item_id: { type: string }
+      responses:
+        '200': { description: generated scenario }

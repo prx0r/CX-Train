@@ -1,0 +1,80 @@
+openapi: 3.1.0
+info:
+  title: CallCallum Candidate Actions (v2: token routes + stripped report)
+  version: 2.0.0
+servers:
+  - url: https://YOUR-DOMAIN/api
+paths:
+  /mvp/assessment/{token}:
+    get:
+      operationId: validateAssessment
+      summary: Validate invite code and fetch scenario briefing
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: assessment and pack briefing }
+  /mvp/assessment/{token}/message:
+    post:
+      operationId: sendMessage
+      summary: Send one candidate turn, get caller reply
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string }
+                input_source: { type: string, enum: [text, voice] }
+      responses:
+        '200': { description: caller reply and sim state }
+  /mvp/assessment/{token}/ticket:
+    post:
+      operationId: submitTicket
+      summary: Submit ticket, ends call, triggers analysis
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket]
+              properties:
+                ticket: { type: string }
+                uncertainties: { type: string }
+      responses:
+        '200': { description: ticket stored, analysis started }
+  /gpt/v1/candidate-report:
+    get:
+      operationId: getReport
+      summary: Candidate-safe report (hidden truth stripped)
+      security:
+        - ApiKey: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: stripped report with verdict }
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: authorization
+      description: Bearer CALLUM_ACTIONS_KEY (see lib/callum-auth.ts)
